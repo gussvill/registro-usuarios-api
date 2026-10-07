@@ -1,7 +1,9 @@
 package com.registro.usuarios.application;
 
+import com.registro.usuarios.application.RegisterUserCommand.PhoneData;
 import com.registro.usuarios.domain.exception.EmailAlreadyRegisteredException;
 import com.registro.usuarios.domain.exception.InvalidUserDataException;
+import com.registro.usuarios.domain.exception.InvalidUserDataException.Reason;
 import com.registro.usuarios.domain.model.Email;
 import com.registro.usuarios.domain.model.Phone;
 import com.registro.usuarios.domain.model.User;
@@ -13,7 +15,9 @@ import com.registro.usuarios.domain.port.UserRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,22 +56,17 @@ public class RegisterUserUseCase {
   /**
    * Registers a new user.
    *
-   * @throws InvalidUserDataException if the data breaks a rule
+   * @throws InvalidUserDataException if any field breaks a rule; every broken field is reported
    * @throws EmailAlreadyRegisteredException if the email is taken
    */
   @Transactional
   public User register(RegisterUserCommand command) {
-    passwordPolicy
-        .violation(command.password())
-        .ifPresent(
-            reason -> {
-              throw new InvalidUserDataException(Set.of(reason));
-            });
+    Set<Reason> violations = violationsOf(command);
+    if (!violations.isEmpty()) {
+      throw new InvalidUserDataException(violations);
+    }
     Email email = Email.of(command.email(), emailFormat);
-    List<Phone> phones =
-        command.phones().stream()
-            .map(phone -> new Phone(phone.number(), phone.cityCode(), phone.countryCode()))
-            .toList();
+    List<Phone> phones = phonesOf(command.phones());
     if (users.existsByEmail(email)) {
       throw new EmailAlreadyRegisteredException();
     }
@@ -89,5 +88,45 @@ public class RegisterUserUseCase {
             .build();
     users.save(user);
     return user;
+  }
+
+  /** The union of what each domain rule says, one reason per rule, distinct by construction. */
+  private Set<Reason> violationsOf(RegisterUserCommand command) {
+    EnumSet<Reason> violations = EnumSet.noneOf(Reason.class);
+    User.nameViolation(command.name()).ifPresent(violations::add);
+    Email.violation(command.email(), emailFormat).ifPresent(violations::add);
+    passwordPolicy.violation(command.password()).ifPresent(violations::add);
+    violations.addAll(phoneViolationsOf(command.phones()));
+    return violations;
+  }
+
+  private static Set<Reason> phoneViolationsOf(List<PhoneData> phones) {
+    EnumSet<Reason> violations = EnumSet.noneOf(Reason.class);
+    if (phones == null) {
+      return violations;
+    }
+    Optional<Reason> tooMany = User.phoneCountViolation(phones.size());
+    if (tooMany.isPresent()) {
+      // An oversized list is rejected as a whole, without looking at its entries.
+      return EnumSet.of(tooMany.get());
+    }
+    for (PhoneData phone : phones) {
+      if (phone == null) {
+        violations.add(Reason.PHONE_NULL);
+      } else {
+        violations.addAll(Phone.violations(phone.number(), phone.cityCode(), phone.countryCode()));
+      }
+    }
+    return violations;
+  }
+
+  /** Only called once the phones are known to be valid. An absent list means no phones. */
+  private static List<Phone> phonesOf(List<PhoneData> phones) {
+    if (phones == null) {
+      return List.of();
+    }
+    return phones.stream()
+        .map(phone -> new Phone(phone.number(), phone.cityCode(), phone.countryCode()))
+        .toList();
   }
 }

@@ -3,6 +3,7 @@ package com.registro.usuarios.application;
 import static com.registro.usuarios.support.Rejections.reasonsOf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import com.registro.usuarios.application.RegisterUserCommand.PhoneData;
 import com.registro.usuarios.domain.exception.EmailAlreadyRegisteredException;
@@ -19,13 +20,18 @@ import com.registro.usuarios.support.InMemoryUserRepository;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.springframework.transaction.annotation.Transactional;
 
 class RegisterUserUseCaseTest {
@@ -198,6 +204,261 @@ class RegisterUserUseCaseTest {
     assertThat(register.isAnnotationPresent(Transactional.class)).isTrue();
     assertThat(Modifier.isFinal(RegisterUserUseCase.class.getModifiers())).isFalse();
     assertThat(Modifier.isFinal(register.getModifiers())).isFalse();
+  }
+
+  // ---- violation collection (all rules, all fields, one rejection) ----
+
+  private static RegisterUserCommand command(
+      String name, String email, String password, List<PhoneData> phones) {
+    return new RegisterUserCommand(name, email, password, phones);
+  }
+
+  private static RegisterUserCommand withPhones(List<PhoneData> phones) {
+    return command("Juan Rodriguez", "juan@rodriguez.org", "hunter2", phones);
+  }
+
+  private static PhoneData phone(String number, String cityCode, String countryCode) {
+    return new PhoneData(number, cityCode, countryCode);
+  }
+
+  /** Runs the registration, expects exactly these reasons and checks no side effect happened. */
+  private void assertRejectedWith(RegisterUserCommand command, Reason... expected) {
+    assertRejectedWith(useCase, command, expected);
+  }
+
+  private void assertRejectedWith(
+      RegisterUserUseCase subject, RegisterUserCommand command, Reason... expected) {
+    assertThat(reasonsOf(() -> subject.register(command))).containsExactlyInAnyOrder(expected);
+    assertThat(users.count()).isZero();
+    assertThat(hasher.hashed()).isEmpty();
+    assertThat(tokens.issues()).isEmpty();
+  }
+
+  @Test
+  void anEmptyBodyReportsNameEmailAndPasswordRequiredTogether() {
+    assertRejectedWith(
+        command(null, null, null, null),
+        Reason.NAME_REQUIRED,
+        Reason.EMAIL_REQUIRED,
+        Reason.PASSWORD_REQUIRED);
+  }
+
+  @Test
+  void blankValuesGiveTheRequiredReasonOnlyForThatField() {
+    assertRejectedWith(
+        command("   ", "juan@rodriguez.org", "hunter2", List.of()), Reason.NAME_REQUIRED);
+    assertRejectedWith(command("Juan", "", "hunter2", List.of()), Reason.EMAIL_REQUIRED);
+    assertRejectedWith(
+        command("Juan", "juan@rodriguez.org", "       ", List.of()), Reason.PASSWORD_REQUIRED);
+  }
+
+  @Test
+  void mixedViolationsOfDifferentFieldsAreReportedTogether() {
+    assertRejectedWith(
+        command("   ", "juan", "hunter2", List.of()), Reason.NAME_REQUIRED, Reason.EMAIL_FORMAT);
+  }
+
+  @Test
+  void everyFieldBreakingItsRuleIsReportedInOneRejection() {
+    assertRejectedWith(
+        command("", "juan@dominio", "abc12", Arrays.asList(new PhoneData[11])),
+        Reason.NAME_REQUIRED,
+        Reason.EMAIL_FORMAT,
+        Reason.PASSWORD_FORMAT,
+        Reason.PHONES_TOO_MANY);
+  }
+
+  @Test
+  void aNameOfTwoHundredFiftyFiveCharactersIsRegistered() {
+    User user =
+        useCase.register(command("n".repeat(255), "juan@rodriguez.org", "hunter2", List.of()));
+
+    assertThat(user.name()).hasSize(255);
+  }
+
+  @Test
+  void aNameOfTwoHundredFiftySixCharactersIsRejected() {
+    assertRejectedWith(
+        command("n".repeat(256), "juan@rodriguez.org", "hunter2", List.of()), Reason.NAME_TOO_LONG);
+  }
+
+  @ParameterizedTest
+  @NullAndEmptySource
+  void absentNullOrEmptyPhonesStillRegisterTheUserWithNoPhones(List<PhoneData> phones) {
+    User user = useCase.register(withPhones(phones));
+
+    assertThat(user.phones()).isEmpty();
+    assertThat(users.count()).isEqualTo(1);
+  }
+
+  @Test
+  void aPhoneWithNoFieldsReportsThreeReasons() {
+    assertRejectedWith(
+        withPhones(List.of(phone(null, null, null))),
+        Reason.PHONE_NUMBER_REQUIRED,
+        Reason.CITY_CODE_REQUIRED,
+        Reason.COUNTRY_CODE_REQUIRED);
+  }
+
+  @Test
+  void oneMissingFieldInAPhoneGivesOnlyItsOwnReason() {
+    assertRejectedWith(
+        withPhones(List.of(phone("1234567", "1", null))), Reason.COUNTRY_CODE_REQUIRED);
+    assertRejectedWith(
+        withPhones(List.of(phone("1234567", null, "57"))), Reason.CITY_CODE_REQUIRED);
+    assertRejectedWith(withPhones(List.of(phone(null, "1", "57"))), Reason.PHONE_NUMBER_REQUIRED);
+  }
+
+  @Test
+  void theSameViolationInTwoPhonesCollapsesIntoOneReason() {
+    RegisterUserCommand command =
+        withPhones(List.of(phone(null, "1", "57"), phone(" ", "2", "56")));
+
+    assertThat(reasonsOf(() -> useCase.register(command)))
+        .hasSize(1)
+        .containsExactly(Reason.PHONE_NUMBER_REQUIRED);
+  }
+
+  @Test
+  void aPhoneFieldOverItsLimitGivesItsTooLongReason() {
+    assertRejectedWith(
+        withPhones(List.of(phone("9".repeat(5_000), "1", "57"))), Reason.PHONE_NUMBER_TOO_LONG);
+    assertRejectedWith(
+        withPhones(List.of(phone("1234567", "1".repeat(11), "57"))), Reason.CITY_CODE_TOO_LONG);
+    assertRejectedWith(
+        withPhones(List.of(phone("1234567", "1", "5".repeat(11)))), Reason.COUNTRY_CODE_TOO_LONG);
+  }
+
+  @Test
+  void aNullEntryInThePhoneListIsRejectedAsNull() {
+    assertRejectedWith(withPhones(Arrays.asList((PhoneData) null)), Reason.PHONE_NULL);
+    assertRejectedWith(
+        withPhones(Arrays.asList(phone("1234567", "1", "57"), null, phone(null, "1", "57"))),
+        Reason.PHONE_NULL,
+        Reason.PHONE_NUMBER_REQUIRED);
+  }
+
+  @Test
+  void tenPhonesAreRegisteredInOrder() {
+    List<PhoneData> tenPhones =
+        Stream.of("0", "1", "2", "3", "4", "5", "6", "7", "8", "9")
+            .map(digit -> phone("100000" + digit, "1", "57"))
+            .toList();
+
+    User user = useCase.register(withPhones(tenPhones));
+
+    assertThat(user.phones())
+        .extracting(Phone::number)
+        .containsExactly(
+            "1000000", "1000001", "1000002", "1000003", "1000004", "1000005", "1000006", "1000007",
+            "1000008", "1000009");
+  }
+
+  @Test
+  void elevenPhonesAreTooManyAndTheirEntriesAreNotInspected() {
+    List<PhoneData> elevenNulls = Arrays.asList(new PhoneData[11]);
+    List<PhoneData> elevenInvalid =
+        Stream.generate(() -> phone(null, null, null)).limit(11).toList();
+
+    assertRejectedWith(withPhones(elevenNulls), Reason.PHONES_TOO_MANY);
+    assertRejectedWith(withPhones(elevenInvalid), Reason.PHONES_TOO_MANY);
+  }
+
+  @Test
+  void aPasswordOfSeventyTwoCharactersIsAcceptedWhateverThePattern() {
+    User user =
+        permissivePasswordUseCase()
+            .register(command("Juan", "juan@rodriguez.org", "a".repeat(72), List.of()));
+
+    assertThat(user.passwordHash()).isEqualTo(FakePasswordHasher.expectedHashOf("a".repeat(72)));
+  }
+
+  @Test
+  void aPasswordOverSeventyTwoBytesIsTooLongEvenWithAPermissivePattern() {
+    RegisterUserUseCase permissive = permissivePasswordUseCase();
+
+    assertRejectedWith(
+        permissive,
+        command("Juan", "juan@rodriguez.org", "a".repeat(73), List.of()),
+        Reason.PASSWORD_TOO_LONG);
+    assertRejectedWith(
+        permissive,
+        command("Juan", "juan@rodriguez.org", "é".repeat(40), List.of()),
+        Reason.PASSWORD_TOO_LONG);
+  }
+
+  @Test
+  void aHundredThousandCharacterPasswordIsRejectedBeforeTheFormatRuleRuns() {
+    PasswordPolicy mustNotRun =
+        rawPassword -> {
+          throw new AssertionError("the format rule must not see an oversized password");
+        };
+    var subject =
+        new RegisterUserUseCase(
+            users,
+            hasher,
+            tokens,
+            mustNotRun,
+            EMAIL_FORMAT,
+            Clock.fixed(CLOCK_INSTANT, ZoneOffset.UTC));
+
+    assertTimeoutPreemptively(
+        Duration.ofSeconds(5),
+        () ->
+            assertRejectedWith(
+                subject,
+                command("Juan", "juan@rodriguez.org", "a".repeat(100_000), List.of()),
+                Reason.PASSWORD_TOO_LONG));
+  }
+
+  @Test
+  void aFiftyThousandCharacterEmailIsRejectedByLengthBeforeTheFormatRuns() {
+    Pattern catastrophic = Pattern.compile("^(a+)+$");
+    var subject =
+        new RegisterUserUseCase(
+            users,
+            hasher,
+            tokens,
+            PASSWORD_POLICY,
+            catastrophic,
+            Clock.fixed(CLOCK_INSTANT, ZoneOffset.UTC));
+
+    assertTimeoutPreemptively(
+        Duration.ofSeconds(5),
+        () ->
+            assertRejectedWith(
+                subject,
+                command("Juan", "a".repeat(50_000) + "@x", "hunter2", List.of()),
+                Reason.EMAIL_TOO_LONG));
+  }
+
+  @Test
+  void aRejectedRegistrationNeverHashesIssuesATokenOrSaves() {
+    assertRejectedWith(
+        command("   ", "juan@rodriguez.org", "hunter2", List.of()), Reason.NAME_REQUIRED);
+  }
+
+  @Test
+  void aRejectedRegistrationOnAnExistingEmailKeepsTheStoredUserUntouched() {
+    User first = useCase.register(statementCommand());
+
+    assertThat(
+            reasonsOf(
+                () -> useCase.register(command("", "juan@rodriguez.org", "hunter2", List.of()))))
+        .containsExactly(Reason.NAME_REQUIRED);
+
+    assertThat(users.saved()).containsExactly(first);
+    assertThat(hasher.hashed()).hasSize(1);
+  }
+
+  private RegisterUserUseCase permissivePasswordUseCase() {
+    return new RegisterUserUseCase(
+        users,
+        hasher,
+        tokens,
+        new RegexPasswordPolicy(Pattern.compile("^.+$")),
+        EMAIL_FORMAT,
+        Clock.fixed(CLOCK_INSTANT, ZoneOffset.UTC));
   }
 
   /**
