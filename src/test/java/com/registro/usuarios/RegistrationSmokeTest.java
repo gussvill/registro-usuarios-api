@@ -45,7 +45,8 @@ class RegistrationSmokeTest {
   @Test
   void hibernateOnlyValidatesTheScriptAndNoSessionStaysOpenInTheView() {
     assertThat(environment.getProperty("spring.jpa.hibernate.ddl-auto")).isEqualTo("validate");
-    assertThat(entityManagerFactory.getProperties()).containsEntry("hibernate.hbm2ddl.auto", "validate");
+    assertThat(entityManagerFactory.getProperties())
+        .containsEntry("hibernate.hbm2ddl.auto", "validate");
     assertThat(environment.getProperty("spring.jpa.open-in-view")).isEqualTo("false");
     assertThat(context.getBeansOfType(OpenEntityManagerInViewInterceptor.class)).isEmpty();
   }
@@ -78,9 +79,12 @@ class RegistrationSmokeTest {
     assertThat(response.body()).containsIgnoringCase("swagger");
   }
 
+  // JJWT's builder and claims API are expressed in java.util.Date.
+  @SuppressWarnings("JavaUtilDate")
   @Test
   void aTokenSignedWithJjwtIsParsedBackInsideTheRunningContext() {
-    SecretKey key = Keys.hmacShaKeyFor(FullContextTest.TOKEN_SECRET.getBytes(StandardCharsets.UTF_8));
+    SecretKey key =
+        Keys.hmacShaKeyFor(FullContextTest.TOKEN_SECRET.getBytes(StandardCharsets.UTF_8));
     Date issuedAt = Date.from(FullContextTest.FIXED_INSTANT);
     Date expiresAt = new Date(issuedAt.getTime() + 3_600_000L);
 

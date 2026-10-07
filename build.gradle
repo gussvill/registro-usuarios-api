@@ -1,7 +1,10 @@
 plugins {
 	id 'java'
+	id 'jacoco'
 	id 'org.springframework.boot' version '4.1.1'
 	id 'io.spring.dependency-management' version '1.1.7'
+	id 'com.diffplug.spotless' version '8.0.0'
+	id 'net.ltgt.errorprone' version '4.3.0'
 }
 
 group = 'com.registro'
@@ -30,6 +33,7 @@ dependencies {
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.13.0'
 	runtimeOnly 'com.h2database:h2'
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+	errorprone 'com.google.errorprone:error_prone_core:2.42.0'
 	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
@@ -37,6 +41,65 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+tasks.named('compileJava') {
+	options.compilerArgs += ['-Xlint:all,-processing', '-Werror']
+}
+
+tasks.named('bootJar') {
+	archiveFileName = 'app.jar'
+}
+
+tasks.named('jar') {
+	enabled = false
+}
+
 tasks.named('test') {
 	useJUnitPlatform()
+	finalizedBy tasks.named('jacocoTestReport')
+}
+
+tasks.named('jacocoTestReport') {
+	dependsOn tasks.named('test')
+	reports {
+		html.required = true
+		xml.required = true
+	}
+}
+
+// Coverage gate: the business rules (domain and application) must stay well covered.
+// Infrastructure is exercised by slice and full-context tests but is deliberately not gated.
+// The rule element is BUNDLE, whose name cannot be filtered with 'includes', so the analysed
+// class files are narrowed to the two packages instead.
+tasks.named('jacocoTestCoverageVerification') {
+	dependsOn tasks.named('test')
+	classDirectories.setFrom(files(classDirectories.files.collect {
+		fileTree(dir: it, include: [
+			'com/registro/usuarios/domain/**',
+			'com/registro/usuarios/application/**'
+		])
+	}))
+	violationRules {
+		rule {
+			element = 'BUNDLE'
+			limit {
+				counter = 'LINE'
+				value = 'COVEREDRATIO'
+				minimum = 0.80
+			}
+		}
+	}
+}
+
+tasks.named('check') {
+	dependsOn tasks.named('jacocoTestCoverageVerification')
+}
+
+spotless {
+	java {
+		target 'src/**/*.java'
+		googleJavaFormat('1.28.0')
+		removeUnusedImports()
+		trimTrailingWhitespace()
+		endWithNewline()
+	}
 }
