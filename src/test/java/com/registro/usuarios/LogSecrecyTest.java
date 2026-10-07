@@ -1,10 +1,18 @@
 package com.registro.usuarios;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.registro.usuarios.domain.exception.EmailAlreadyRegisteredException;
+import com.registro.usuarios.domain.model.Email;
+import com.registro.usuarios.domain.model.User;
+import com.registro.usuarios.domain.model.UserId;
+import com.registro.usuarios.domain.port.UserRepository;
 import com.registro.usuarios.support.FullContextTest;
 import com.registro.usuarios.support.RegistrationClient;
 import com.registro.usuarios.support.RegistrationClient.Reply;
+import java.time.Instant;
+import java.util.List;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,6 +45,7 @@ class LogSecrecyTest {
 
   @Autowired private LoggingSystem logging;
   @Autowired private JdbcTemplate jdbc;
+  @Autowired private UserRepository users;
 
   @Value("${local.server.port}")
   private int port;
@@ -108,6 +117,37 @@ class LogSecrecyTest {
     Reply duplicate = api.post(bodyFor(email));
 
     assertThat(duplicate.status()).isEqualTo(409);
+    assertNoSecret(output);
+  }
+
+  /**
+   * The race behind the pre-check: two requests both find the address free and the second insert
+   * reaches the unique constraint. Hibernate logs a failed statement together with the database's
+   * own message, which quotes the offending value; that logger is switched off so the address does
+   * not reach the server log.
+   */
+  @Test
+  void aDuplicateThatReachesTheConstraintLogsNeitherTheAddressNorASecret(CapturedOutput output)
+      throws Exception {
+    String email = RegistrationClient.uniqueEmail();
+    assertThat(api.post(bodyFor(email)).status()).isEqualTo(201);
+    User second =
+        User.registration()
+            .id(UserId.generate())
+            .name("Juan Rodriguez")
+            .email(Email.of(email, Pattern.compile("^.+$")))
+            .passwordHash("$2a$12$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ01234")
+            .phones(List.of())
+            .token("header.payload.signature")
+            .registeredAt(Instant.parse("2026-01-15T10:30:00Z"))
+            .build();
+
+    assertThatThrownBy(() -> users.save(second))
+        .isInstanceOf(EmailAlreadyRegisteredException.class);
+
+    assertThat(output.getAll())
+        .doesNotContain(email)
+        .doesNotContain(email.substring(0, email.indexOf('@')));
     assertNoSecret(output);
   }
 
