@@ -1,0 +1,39 @@
+sequenceDiagram
+  actor C as HTTP client
+  participant W as UserController
+  participant U as RegisterUserUseCase
+  participant D as Domain rules (Email, Phone, User, PasswordPolicy)
+  participant R as UserRepository (UserPersistenceAdapter)
+  participant H as PasswordHasher (BCryptPasswordHasher)
+  participant T as TokenIssuer (JjwtTokenIssuer)
+  participant E as GlobalExceptionHandler
+
+  C->>W: POST /api/v1/users (JSON)
+  Note over W: strict binding, a syntax or type error is a 400
+  W->>U: register(command)
+  Note over U: transaction begins
+  U->>D: collect the violations of every field
+  alt any field breaks a rule
+    D-->>U: reasons
+    U-->>E: InvalidUserDataException
+    E-->>C: 400 mensaje = the messages of the broken fields, sorted and joined
+  end
+  U->>R: existsByEmail(email)
+  alt email already registered
+    R-->>U: true
+    U-->>E: EmailAlreadyRegisteredException
+    E-->>C: 409 mensaje = El correo ya registrado
+  end
+  U->>H: hash(password)
+  H-->>U: BCrypt hash
+  Note over U: clock read once, truncated to microseconds
+  U->>T: issue(id, email, now)
+  T-->>U: signed token
+  U->>D: User.registration()...build()
+  D-->>U: User
+  U->>R: save(user)
+  Note over R: saveAndFlush, a unique violation is a 409
+  R-->>U: saved
+  Note over U: transaction commits
+  U-->>W: User
+  W-->>C: 201 UserResponse (never the password)

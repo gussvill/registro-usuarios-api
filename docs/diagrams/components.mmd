@@ -1,0 +1,32 @@
+flowchart LR
+  Client([HTTP client])
+
+  subgraph infra_in [infrastructure.web]
+    Web["UserController / UserApi<br/>GlobalExceptionHandler<br/>ApiErrorController<br/>JsonErrorReportValve"]
+  end
+
+  subgraph app [application]
+    UC["RegisterUserUseCase<br/>RegisterUserCommand"]
+  end
+
+  subgraph dom [domain]
+    Model["User, UserId, Email, Phone<br/>PasswordPolicy, RegexPasswordPolicy<br/>domain exceptions"]
+    Ports["Ports<br/>UserRepository<br/>PasswordHasher<br/>TokenIssuer"]
+  end
+
+  subgraph infra_out [infrastructure adapters]
+    Pers["persistence<br/>UserPersistenceAdapter"]
+    Sec["security<br/>BCryptPasswordHasher<br/>JjwtTokenIssuer"]
+  end
+
+  Cfg["infrastructure.config<br/>ApplicationConfig<br/>RegistrationProperties, OpenApiConfig"]
+  H2[("H2 in-memory<br/>schema.sql")]
+
+  Client -->|"POST /api/v1/users"| Web
+  Web --> UC
+  UC --> Model
+  UC --> Ports
+  Pers -.->|implements UserRepository| Ports
+  Sec -.->|implements PasswordHasher, TokenIssuer| Ports
+  Pers --> H2
+  Cfg -.->|creates the use case and the policy| UC
