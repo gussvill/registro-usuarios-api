@@ -165,6 +165,11 @@ creates or alters a table.
   ArchUnit rules (the domain imports no framework, dependencies point inwards, adapters do not
   depend on each other, no field injection). A second test class proves each rule fails when a
   fixture class breaks it.
+- **Acceptance script:** with the service running, `bash scripts/acceptance.sh` makes real requests with
+  `curl` (11 checks: the statement's example, the duplicate, invalid and malformed bodies, 404, 405,
+  406, 415, the malformed path escape, Swagger UI and the OpenAPI document) and exits non-zero at the
+  first failure. Use a fresh instance each time, because the example address can be registered only
+  once; set `BASE_URL` to test another address.
 - **CI:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs `./gradlew build` and builds the
   image on every push and pull request to `main`. It has not been run on GitHub yet.
 
