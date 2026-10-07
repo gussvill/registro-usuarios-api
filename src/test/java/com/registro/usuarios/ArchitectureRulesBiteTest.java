@@ -1,0 +1,131 @@
+package com.registro.usuarios;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.lang.ArchRule;
+import com.tngtech.archunit.lang.EvaluationResult;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+
+/**
+ * A rule that cannot fail protects nothing. Every rule is run against a fixture written to break
+ * it, and the report must name the class that breaks it: a rule that fails for another reason (an
+ * empty package, a mistyped pattern) does not count as proven. The fixtures live in the test tree
+ * under a root package other than the application's, so neither component scanning nor {@link
+ * ArchitectureTest} ever sees them.
+ */
+class ArchitectureRulesBiteTest {
+
+  private static final JavaClasses FIXTURES =
+      new ClassFileImporter().importPackages("com.registro.archfixture");
+
+  private static Arguments bite(String ruleName, String offender) {
+    return Arguments.of(ruleName, offender);
+  }
+
+  /** The rule is looked up by the name of its constant, so a renamed rule breaks this table. */
+  private static ArchRule rule(String constantName) {
+    try {
+      Field field = ArchitectureRules.class.getDeclaredField(constantName);
+      return (ArchRule) field.get(null);
+    } catch (ReflectiveOperationException e) {
+      throw new IllegalStateException("No rule named " + constantName, e);
+    }
+  }
+
+  static Stream<Arguments> rulesAndTheClassesThatBreakThem() {
+    return Stream.of(
+        bite("DOMAIN_IS_FREE_OF_FRAMEWORKS", "SpringCoupledPolicy"),
+        bite("DOMAIN_IS_FREE_OF_FRAMEWORKS", "JpaCoupledRecord"),
+        bite("DOMAIN_IS_FREE_OF_FRAMEWORKS", "HibernateCoupledValue"),
+        bite("DOMAIN_IS_FREE_OF_FRAMEWORKS", "Jackson2CoupledValue"),
+        bite("DOMAIN_IS_FREE_OF_FRAMEWORKS", "Jackson3CoupledMapper"),
+        bite("DOMAIN_IS_FREE_OF_FRAMEWORKS", "JjwtCoupledIssuer"),
+        bite("DOMAIN_IS_FREE_OF_FRAMEWORKS", "SwaggerCoupledModel"),
+        bite(
+            "APPLICATION_USES_ONLY_THE_DOMAIN_AND_THE_TRANSACTION_ANNOTATION",
+            "SpringStereotypeUseCase"),
+        bite("APPLICATION_USES_ONLY_THE_DOMAIN_AND_THE_TRANSACTION_ANNOTATION", "LoggingUseCase"),
+        bite("DEPENDENCIES_POINT_INWARDS", "ReachesApplication"),
+        bite("DEPENDENCIES_POINT_INWARDS", "ReachesInfrastructure"),
+        bite("ADAPTERS_DO_NOT_DEPEND_ON_EACH_OTHER", "ReachesPersistence"),
+        bite("ADAPTERS_DO_NOT_DEPEND_ON_EACH_OTHER", "ReachesWeb"),
+        bite("WEB_DOES_NOT_USE_JPA_ENTITIES", "UsesEntity"),
+        bite("NO_FIELD_INJECTION", "FieldInjected"),
+        bite("JPA_ENTITIES_LIVE_IN_PERSISTENCE", "MisplacedEntity"));
+  }
+
+  @ParameterizedTest(name = "{0} rejects {1}")
+  @MethodSource("rulesAndTheClassesThatBreakThem")
+  void theRuleRejectsItsFixtureAndNamesIt(String ruleName, String offender) {
+    EvaluationResult result = rule(ruleName).evaluate(FIXTURES);
+
+    assertThat(result.hasViolation()).as("%s should fail on %s", ruleName, offender).isTrue();
+    assertThat(result.getFailureReport().toString()).contains(offender);
+  }
+
+  @Test
+  void theAllowListAcceptsTheTransactionAnnotationWhileRejectingOtherSpringTypes() {
+    EvaluationResult result =
+        rule("APPLICATION_USES_ONLY_THE_DOMAIN_AND_THE_TRANSACTION_ANNOTATION").evaluate(FIXTURES);
+
+    assertThat(result.getFailureReport().toString())
+        .contains("SpringStereotypeUseCase")
+        .doesNotContain("TransactionalUseCase");
+  }
+
+  @Test
+  void noViolationOriginatesFromAnInnocentFixture() {
+    // A clean class may be the target of a forbidden dependency, but it is never the culprit: the
+    // origin is the first <...> of each detail line.
+    for (String name : ruleNames()) {
+      for (String detail : rule(name).evaluate(FIXTURES).getFailureReport().getDetails()) {
+        String origin = detail.substring(detail.indexOf('<'), detail.indexOf('>') + 1);
+        assertThat(origin)
+            .as("%s: %s", name, detail)
+            .doesNotContain("CleanDomainType")
+            .doesNotContain("CleanAdapter")
+            .doesNotContain("TransactionalUseCase");
+      }
+    }
+  }
+
+  @Test
+  void everyRuleHasAtLeastOneFixtureThatBreaksIt() {
+    Set<String> covered = new TreeSet<>();
+    rulesAndTheClassesThatBreakThem()
+        .forEach(arguments -> covered.add((String) arguments.get()[0]));
+
+    assertThat(covered).containsExactlyElementsOf(new TreeSet<>(ruleNames()));
+  }
+
+  @Test
+  void theFixturesAreOutsideTheApplicationPackage() {
+    assertThat(FIXTURES.size()).isPositive();
+    assertThat(FIXTURES.stream().map(c -> c.getPackageName()))
+        .allMatch(name -> name.startsWith("com.registro.archfixture"))
+        .noneMatch(name -> name.startsWith("com.registro.usuarios"));
+  }
+
+  private static List<String> ruleNames() {
+    List<String> names = new ArrayList<>();
+    for (Field field : ArchitectureRules.class.getDeclaredFields()) {
+      if (Modifier.isStatic(field.getModifiers())
+          && ArchRule.class.isAssignableFrom(field.getType())) {
+        names.add(field.getName());
+      }
+    }
+    return names;
+  }
+}
