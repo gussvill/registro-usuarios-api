@@ -41,4 +41,27 @@ record UserResponse(
         Instant lastLogin,
     @Schema(description = "Signed JWT issued for the user") String token,
     @Schema(description = "Whether the user is active", example = "true") @JsonProperty("isactive")
-        boolean active) {}
+        boolean active) {
+
+  /** The token is a credential: the web framework prints response objects when it traces. */
+  @Override
+  public String toString() {
+    return "UserResponse[id="
+        + id
+        + ", name="
+        + name
+        + ", email="
+        + email
+        + ", phones="
+        + phones
+        + ", created="
+        + created
+        + ", modified="
+        + modified
+        + ", lastLogin="
+        + lastLogin
+        + ", token=<redacted>, active="
+        + active
+        + "]";
+  }
+}
