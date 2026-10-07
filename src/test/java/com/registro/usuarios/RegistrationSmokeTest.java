@@ -14,6 +14,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import javax.crypto.SecretKey;
@@ -25,6 +26,8 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.orm.jpa.support.OpenEntityManagerInViewInterceptor;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Walking skeleton: proves that the whole dependency set boots together on the pinned Spring Boot
@@ -40,6 +43,8 @@ class RegistrationSmokeTest {
 
   @Value("${local.server.port}")
   private int port;
+
+  private static final JsonMapper JSON = new JsonMapper();
 
   private final HttpClient http =
       HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).build();
@@ -79,6 +84,89 @@ class RegistrationSmokeTest {
     assertThat(response.body())
         .contains("\"title\":\"User Registration API\"")
         .contains("\"version\":\"1.0.0\"");
+  }
+
+  @Test
+  void theOpenApiDocumentDescribesThePostEndpointAndItsResponses()
+      throws IOException, InterruptedException {
+    JsonNode operation = openApi().at("/paths/~1api~1v1~1users/post");
+
+    assertThat(operation.isMissingNode()).isFalse();
+    assertThat(operation.get("tags").get(0).asString()).isEqualTo("Users");
+    assertThat(operation.get("summary").asString()).isNotBlank();
+    List<String> statuses = new ArrayList<>(operation.get("responses").propertyNames());
+    assertThat(statuses).containsExactlyInAnyOrder("201", "400", "409", "415", "500");
+    assertThat(operation.at("/responses/201/content/application~1json/schema/$ref").asString())
+        .endsWith("/UserResponse");
+    for (String error : List.of("400", "409", "415", "500")) {
+      assertThat(
+              operation
+                  .at("/responses/" + error + "/content/application~1json/schema/$ref")
+                  .asString())
+          .endsWith("/ErrorResponse");
+    }
+  }
+
+  @Test
+  void theOpenApiRequestExampleIsTheLiteralStatementBodyAndTheErrorExampleIsTheDuplicate()
+      throws IOException, InterruptedException {
+    JsonNode operation = openApi().at("/paths/~1api~1v1~1users/post");
+
+    String example =
+        operation
+            .at("/requestBody/content/application~1json/examples")
+            .properties()
+            .iterator()
+            .next()
+            .getValue()
+            .get("value")
+            .toString();
+    assertThat(example)
+        .contains("\"contrycode\":\"57\"")
+        .contains("\"citycode\":\"1\"")
+        .contains("juan@rodriguez.org");
+    assertThat(operation.at("/responses/409/content/application~1json").toString())
+        .contains("El correo ya registrado");
+  }
+
+  @Test
+  void theOpenApiSchemasUseTheLiteralNamesAndTheDomainLimits()
+      throws IOException, InterruptedException {
+    JsonNode schemas = openApi().at("/components/schemas");
+
+    assertThat(keys(schemas.get("UserResponse").get("properties")))
+        .containsExactlyInAnyOrder(
+            "id",
+            "name",
+            "email",
+            "phones",
+            "created",
+            "modified",
+            "last_login",
+            "token",
+            "isactive");
+    assertThat(keys(schemas.get("PhoneResponse").get("properties")))
+        .containsExactlyInAnyOrder("number", "citycode", "contrycode");
+    assertThat(keys(schemas.get("PhoneRequest").get("properties")))
+        .containsExactlyInAnyOrder("number", "citycode", "contrycode");
+    assertThat(keys(schemas.get("ErrorResponse").get("properties"))).containsExactly("mensaje");
+    JsonNode request = schemas.get("RegisterUserRequest").get("properties");
+    assertThat(request.get("name").get("maxLength").asInt()).isEqualTo(255);
+    assertThat(request.get("email").get("maxLength").asInt()).isEqualTo(254);
+    assertThat(request.get("password").get("maxLength").asInt()).isEqualTo(72);
+    assertThat(schemas.get("PhoneRequest").get("properties").get("number").get("maxLength").asInt())
+        .isEqualTo(20);
+    assertThat(
+            schemas
+                .get("PhoneRequest")
+                .get("properties")
+                .get("contrycode")
+                .get("maxLength")
+                .asInt())
+        .isEqualTo(10);
+    assertThat(
+            schemas.get("UserResponse").get("properties").get("created").get("format").asString())
+        .isEqualTo("date-time");
   }
 
   @Test
@@ -128,6 +216,14 @@ class RegistrationSmokeTest {
     assertThat(claims.get("email", String.class)).isEqualTo("juan@rodriguez.org");
     assertThat(claims.getExpiration().getTime() - claims.getIssuedAt().getTime())
         .isEqualTo(3_600_000L);
+  }
+
+  private JsonNode openApi() throws IOException, InterruptedException {
+    return JSON.readTree(get("/v3/api-docs").body());
+  }
+
+  private static List<String> keys(JsonNode node) {
+    return new ArrayList<>(node.propertyNames());
   }
 
   private HttpResponse<String> get(String path) throws IOException, InterruptedException {
