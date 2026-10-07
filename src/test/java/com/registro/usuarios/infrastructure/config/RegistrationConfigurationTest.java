@@ -277,6 +277,19 @@ class RegistrationConfigurationTest {
             });
   }
 
+  @ParameterizedTest
+  @CsvSource({"0s", "-5s", "0m"})
+  void aZeroOrNegativeExpirationStopsTheStartupAndTheFailureNamesTheProperty(String expiration) {
+    withDefaults()
+        .withPropertyValues("app.token.expiration=" + expiration)
+        .run(
+            context -> {
+              assertThat(context).hasFailed();
+              assertThat(messagesOf(context.getStartupFailure()))
+                  .anySatisfy(m -> assertThat(m).contains("app.token.expiration"));
+            });
+  }
+
   @Test
   void aSecretOf32BytesStartsTheApplication() {
     withDefaults()

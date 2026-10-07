@@ -156,6 +156,30 @@ class JjwtTokenIssuerTest {
         .hasMessageContaining("app.token.secret");
   }
 
+  @ParameterizedTest
+  @ValueSource(longs = {0, -1, -3600})
+  void aZeroOrNegativeExpirationIsRejectedAndTheMessageNamesTheProperty(long seconds) {
+    assertThatThrownBy(() -> issuer(SECRET, Duration.ofSeconds(seconds)))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("app.token.expiration")
+        .hasMessageContaining("positive");
+  }
+
+  @Test
+  void aMissingExpirationIsRejectedLikeANonPositiveOne() {
+    assertThatThrownBy(() -> issuer(SECRET, null))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("app.token.expiration");
+  }
+
+  @Test
+  void anExpirationOfOneSecondIsAccepted() {
+    String token = issuer(SECRET, Duration.ofSeconds(1)).issue(SUBJECT, EMAIL, ISSUED_AT);
+
+    Claims claims = parse(token, SECRET, ISSUED_AT).getPayload();
+    assertThat(claims.getExpiration().getTime() - claims.getIssuedAt().getTime()).isEqualTo(1000L);
+  }
+
   @Test
   void aTokenForTheLongestEmailFitsTheTokenColumn() {
     Email longest =
