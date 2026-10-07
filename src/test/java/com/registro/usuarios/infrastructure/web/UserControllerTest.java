@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -37,10 +38,11 @@ import tools.jackson.databind.json.JsonMapper;
 /**
  * The JSON contract of the success response, with the use case replaced by a mock: exactly the
  * documented keys, the literal names of the statement, ISO-8601 instants, and no secret anywhere.
- * What happens to a request the use case rejects belongs to the error contract and is not tested
- * here.
+ * What happens to a request the use case rejects belongs to the error contract ({@code
+ * ErrorContractTest}). The strict string typing is imported, as in production.
  */
 @WebMvcTest(UserController.class)
+@Import(JacksonConfig.class)
 class UserControllerTest {
 
   private static final String STATEMENT_BODY =
