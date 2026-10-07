@@ -2,6 +2,7 @@ package com.registro.usuarios;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.registro.usuarios.application.RegisterUserUseCase;
 import com.registro.usuarios.support.FullContextTest;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -17,6 +18,7 @@ import java.util.Date;
 import java.util.List;
 import javax.crypto.SecretKey;
 import org.junit.jupiter.api.Test;
+import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationContext;
@@ -68,6 +70,23 @@ class RegistrationSmokeTest {
     assertThat(response.statusCode()).isEqualTo(200);
     assertThat(response.headers().firstValue("Content-Type").orElse("")).contains("json");
     assertThat(response.body()).contains("\"openapi\"");
+  }
+
+  @Test
+  void theOpenApiDocumentCarriesTheConfiguredTitle() throws IOException, InterruptedException {
+    HttpResponse<String> response = get("/v3/api-docs");
+
+    assertThat(response.body())
+        .contains("\"title\":\"User Registration API\"")
+        .contains("\"version\":\"1.0.0\"");
+  }
+
+  @Test
+  void theRegistrationUseCaseIsATransactionalProxyOfTheApplicationClass() {
+    RegisterUserUseCase useCase = context.getBean(RegisterUserUseCase.class);
+
+    assertThat(AopUtils.isCglibProxy(useCase)).isTrue();
+    assertThat(AopUtils.getTargetClass(useCase)).isEqualTo(RegisterUserUseCase.class);
   }
 
   @Test

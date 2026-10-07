@@ -10,6 +10,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import org.springframework.stereotype.Component;
 
 /**
  * Implements the {@link TokenIssuer} port with JJWT: an HS256 JWT whose subject is the user id and
@@ -19,6 +20,7 @@ import javax.crypto.spec.SecretKeySpec;
  * when the issuer is created, so the application fails to start instead of answering every
  * registration with an error. The message names the property and never the value.
  */
+@Component
 class JjwtTokenIssuer implements TokenIssuer {
 
   static final int MIN_SECRET_BYTES = 32;
