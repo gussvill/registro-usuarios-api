@@ -1,1 +1,6 @@
+// Lets Gradle download a JDK 17 when the build asks for the Java 17 toolchain and none is installed.
+plugins {
+	id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
 rootProject.name = 'registro-usuarios-api'

@@ -1,4 +1,4 @@
-**Requires JDK 17 or Docker.**
+**Requires any JDK 17 or newer to launch Gradle (Gradle downloads a JDK 17 toolchain if none is installed), or Docker.**
 
 # User registration API
 
@@ -8,7 +8,8 @@ database, JSON only.
 
 ## Quick start
 
-Run it with Gradle (the build uses a Java 17 toolchain, so a JDK 17 must be installed):
+Run it with Gradle (the build compiles and tests on a Java 17 toolchain; if no JDK 17 is installed,
+Gradle downloads one the first time):
 
 ```
 ./gradlew bootRun

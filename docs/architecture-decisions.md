@@ -326,14 +326,16 @@ last Boot line that runs on Java 8 (2.7) no longer receives open-source updates.
 **Decision.** Spring Boot 4.1.1 on a Java 17 toolchain. Java 17 is "8 or later" and is the lowest
 version a supported Boot line runs on, so the service stays on a maintained framework without
 requiring a newer JDK than necessary. The Gradle toolchain makes the build use JDK 17 regardless of
-the JDK that starts Gradle.
+the JDK that starts Gradle, and the `foojay-resolver-convention` plugin in `settings.gradle` lets
+Gradle download a JDK 17 when none is installed.
 
 **Alternatives discarded.** Boot 2.7 on Java 8: matches the statement literally but starts the
 project on an unmaintained line. A newer Java: needlessly raises what a reviewer must install.
 
 **Consequences.**
 
-- Reviewers need JDK 17 or newer, or Docker. The README says so first.
+- Reviewers need any JDK 17 or newer to launch Gradle, which downloads a JDK 17 toolchain if none is
+  installed, or Docker. The README says so first.
 - Error Prone is pinned to 2.42.0, the last line that runs on JDK 17 (ADR-021).
 - Some third-party types have not caught up with the Boot 4 generation. JJWT still brings Jackson 2
   (ADR-014).
@@ -352,8 +354,9 @@ the wrapper and the Java toolchain select the JDK reproducibly, and the plugins 
 Boot, JaCoCo, Spotless, Error Prone) configure in a short build file. It is not a technical
 necessity.
 
-**Consequences.** Nothing but a JDK is needed to build: the wrapper downloads the exact Gradle
-version. The Dockerfile uses the same wrapper, so the image and the local build use one toolchain.
+**Consequences.** Nothing but a JDK 17 or newer is needed to launch the build: the wrapper downloads
+the exact Gradle version, and the toolchain resolver downloads a JDK 17 if none is installed. The
+Dockerfile uses the same wrapper, so the image and the local build use one toolchain.
 
 ## ADR-013: H2, Hibernate and a versioned `schema.sql` with `validate`
 
