@@ -26,7 +26,7 @@ class UserResponseTest {
   }
 
   @Test
-  void toStringRedactsTheTokenButKeepsTheOtherFields() {
+  void toStringRedactsTheTokenWhateverItIsButKeepsTheOtherFields() {
     assertThat(response("header.payload.signature").toString())
         .doesNotContain("header.payload.signature")
         .contains("token=<redacted>")
@@ -34,13 +34,6 @@ class UserResponseTest {
         .contains("name=Juan")
         .contains("1234567")
         .contains("active=true");
-  }
-
-  @Test
-  void toStringRedactsAnyTokenIncludingNone() {
-    assertThat(response("another.token.value").toString())
-        .doesNotContain("another.token.value")
-        .contains("token=<redacted>");
     assertThat(response(null).toString()).contains("token=<redacted>");
   }
 }

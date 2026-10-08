@@ -90,7 +90,9 @@ class ArchitectureRulesBiteTest {
     // A clean class may be the target of a forbidden dependency, but it is never the culprit: the
     // origin is the first <...> of each detail line.
     for (String name : ruleNames()) {
-      for (String detail : rule(name).evaluate(FIXTURES).getFailureReport().getDetails()) {
+      List<String> details = rule(name).evaluate(FIXTURES).getFailureReport().getDetails();
+      assertThat(details).as("%s: the violations to inspect", name).isNotEmpty();
+      for (String detail : details) {
         String origin = detail.substring(detail.indexOf('<'), detail.indexOf('>') + 1);
         assertThat(origin)
             .as("%s: %s", name, detail)

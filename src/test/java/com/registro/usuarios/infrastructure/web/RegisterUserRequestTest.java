@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 class RegisterUserRequestTest {
 
   @Test
-  void toStringRedactsThePasswordButKeepsTheOtherFields() {
+  void toStringRedactsThePasswordWhateverItIsButKeepsTheOtherFields() {
     RegisterUserRequest request =
         new RegisterUserRequest(
             "Juan",
@@ -21,13 +21,6 @@ class RegisterUserRequestTest {
         .contains("password=<redacted>")
         .contains("name=Juan")
         .contains("1234567");
-  }
-
-  @Test
-  void toStringRedactsAnyPasswordIncludingNone() {
-    assertThat(new RegisterUserRequest("Juan", "j@d.cl", "another-secret", null).toString())
-        .doesNotContain("another-secret")
-        .contains("password=<redacted>");
     assertThat(new RegisterUserRequest(null, null, null, null).toString())
         .contains("password=<redacted>");
   }

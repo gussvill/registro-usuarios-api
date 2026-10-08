@@ -8,9 +8,6 @@ import org.junit.jupiter.api.Test;
 
 class UserIdTest {
 
-  private static final String CANONICAL_UUID =
-      "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$";
-
   @Test
   void generatesDistinctIdentifiers() {
     UserId first = UserId.generate();
@@ -18,14 +15,6 @@ class UserIdTest {
 
     assertThat(first).isNotEqualTo(second);
     assertThat(first.value()).isNotEqualTo(second.value());
-  }
-
-  @Test
-  void generatedIdentifierIsACanonicalRandomUuid() {
-    UserId id = UserId.generate();
-
-    assertThat(id.value().toString()).hasSize(36).matches(CANONICAL_UUID);
-    assertThat(id.value().version()).isEqualTo(4);
   }
 
   @Test

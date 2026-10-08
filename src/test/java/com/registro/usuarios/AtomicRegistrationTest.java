@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.registro.usuarios.support.FullContextTest;
 import com.registro.usuarios.support.RegistrationClient;
 import com.registro.usuarios.support.RegistrationClient.Reply;
+import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,6 +25,7 @@ import tools.jackson.databind.node.ObjectNode;
 class AtomicRegistrationTest {
 
   private static final String REFUSED_NUMBER = "9999999";
+  private static final AtomicLong NUMBERS = new AtomicLong(System.nanoTime());
 
   @Autowired private JdbcTemplate jdbc;
 
@@ -44,6 +46,11 @@ class AtomicRegistrationTest {
   @AfterEach
   void restoreTheSchema() {
     jdbc.execute("ALTER TABLE phones DROP CONSTRAINT IF EXISTS ck_test_refused_number");
+  }
+
+  /** A phone number no other test stores, so the assertions do not depend on the test order. */
+  private static String uniqueNumber() {
+    return Long.toString(NUMBERS.incrementAndGet());
   }
 
   private int count(String sql, Object... args) {
@@ -80,12 +87,15 @@ class AtomicRegistrationTest {
     String email = RegistrationClient.uniqueEmail();
     int phonesBefore = count("SELECT COUNT(*) FROM phones");
 
-    Reply reply = api.post(bodyWithPhoneNumbers(email, "1111111", "2222222", REFUSED_NUMBER));
+    String first = uniqueNumber();
+    String second = uniqueNumber();
+
+    Reply reply = api.post(bodyWithPhoneNumbers(email, first, second, REFUSED_NUMBER));
 
     assertThat(reply.status()).isEqualTo(500);
     assertThat(count("SELECT COUNT(*) FROM users WHERE email = ?", email)).isZero();
     assertThat(count("SELECT COUNT(*) FROM phones")).isEqualTo(phonesBefore);
-    assertThat(count("SELECT COUNT(*) FROM phones WHERE phone_number IN ('1111111', '2222222')"))
+    assertThat(count("SELECT COUNT(*) FROM phones WHERE phone_number IN (?, ?)", first, second))
         .isZero();
   }
 
@@ -94,7 +104,7 @@ class AtomicRegistrationTest {
     String email = RegistrationClient.uniqueEmail();
     assertThat(api.post(bodyWithPhoneNumbers(email, REFUSED_NUMBER)).status()).isEqualTo(500);
 
-    Reply retry = api.post(bodyWithPhoneNumbers(email, "1234567"));
+    Reply retry = api.post(bodyWithPhoneNumbers(email, uniqueNumber()));
 
     assertThat(retry.status()).isEqualTo(201);
     assertThat(count("SELECT COUNT(*) FROM users WHERE email = ?", email)).isEqualTo(1);
@@ -104,7 +114,7 @@ class AtomicRegistrationTest {
   void withTheConstraintInPlaceAnAcceptedNumberIsStoredNormally() throws Exception {
     String email = RegistrationClient.uniqueEmail();
 
-    Reply reply = api.post(bodyWithPhoneNumbers(email, "1111111", "2222222"));
+    Reply reply = api.post(bodyWithPhoneNumbers(email, uniqueNumber(), uniqueNumber()));
 
     assertThat(reply.status()).isEqualTo(201);
     assertThat(count("SELECT COUNT(*) FROM users WHERE email = ?", email)).isEqualTo(1);

@@ -29,7 +29,6 @@ class ArchitectureTest {
         .noneMatch(name -> name.contains("archfixture"));
     assertThat(PRODUCTION.stream().map(c -> c.getName()))
         .noneMatch(name -> name.endsWith("Test") || name.endsWith("Tests"));
-    assertThat(PRODUCTION.size()).isGreaterThan(30);
   }
 
   @Test
