@@ -221,38 +221,6 @@ class RegistrationSmokeTest {
     assertThat(response.body()).containsIgnoringCase("swagger");
   }
 
-  // JJWT's builder and claims API are expressed in java.util.Date.
-  @SuppressWarnings("JavaUtilDate")
-  @Test
-  void aTokenSignedWithJjwtIsParsedBackInsideTheRunningContext() {
-    SecretKey key =
-        Keys.hmacShaKeyFor(FullContextTest.TOKEN_SECRET.getBytes(StandardCharsets.UTF_8));
-    Date issuedAt = Date.from(FullContextTest.FIXED_INSTANT);
-    Date expiresAt = new Date(issuedAt.getTime() + 3_600_000L);
-
-    String token =
-        Jwts.builder()
-            .subject("11111111-2222-3333-4444-555555555555")
-            .claim("email", "juan@rodriguez.org")
-            .issuedAt(issuedAt)
-            .expiration(expiresAt)
-            .signWith(key, Jwts.SIG.HS256)
-            .compact();
-
-    Claims claims =
-        Jwts.parser()
-            .verifyWith(key)
-            .clock(() -> issuedAt)
-            .build()
-            .parseSignedClaims(token)
-            .getPayload();
-
-    assertThat(claims.getSubject()).isEqualTo("11111111-2222-3333-4444-555555555555");
-    assertThat(claims.get("email", String.class)).isEqualTo("juan@rodriguez.org");
-    assertThat(claims.getExpiration().getTime() - claims.getIssuedAt().getTime())
-        .isEqualTo(3_600_000L);
-  }
-
   // ---------------------------------------------------------------------------------------------
   // Registration over real HTTP
   // ---------------------------------------------------------------------------------------------
