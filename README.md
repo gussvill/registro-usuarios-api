@@ -24,6 +24,8 @@ curl -i -X POST http://localhost:8080/api/v1/users \
 
 La documentación interactiva (Swagger UI) está en `http://localhost:8080/swagger-ui.html`.
 
+Cada caso de prueba (éxito, duplicado y cada tipo de rechazo) está como comando `curl` listo para copiar en [Casos de prueba con curl](#casos-de-prueba-con-curl).
+
 **Alternativa solo con Docker:**
 
 ```
@@ -46,7 +48,7 @@ Dónde se cumple cada requisito del enunciado, en su orden:
 | Framework Spring Boot | Spring Boot 4.1.1 ([`build.gradle`](build.gradle)) |
 | Java 8+ | Java 17 (toolchain de [`build.gradle`](build.gradle)); el motivo está en [Supuestos sobre el enunciado](#supuestos-sobre-el-enunciado) |
 | Repositorio público con código fuente y script de creación de BD | [`src/main/resources/schema.sql`](src/main/resources/schema.sql) |
-| Readme explicando cómo probarlo | La sección [Ejecutar](#ejecutar), [`scripts/acceptance.sh`](scripts/acceptance.sh) y la [colección de Postman](postman/registro-usuarios-api.postman_collection.json) |
+| Readme explicando cómo probarlo | La sección [Ejecutar](#ejecutar), los [casos de prueba con curl](#casos-de-prueba-con-curl), [`scripts/acceptance.sh`](scripts/acceptance.sh) y la [colección de Postman](postman/registro-usuarios-api.postman_collection.json) |
 | Diagrama de la solución | [Diagramas](#arquitectura) en `docs/diagrams` (PNG, fuente JSON y versión HTML interactiva) |
 | JWT como token | [`JjwtTokenIssuer`](src/main/java/com/registro/usuarios/infrastructure/security/JjwtTokenIssuer.java): HS256 con `sub`, `email`, `iat` y `exp` |
 | Pruebas unitarias | `./gradlew test` y el árbol [`src/test/java`](src/test/java) |
@@ -84,12 +86,8 @@ Si se envía la misma solicitud otra vez, la respuesta es `409`:
 {"mensaje":"El correo ya registrado"}
 ```
 
-Una solicitud que rompe varias reglas informa todos los campos erróneos, ordenados y unidos con `"; "`:
-
-```
-curl -s -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' \
-  -d '{"name":"","email":"bad","password":"x"}'
-```
+Una solicitud que rompe varias reglas informa todos los campos erróneos, ordenados y unidos con `"; "`
+(el comando está en el [caso 16](#varios-campos-a-la-vez)):
 
 ```
 {"mensaje":"El correo no tiene un formato válido; El nombre es obligatorio; La contraseña no cumple el formato requerido"}
@@ -121,6 +119,372 @@ Todo error es un objeto JSON con una sola clave, como exige el enunciado:
 El texto está en español. El valor rechazado nunca se repite en la respuesta, y un 500 nunca incluye
 texto interno. El formato no es RFC 9457 porque el enunciado fija esta forma; el razonamiento está en
 el [ADR-008](docs/architecture-decisions.md#adr-008-el-contrato-de-error-mensaje-en-lugar-de-rfc-9457).
+
+## Casos de prueba con curl
+
+Con el servicio en ejecución en `http://localhost:8080` (ver [Ejecutar](#ejecutar)), cada comando imprime el cuerpo de la respuesta y, en la línea siguiente, el estado HTTP. Los comandos funcionan igual en bash, zsh y fish.
+
+Las respuestas de abajo son la salida real de cada comando, ejecutados en este orden sobre una instancia recién arrancada. **El orden importa en los casos 2 y 3**, que necesitan el caso 1 hecho antes (un `409` exige que el correo ya esté registrado); los demás casos usan correos propios y son independientes. La base de datos está en memoria: reiniciar el servicio la vacía y deja el caso 1 otra vez en `201`. En los `201` el `id`, las marcas de tiempo y el token cambian en cada llamada, por eso se abrevian con `...`; los cuerpos de error son literales.
+
+### Registro correcto
+
+**1. Ejemplo literal del enunciado**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"Juan Rodriguez","email":"juan@rodriguez.org","password":"hunter2","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado: `201`
+
+```json
+{"id":"...","name":"Juan Rodriguez","email":"juan@rodriguez.org","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}],"created":"...","modified":"...","last_login":"...","token":"...","isactive":true}
+```
+
+**2. El mismo registro otra vez (depende del caso 1)**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"Juan Rodriguez","email":"juan@rodriguez.org","password":"hunter2","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado: `409` y `{"mensaje":"El correo ya registrado"}`
+
+**3. El mismo correo en mayúsculas (depende del caso 1)**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"Juan Rodriguez","email":"JUAN@RODRIGUEZ.ORG","password":"hunter2","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado: `409` y `{"mensaje":"El correo ya registrado"}`
+
+**4. Correo con parte local de una sola letra repetida**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"Juan Rodriguez","email":"aaaaaaa@dominio.cl","password":"hunter2","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado: `201`; el cuerpo tiene los mismos campos que el caso 1, con `"email":"aaaaaaa@dominio.cl"`.
+
+**5. Sin la clave phones**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"Juan Rodriguez","email":"sin-telefonos@dominio.cl","password":"hunter2"}'
+```
+
+Esperado: `201`; el cuerpo tiene los mismos campos que el caso 1, con `"email":"sin-telefonos@dominio.cl"` y `"phones":[]`.
+
+### Correo
+
+**6. Correo sin @**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"Juan Rodriguez","email":"juan.rodriguez.org","password":"hunter2","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado: `400` y `{"mensaje":"El correo no tiene un formato válido"}`
+
+**7. Correo sin punto en el dominio**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"Juan Rodriguez","email":"juan@rodriguez","password":"hunter2","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado: `400` y `{"mensaje":"El correo no tiene un formato válido"}`
+
+**8. Correo con espacios**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"Juan Rodriguez","email":"juan perez@rodriguez.org","password":"hunter2","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado: `400` y `{"mensaje":"El correo no tiene un formato válido"}`
+
+**9. Correo vacío**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"Juan Rodriguez","email":"","password":"hunter2","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado: `400` y `{"mensaje":"El correo es obligatorio"}`
+
+**10. Correo con el tipo JSON equivocado (número)**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"Juan Rodriguez","email":123,"password":"hunter2"}'
+```
+
+Esperado: `400` y `{"mensaje":"El cuerpo de la solicitud no es válido"}`
+
+### Contraseña
+
+**11. Contraseña que no cumple el patrón por defecto**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"Juan Rodriguez","email":"clave1@dominio.cl","password":"abc","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado: `400` y `{"mensaje":"La contraseña no cumple el formato requerido"}`
+
+**12. Contraseña ausente**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"Juan Rodriguez","email":"clave2@dominio.cl","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado: `400` y `{"mensaje":"La contraseña es obligatoria"}`
+
+**13. Contraseña de más de 72 bytes**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"Juan Rodriguez","email":"clave3@dominio.cl","password":"a1aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado: `400` y `{"mensaje":"La contraseña es demasiado larga"}`
+
+### Nombre
+
+**14. Nombre vacío**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"","email":"nombre1@dominio.cl","password":"hunter2","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado: `400` y `{"mensaje":"El nombre es obligatorio"}`
+
+**15. Nombre ausente**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"email":"nombre2@dominio.cl","password":"hunter2","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado: `400` y `{"mensaje":"El nombre es obligatorio"}`
+
+### Varios campos a la vez
+
+**16. Varios campos inválidos en la misma solicitud**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"","email":"bad","password":"x"}'
+```
+
+Esperado: `400` y `{"mensaje":"El correo no tiene un formato válido; El nombre es obligatorio; La contraseña no cumple el formato requerido"}`
+
+### Teléfonos
+
+**17. Número de teléfono con letras**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"Juan Rodriguez","email":"tel1@dominio.cl","password":"hunter2","phones":[{"number":"12ab567","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado: `400` y `{"mensaje":"El número de teléfono solo puede contener dígitos"}`
+
+**18. Teléfono al que le falta un campo**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"Juan Rodriguez","email":"tel2@dominio.cl","password":"hunter2","phones":[{"number":"1234567","citycode":"1"}]}'
+```
+
+Esperado: `400` y `{"mensaje":"El código de país es obligatorio"}`
+
+**19. Más de 10 teléfonos**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"Juan Rodriguez","email":"tel3@dominio.cl","password":"hunter2","phones":[{"number":"1234567","citycode":"1","contrycode":"57"},{"number":"1234567","citycode":"1","contrycode":"57"},{"number":"1234567","citycode":"1","contrycode":"57"},{"number":"1234567","citycode":"1","contrycode":"57"},{"number":"1234567","citycode":"1","contrycode":"57"},{"number":"1234567","citycode":"1","contrycode":"57"},{"number":"1234567","citycode":"1","contrycode":"57"},{"number":"1234567","citycode":"1","contrycode":"57"},{"number":"1234567","citycode":"1","contrycode":"57"},{"number":"1234567","citycode":"1","contrycode":"57"},{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado: `400` y `{"mensaje":"No se permiten más de 10 teléfonos"}`
+
+### Formato de la solicitud
+
+**20. JSON mal formado**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":'
+```
+
+Esperado: `400` y `{"mensaje":"El cuerpo de la solicitud no es válido"}`
+
+**21. Content-Type text/plain**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: text/plain' -d '{"name":"Juan Rodriguez","email":"ct1@dominio.cl","password":"hunter2","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado: `415` y `{"mensaje":"Tipo de contenido no soportado"}`
+
+**22. Content-Type multipart/form-data**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: multipart/form-data' -d '{"name":"Juan Rodriguez","email":"ct2@dominio.cl","password":"hunter2","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado: `415` y `{"mensaje":"Tipo de contenido no soportado"}`
+
+**23. Accept application/xml**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -H 'Accept: application/xml' -d '{"name":"Juan Rodriguez","email":"acc1@dominio.cl","password":"hunter2","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado: `406` y `{"mensaje":"Formato de respuesta no aceptable"}`
+
+### Rutas y métodos
+
+**24. GET sobre la ruta de registro**
+
+```bash
+curl -s -w '\n%{http_code}\n' http://localhost:8080/api/v1/users
+```
+
+Esperado: `405` y `{"mensaje":"Método no permitido"}`
+
+**25. Ruta desconocida**
+
+```bash
+curl -s -w '\n%{http_code}\n' http://localhost:8080/api/v1/nada
+```
+
+Esperado: `404` y `{"mensaje":"Recurso no encontrado"}`
+
+**26. Barra final en la ruta de registro (limitación documentada)**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users/ -H 'Content-Type: application/json' -d '{"name":"Juan Rodriguez","email":"barra@dominio.cl","password":"hunter2","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado: `404` y `{"mensaje":"Recurso no encontrado"}`
+
+### Encabezados de la respuesta
+
+**27. La respuesta 201 lleva Cache-Control: no-store**
+
+```bash
+curl -s -D - -o /dev/null -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"Juan Rodriguez","email":"cache@dominio.cl","password":"hunter2","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado (entre otros encabezados):
+
+```
+HTTP/1.1 201 
+Cache-Control: no-store
+Content-Type: application/json
+```
+
+### Documentación
+
+**28. Swagger UI (la interfaz)**
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8080/swagger-ui/index.html
+```
+
+Esperado: `200`
+
+**29. Swagger UI (la dirección corta redirige)**
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8080/swagger-ui.html
+```
+
+Esperado: `302` (redirige a `/swagger-ui/index.html`)
+
+**30. Documento OpenAPI**
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8080/v3/api-docs
+```
+
+Esperado: `200`
+
+### Casos adicionales
+
+**31. Correo en mayúsculas en un registro nuevo (se guarda en minúsculas)**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"Juan Rodriguez","email":"MAYUS@dominio.cl","password":"hunter2","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado: `201`; el cuerpo tiene los mismos campos que el caso 1, con `"email":"mayus@dominio.cl"`.
+
+**32. Contraseña sin dígitos**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"Juan Rodriguez","email":"clave4@dominio.cl","password":"abcdefgh","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado: `400` y `{"mensaje":"La contraseña no cumple el formato requerido"}`
+
+**33. Contraseña con espacios**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"Juan Rodriguez","email":"clave5@dominio.cl","password":"hunter 2x","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado: `400` y `{"mensaje":"La contraseña no cumple el formato requerido"}`
+
+**34. Contraseña de menos de 7 caracteres**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"Juan Rodriguez","email":"clave6@dominio.cl","password":"a1b2c3","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado: `400` y `{"mensaje":"La contraseña no cumple el formato requerido"}`
+
+**35. Nombre de más de 255 caracteres**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn","email":"nombre3@dominio.cl","password":"hunter2","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado: `400` y `{"mensaje":"El nombre no debe superar 255 caracteres"}`
+
+**36. Correo de más de 254 caracteres**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"Juan Rodriguez","email":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@d.cl","password":"hunter2","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado: `400` y `{"mensaje":"El correo no debe superar 254 caracteres"}`
+
+**37. Número de teléfono de más de 20 caracteres**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"Juan Rodriguez","email":"tel4@dominio.cl","password":"hunter2","phones":[{"number":"111111111111111111111","citycode":"1","contrycode":"57"}]}'
+```
+
+Esperado: `400` y `{"mensaje":"El número de teléfono no debe superar 20 caracteres"}`
+
+**38. Lista de teléfonos vacía**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"Juan Rodriguez","email":"tel5@dominio.cl","password":"hunter2","phones":[]}'
+```
+
+Esperado: `201`; el cuerpo tiene los mismos campos que el caso 1, con `"email":"tel5@dominio.cl"` y `"phones":[]`.
+
+**39. Teléfonos con el tipo JSON equivocado (texto)**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"Juan Rodriguez","email":"tel6@dominio.cl","password":"hunter2","phones":"1234567"}'
+```
+
+Esperado: `400` y `{"mensaje":"El cuerpo de la solicitud no es válido"}`
+
+**40. Cuerpo vacío**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json'
+```
+
+Esperado: `400` y `{"mensaje":"El cuerpo de la solicitud no es válido"}`
+
+**41. Cuerpo JSON que no es un objeto**
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '[]'
+```
+
+Esperado: `400` y `{"mensaje":"El cuerpo de la solicitud no es válido"}`
 
 ## Configuración
 
