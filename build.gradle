@@ -42,6 +42,17 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+// Downloads every resolvable configuration (compile, runtime, test, annotation processors, Error Prone,
+// JaCoCo). The Dockerfile runs it before copying the sources, so the downloaded jars stay in a cached
+// image layer until a build file changes.
+tasks.register('resolveDependencies') {
+	group = 'help'
+	description = 'Resolves and downloads the dependencies of every configuration.'
+	doLast {
+		configurations.matching { it.canBeResolved }.each { it.resolve() }
+	}
+}
+
 tasks.named('compileJava') {
 	options.compilerArgs += ['-Xlint:all,-processing', '-Werror']
 }

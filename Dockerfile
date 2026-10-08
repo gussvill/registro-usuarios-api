@@ -5,11 +5,13 @@
 # Stage 1: build the jar with the Gradle wrapper of the repository and split it into layers.
 FROM eclipse-temurin:17.0.20.1_1-jdk-noble AS builder
 WORKDIR /builder
-# The wrapper and the build scripts first: the Gradle distribution and the dependencies stay in
-# their own layers until one of these files changes.
+# The wrapper and the build scripts first, then one layer that downloads the dependencies
+# (`resolveDependencies` resolves every configuration, including the runtime and test classpaths):
+# the Gradle distribution and the dependency jars stay cached until one of these files changes, so a
+# change under src/ does not download them again.
 COPY gradlew settings.gradle build.gradle ./
 COPY gradle/ gradle/
-RUN ./gradlew --no-daemon --version
+RUN ./gradlew --no-daemon resolveDependencies
 COPY src/ src/
 # Tests run in the CI workflow and in `./gradlew build`; the image build only packages.
 RUN ./gradlew --no-daemon bootJar -x test \
