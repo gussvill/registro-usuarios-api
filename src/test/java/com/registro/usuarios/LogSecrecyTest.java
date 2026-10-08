@@ -9,6 +9,7 @@ import com.registro.usuarios.domain.model.User;
 import com.registro.usuarios.domain.model.UserId;
 import com.registro.usuarios.domain.port.UserRepository;
 import com.registro.usuarios.support.FullContextTest;
+import com.registro.usuarios.support.QuotingTrigger;
 import com.registro.usuarios.support.RegistrationClient;
 import com.registro.usuarios.support.RegistrationClient.Reply;
 import java.time.Instant;
@@ -198,10 +199,50 @@ class LogSecrecyTest {
       assertThat(reply.body()).isEqualTo("{\"mensaje\":\"Error interno del servidor\"}");
       assertThat(output.getAll())
           .contains("Unexpected failure while handling a request")
-          .contains("ck_log_refused".toUpperCase(java.util.Locale.ROOT));
+          .contains("DataIntegrityViolationException")
+          .contains("at com.registro.usuarios.infrastructure.persistence.UserPersistenceAdapter")
+          .doesNotContain("8888888")
+          .doesNotContain("CK_LOG_REFUSED");
       assertNoSecret(output);
     } finally {
       jdbc.execute("ALTER TABLE phones DROP CONSTRAINT IF EXISTS ck_log_refused");
+    }
+  }
+
+  /**
+   * The unexpected-failure log keeps the class and the frames of every cause, never a message: a
+   * database message can quote the offending value. Here a trigger refuses the phone row after the
+   * user row is in and quotes the row in its message; the marker is the city code of that phone.
+   */
+  @Test
+  void aFailureWhoseMessageQuotesTheRequestDoesNotPutTheQuotedValueInTheLog(CapturedOutput output)
+      throws Exception {
+    String marker = "7390482615";
+    jdbc.execute(
+        "CREATE TRIGGER trg_log_marker BEFORE INSERT ON phones FOR EACH ROW CALL \""
+            + QuotingTrigger.class.getName()
+            + "\"");
+    try {
+      ObjectNode body = bodyFor(RegistrationClient.uniqueEmail());
+      body.putArray("phones")
+          .addObject()
+          .put("number", "1234567")
+          .put("citycode", marker)
+          .put("contrycode", "57");
+
+      Reply reply = api.post(body);
+
+      assertThat(reply.status()).isEqualTo(500);
+      assertThat(reply.body()).isEqualTo("{\"mensaje\":\"Error interno del servidor\"}");
+      assertThat(output.getAll())
+          .contains("Unexpected failure while handling a request")
+          .contains("Caused by:")
+          .doesNotContain(marker)
+          .doesNotContain("Rejected row")
+          .doesNotContainIgnoringCase("trg_log_marker");
+      assertNoSecret(output);
+    } finally {
+      jdbc.execute("DROP TRIGGER IF EXISTS trg_log_marker");
     }
   }
 

@@ -279,8 +279,10 @@ keep their own formats.
   shape of the request.
 - Messages are sorted on the Spanish text and joined with `"; "`, so the response is deterministic
   and a test can compare it exactly. A repeated reason appears once.
-- The 500 body is fixed text. The stack trace goes to the server log only, and it is never built
-  from the exception message.
+- The 500 body is fixed text. The server log gets the class and the stack frames of the failure and
+  of each cause, never an exception message, because a message can quote the request (a database
+  reports the value it refused). A test makes a database message quote a marker value and requires
+  that the marker is not in the log.
 - Any 4xx without a specific row answers `La solicitud no es válida` and keeps its status; a 413 or
   a 431 is not announced as an internal error.
 
@@ -667,13 +669,13 @@ targets the JUnit 5 platform and Boot 4.1.1 manages JUnit 6.
   The statement requires that answer.
 - **Pragmatic email format.** The default pattern is not RFC 5322: it accepts ordinary addresses and
   rejects values such as `juan@dominio` that have no top-level label. No confirmation e-mail is sent.
-- **Unexpected failures can quote data in the server log.** The 500 handler logs the stack trace,
-  which includes the database's message. The domain caps every length, so a value-too-long error
-  cannot come from valid input, but a message of an unforeseen failure is not filtered. The one
-  expected case, a duplicate that reaches the unique constraint, is silenced at its source
-  (`logging.level.org.hibernate.orm.jdbc.error=OFF`): Hibernate would otherwise log the clear-text
-  address at WARN. Switching that logger off hides Hibernate's own report of a failed statement; the
-  failure itself is still raised, translated or logged by the exception handler.
+- **Unexpected failures are logged without their messages.** The 500 handler logs classes and
+  stack frames only (ADR-009), so a database message cannot put request data in the log. The cost is
+  that the log does not say why a statement failed (which constraint, which column): the frames and
+  the root-cause class are what a maintainer has. Hibernate's own report of a failed statement is
+  switched off for the same reason (`logging.level.org.hibernate.orm.jdbc.error=OFF`): it quotes the
+  database message, and for a duplicate it would log the clear-text address at WARN. The failure
+  itself is still raised, translated or logged by the exception handler.
 - **Hibernate `validate` and time zones.** It does not tell `TIMESTAMP` from
   `TIMESTAMP WITH TIME ZONE`; that part of the schema is proved by round-trip tests (ADR-013).
 - **Hashing inside the transaction.** BCrypt at strength 12 holds a database connection for its

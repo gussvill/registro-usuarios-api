@@ -24,6 +24,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
   private static final Logger LOG = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+  private static final int MAX_CAUSES = 20;
 
   @ExceptionHandler(InvalidUserDataException.class)
   ResponseEntity<Object> invalidUserData(InvalidUserDataException rejected) {
@@ -36,12 +37,38 @@ class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     return answer(HttpStatus.CONFLICT, new HttpHeaders(), ErrorMessages.EMAIL_ALREADY_REGISTERED);
   }
 
-  /** Anything not mapped above. The stack trace stays in the log; the client gets fixed text. */
+  /**
+   * Anything not mapped above. The log gets the classes and the stack frames of the failure and of
+   * its causes, and never a message, because a message can quote the request (a database reports
+   * the value it refused). The client gets fixed text.
+   */
   @ExceptionHandler(Exception.class)
   ResponseEntity<Object> unexpected(Exception failure) {
-    LOG.error("Unexpected failure while handling a request", failure);
+    LOG.error("Unexpected failure while handling a request: {}", withoutMessages(failure));
     return answer(
         HttpStatus.INTERNAL_SERVER_ERROR, new HttpHeaders(), ErrorMessages.INTERNAL_ERROR);
+  }
+
+  /**
+   * The failure rendered as its class, then one {@code Caused by:} block per cause, each followed
+   * by its stack frames, in the usual layout of a stack trace but with no exception message.
+   */
+  static String withoutMessages(Throwable failure) {
+    StringBuilder text = new StringBuilder(failure.getClass().getName());
+    appendFrames(text, failure);
+    Throwable cause = failure.getCause();
+    for (int depth = 0; cause != null && depth < MAX_CAUSES; depth++) {
+      text.append(System.lineSeparator()).append("Caused by: ").append(cause.getClass().getName());
+      appendFrames(text, cause);
+      cause = cause.getCause() == cause ? null : cause.getCause();
+    }
+    return text.toString();
+  }
+
+  private static void appendFrames(StringBuilder text, Throwable failure) {
+    for (StackTraceElement frame : failure.getStackTrace()) {
+      text.append(System.lineSeparator()).append("\tat ").append(frame);
+    }
   }
 
   /** The parser text can quote the payload, so it is neither logged nor returned. */
