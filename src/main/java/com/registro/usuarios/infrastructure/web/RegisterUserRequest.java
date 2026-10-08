@@ -3,6 +3,7 @@ package com.registro.usuarios.infrastructure.web;
 import com.registro.usuarios.domain.model.Email;
 import com.registro.usuarios.domain.model.User;
 import com.registro.usuarios.domain.policy.Password;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import java.util.List;
@@ -34,7 +35,12 @@ record RegisterUserRequest(
             requiredMode = RequiredMode.REQUIRED,
             maxLength = Password.MAX_BYTES)
         String password,
-    @Schema(description = "Teléfonos del usuario, hasta 10. Puede omitirse.")
+    @ArraySchema(
+            arraySchema =
+                @Schema(
+                    description =
+                        "Teléfonos del usuario, hasta " + User.MAX_PHONES + ". Puede omitirse."),
+            maxItems = User.MAX_PHONES)
         List<PhoneRequest> phones) {
 
   /** La contraseña nunca se imprime, esté presente o no. */

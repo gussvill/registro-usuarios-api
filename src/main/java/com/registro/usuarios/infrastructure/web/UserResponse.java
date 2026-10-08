@@ -3,6 +3,7 @@ package com.registro.usuarios.infrastructure.web;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -27,25 +28,41 @@ import java.util.UUID;
 record UserResponse(
     @Schema(
             description = "Identificador generado",
-            example = "0b9e3b0e-6a4c-4d52-9b8e-1f1f2d6d7a10")
+            example = "0b9e3b0e-6a4c-4d52-9b8e-1f1f2d6d7a10",
+            requiredMode = RequiredMode.REQUIRED)
         UUID id,
-    @Schema(example = "Juan Rodriguez") String name,
-    @Schema(description = "Correo en minúsculas", example = "juan@rodriguez.org") String email,
-    List<PhoneResponse> phones,
-    @Schema(description = "Instante de creación, UTC", example = "2026-01-15T10:30:00Z")
+    @Schema(example = "Juan Rodriguez", requiredMode = RequiredMode.REQUIRED) String name,
+    @Schema(
+            description = "Correo en minúsculas",
+            example = "juan@rodriguez.org",
+            requiredMode = RequiredMode.REQUIRED)
+        String email,
+    @Schema(requiredMode = RequiredMode.REQUIRED) List<PhoneResponse> phones,
+    @Schema(
+            description = "Instante de creación, UTC",
+            example = "2026-01-15T10:30:00Z",
+            requiredMode = RequiredMode.REQUIRED)
         Instant created,
     @Schema(
             description = "Instante de la última modificación, UTC",
-            example = "2026-01-15T10:30:00Z")
+            example = "2026-01-15T10:30:00Z",
+            requiredMode = RequiredMode.REQUIRED)
         Instant modified,
     @Schema(
             description =
                 "Instante del último acceso, UTC; igual al de creación en un usuario nuevo",
-            example = "2026-01-15T10:30:00Z")
+            example = "2026-01-15T10:30:00Z",
+            requiredMode = RequiredMode.REQUIRED)
         @JsonProperty("last_login")
         Instant lastLogin,
-    @Schema(description = "JWT firmado emitido para el usuario") String token,
-    @Schema(description = "Indica si el usuario está activo", example = "true")
+    @Schema(
+            description = "JWT firmado emitido para el usuario",
+            requiredMode = RequiredMode.REQUIRED)
+        String token,
+    @Schema(
+            description = "Indica si el usuario está activo",
+            example = "true",
+            requiredMode = RequiredMode.REQUIRED)
         @JsonProperty("isactive")
         boolean active) {
 

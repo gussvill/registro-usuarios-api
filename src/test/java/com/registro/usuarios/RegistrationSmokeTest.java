@@ -237,6 +237,44 @@ class RegistrationSmokeTest {
   }
 
   @Test
+  void theOpenApiBoundsThePhoneListWithTheDomainLimit() throws IOException, InterruptedException {
+    JsonNode phones = openApi().at("/components/schemas/RegisterUserRequest/properties/phones");
+
+    assertThat(phones.get("type").asString()).isEqualTo("array");
+    assertThat(phones.get("maxItems").asInt()).isEqualTo(10);
+    assertThat(phones.get("description").asString()).contains("10");
+  }
+
+  @Test
+  void theOpenApiMarksTheResponseFieldsThatAreAlwaysPresentAsRequired()
+      throws IOException, InterruptedException {
+    JsonNode schemas = openApi().at("/components/schemas");
+
+    assertThat(requiredOf(schemas.get("UserResponse")))
+        .containsExactlyInAnyOrderElementsOf(keys(schemas.get("UserResponse").get("properties")));
+    assertThat(requiredOf(schemas.get("PhoneResponse")))
+        .containsExactlyInAnyOrder("number", "citycode", "contrycode");
+    assertThat(requiredOf(schemas.get("ErrorResponse"))).containsExactly("mensaje");
+  }
+
+  @Test
+  void theRealResponsesCarryEveryPropertyTheirSchemaDeclaresRequired()
+      throws IOException, InterruptedException {
+    JsonNode schemas = openApi().at("/components/schemas");
+    Reply created = api.post(RegistrationClient.validBody(RegistrationClient.uniqueEmail()));
+    Reply rejected = api.post("{}");
+
+    assertThat(created.status()).isEqualTo(201);
+    assertThat(keys(created.json()))
+        .containsExactlyInAnyOrderElementsOf(requiredOf(schemas.get("UserResponse")));
+    assertThat(keys(created.json().get("phones").get(0)))
+        .containsExactlyInAnyOrderElementsOf(requiredOf(schemas.get("PhoneResponse")));
+    assertThat(rejected.status()).isEqualTo(400);
+    assertThat(keys(rejected.json()))
+        .containsExactlyInAnyOrderElementsOf(requiredOf(schemas.get("ErrorResponse")));
+  }
+
+  @Test
   void theRegistrationUseCaseIsATransactionalProxyOfTheApplicationClass() {
     RegisterUser useCase = context.getBean(RegisterUser.class);
 
@@ -740,6 +778,12 @@ class RegistrationSmokeTest {
 
   private JsonNode openApi() throws IOException, InterruptedException {
     return JSON.readTree(get("/v3/api-docs").body());
+  }
+
+  private static List<String> requiredOf(JsonNode schema) {
+    List<String> required = new ArrayList<>();
+    schema.path("required").forEach(name -> required.add(name.asString()));
+    return required;
   }
 
   private static List<String> keys(JsonNode node) {
