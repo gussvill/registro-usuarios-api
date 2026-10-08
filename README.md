@@ -298,8 +298,11 @@ Esperado: `400` y `{"mensaje":"No se permiten más de 10 teléfonos"}`
 
 **20. JSON mal formado**
 
+El cuerpo tiene una coma sobrante antes de la llave de cierre. Las llaves quedan balanceadas a propósito,
+para que el comando se pueda pegar en una terminal que completa pares de llaves y comillas.
+
 ```bash
-curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":'
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' -d '{"name":"Juan",}'
 ```
 
 Esperado: `400` y `{"mensaje":"El cuerpo de la solicitud no es válido"}`
