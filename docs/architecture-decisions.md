@@ -460,9 +460,10 @@ en el paquete `com.fasterxml.jackson.annotation` también para Jackson 3.
 
 El token es HS256 (un servicio lo emite y nada lo verifica). Los claims son `sub` (el id del usuario),
 `email`, `iat` y `exp`. La clave de firma se construye con los bytes crudos del secreto, y el
-constructor de `JjwtTokenIssuer` rechaza un secreto de menos de 32 bytes o una expiración no positiva
-con un mensaje que nombra la propiedad y nunca el valor, de modo que la aplicación no arranca en lugar
-de responder 500 en el primer registro.
+constructor de `JjwtTokenIssuer` rechaza un secreto configurado de menos de 32 bytes y una expiración
+que no sea positiva o que supere las 24 horas (`MAX_EXPIRATION`), con un mensaje que nombra la
+propiedad y nunca el valor, de modo que la aplicación no arranca en lugar de responder 500 en el
+primer registro. Si no hay secreto configurado se genera una clave efímera (ADR-016).
 
 **Alternativas descartadas.**
 
