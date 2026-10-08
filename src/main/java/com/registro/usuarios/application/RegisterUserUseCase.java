@@ -69,9 +69,8 @@ public class RegisterUserUseCase implements RegisterUser {
       throw new EmailAlreadyRegisteredException();
     }
     String passwordHash = hasher.hash(command.password());
-    // Una sola lectura del reloj, con la precisión que almacenan las columnas: el token, la
-    // respuesta y
-    // la fila guardada deben mostrar el mismo instante.
+    // Una sola lectura del reloj, con la precisión que almacenan las columnas:
+    // el token, la respuesta y la fila guardada deben mostrar el mismo instante.
     Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
     UserId id = UserId.generate();
     String token = tokens.issue(id, email, now);

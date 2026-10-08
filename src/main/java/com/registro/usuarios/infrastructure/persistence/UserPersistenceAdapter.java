@@ -45,7 +45,11 @@ class UserPersistenceAdapter implements UserRepository {
   }
 
   /**
-   * Solo la restricción de unicidad significa un duplicado: la tabla no tiene otra columna única.
+   * Indica si el fallo es una violación de una restricción de unicidad. Se comprueba el tipo de la
+   * restricción ({@code ConstraintKind.UNIQUE}) y no su nombre. La tabla {@code users} tiene dos:
+   * la del correo ({@code uk_users_email}) y la clave primaria ({@code pk_users}), que también es
+   * única, de modo que una colisión del id se informaría igualmente como correo duplicado. No es un
+   * camino realista: el id es un UUID aleatorio generado por la aplicación.
    */
   private static boolean isUniqueViolation(Throwable failure) {
     for (Throwable cause = failure; cause != null; cause = cause.getCause()) {

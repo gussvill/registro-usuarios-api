@@ -102,9 +102,8 @@ class ArchitectureRulesBiteTest {
 
   @Test
   void noViolationOriginatesFromAnInnocentFixture() {
-    // Una clase limpia puede ser destino de una dependencia prohibida, pero nunca la culpable: el
-    // origen
-    // es el primer <...> de cada línea de detalle.
+    // Una clase limpia puede ser destino de una dependencia prohibida, pero nunca la culpable:
+    // el origen es el primer <...> de cada línea de detalle.
     for (String name : ruleNames()) {
       List<String> details = rule(name).evaluate(FIXTURES).getFailureReport().getDetails();
       assertThat(details).as("%s: las violaciones a inspeccionar", name).isNotEmpty();

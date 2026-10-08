@@ -26,7 +26,7 @@ import org.springframework.stereotype.Component;
  * responder con un error a cada registro. El mensaje nombra la propiedad y nunca el valor. Cuando
  * no hay secreto configurado (está ausente o vacío) se genera una clave aleatoria de 256 bits al
  * arrancar, una línea INFO lo indica y la clave nunca se registra en el log: los tokens que firma
- * no sobreviven a un reinicio. Ninguna aplicación se entrega con un secreto utilizable. La
+ * no sobreviven a un reinicio. La aplicación no se entrega con ningún secreto utilizable. La
  * expiración debe ser una duración positiva; de lo contrario, cada token nacería expirado.
  */
 @Component
