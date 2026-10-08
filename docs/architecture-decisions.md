@@ -523,8 +523,8 @@ válidos hasta que expiran. Almacenar un hash del token contradiría el requisit
 uso posterior, así que no se hace. Los secretos no se registran en ningún nivel: los records que llevan
 una contraseña, un token o un secreto los ocultan en `toString()`, la única línea de log de éxito usa un
 correo enmascarado, y las pruebas capturan la salida en DEBUG y TRACE y buscan la contraseña, el hash,
-el token y el secreto. Una prueba también falla si las fuentes principales contienen el antiguo
-secreto de desarrollo.
+el token y el secreto. Otra prueba exige que `application.properties` tome el secreto del entorno sin
+ningún valor por defecto (`app.token.secret=${TOKEN_SECRET:}`).
 
 ## ADR-017: Un Strategy para el formato de la contraseña, con un valor por defecto débil a propósito
 

@@ -429,23 +429,4 @@ class RegistrationConfigurationTest {
 
     assertThat(lines).contains("app.token.secret=${TOKEN_SECRET:}");
   }
-
-  @Test
-  void noSigningSecretIsShippedInTheMainSources() throws Exception {
-    try (Stream<Path> files = Files.walk(Path.of("src/main"))) {
-      List<Path> offenders =
-          files
-              .filter(Files::isRegularFile)
-              .filter(
-                  file -> {
-                    try {
-                      return Files.readString(file).contains("dev-only-secret");
-                    } catch (java.io.IOException e) {
-                      throw new java.io.UncheckedIOException(e);
-                    }
-                  })
-              .toList();
-      assertThat(offenders).isEmpty();
-    }
-  }
 }

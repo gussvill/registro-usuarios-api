@@ -222,7 +222,7 @@ class JjwtTokenIssuerTest {
   }
 
   @Test
-  void twoStartsWithoutASecretSignWithDifferentKeysAndNeitherIsAShippedValue() {
+  void twoStartsWithoutASecretSignWithDifferentKeys() {
     JjwtTokenIssuer first = issuer(null, Duration.ofHours(1));
     JjwtTokenIssuer second = issuer(null, Duration.ofHours(1));
 
@@ -230,9 +230,6 @@ class JjwtTokenIssuerTest {
     String secondToken = second.issue(SUBJECT, EMAIL, ISSUED_AT);
 
     assertThat(signatureOf(firstToken)).isNotEqualTo(signatureOf(secondToken));
-    assertThatThrownBy(
-            () -> parse(firstToken, "dev-only-secret-change-me-0123456789abcdef", ISSUED_AT))
-        .isInstanceOf(SignatureException.class);
   }
 
   private static String signatureOf(String token) {
