@@ -1,6 +1,6 @@
 package com.registro.usuarios.infrastructure.web;
 
-import com.registro.usuarios.domain.exception.InvalidUserDataException.Reason;
+import com.registro.usuarios.domain.model.Reason;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;

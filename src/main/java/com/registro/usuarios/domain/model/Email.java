@@ -1,7 +1,6 @@
 package com.registro.usuarios.domain.model;
 
 import com.registro.usuarios.domain.exception.InvalidUserDataException;
-import com.registro.usuarios.domain.exception.InvalidUserDataException.Reason;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;

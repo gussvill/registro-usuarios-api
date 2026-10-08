@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.registro.usuarios.domain.exception.InvalidUserDataException.Reason;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;

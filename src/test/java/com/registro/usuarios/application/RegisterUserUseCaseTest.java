@@ -7,9 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import com.registro.usuarios.application.RegisterUserCommand.PhoneData;
 import com.registro.usuarios.domain.exception.EmailAlreadyRegisteredException;
-import com.registro.usuarios.domain.exception.InvalidUserDataException.Reason;
 import com.registro.usuarios.domain.model.Email;
 import com.registro.usuarios.domain.model.Phone;
+import com.registro.usuarios.domain.model.Reason;
 import com.registro.usuarios.domain.model.User;
 import com.registro.usuarios.domain.policy.PasswordPolicy;
 import com.registro.usuarios.domain.policy.RegexPasswordPolicy;

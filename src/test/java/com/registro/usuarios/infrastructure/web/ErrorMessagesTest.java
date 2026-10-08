@@ -2,7 +2,7 @@ package com.registro.usuarios.infrastructure.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.registro.usuarios.domain.exception.InvalidUserDataException.Reason;
+import com.registro.usuarios.domain.model.Reason;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;

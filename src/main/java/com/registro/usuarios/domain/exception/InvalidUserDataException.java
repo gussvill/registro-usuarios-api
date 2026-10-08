@@ -1,5 +1,6 @@
 package com.registro.usuarios.domain.exception;
 
+import com.registro.usuarios.domain.model.Reason;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Set;
@@ -11,32 +12,6 @@ import java.util.Set;
 public final class InvalidUserDataException extends DomainException {
 
   private static final long serialVersionUID = 1L;
-
-  /**
-   * Why a field was rejected; at most one reason per field, the first failing rule (required, then
-   * length, then format).
-   */
-  public enum Reason {
-    NAME_REQUIRED,
-    NAME_TOO_LONG,
-    EMAIL_REQUIRED,
-    EMAIL_TOO_LONG,
-    EMAIL_FORMAT,
-    PASSWORD_REQUIRED,
-    PASSWORD_TOO_LONG,
-    PASSWORD_FORMAT,
-    PHONES_TOO_MANY,
-    PHONE_NULL,
-    PHONE_NUMBER_REQUIRED,
-    PHONE_NUMBER_TOO_LONG,
-    PHONE_NUMBER_FORMAT,
-    CITY_CODE_REQUIRED,
-    CITY_CODE_TOO_LONG,
-    CITY_CODE_FORMAT,
-    COUNTRY_CODE_REQUIRED,
-    COUNTRY_CODE_TOO_LONG,
-    COUNTRY_CODE_FORMAT
-  }
 
   private final EnumSet<Reason> reasons;
 

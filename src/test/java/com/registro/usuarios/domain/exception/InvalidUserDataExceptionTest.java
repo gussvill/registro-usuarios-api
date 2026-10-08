@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.registro.usuarios.domain.exception.InvalidUserDataException.Reason;
+import com.registro.usuarios.domain.model.Reason;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;

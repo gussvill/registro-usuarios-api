@@ -14,7 +14,7 @@ import com.registro.usuarios.application.RegisterUserCommand;
 import com.registro.usuarios.application.RegisterUserUseCase;
 import com.registro.usuarios.domain.exception.EmailAlreadyRegisteredException;
 import com.registro.usuarios.domain.exception.InvalidUserDataException;
-import com.registro.usuarios.domain.exception.InvalidUserDataException.Reason;
+import com.registro.usuarios.domain.model.Reason;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.EnumSet;

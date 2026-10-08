@@ -2,7 +2,6 @@ package com.registro.usuarios.domain.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.registro.usuarios.domain.exception.InvalidUserDataException.Reason;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;

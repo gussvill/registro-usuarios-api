@@ -4,7 +4,6 @@ import static com.registro.usuarios.support.Rejections.reasonsOf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
-import com.registro.usuarios.domain.exception.InvalidUserDataException.Reason;
 import java.util.Locale;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;

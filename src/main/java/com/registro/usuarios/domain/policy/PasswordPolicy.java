@@ -1,6 +1,6 @@
 package com.registro.usuarios.domain.policy;
 
-import com.registro.usuarios.domain.exception.InvalidUserDataException.Reason;
+import com.registro.usuarios.domain.model.Reason;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
