@@ -17,7 +17,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import org.springframework.transaction.annotation.Transactional;
@@ -96,27 +95,7 @@ public class RegisterUserUseCase {
     User.nameViolation(command.name()).ifPresent(violations::add);
     Email.violation(command.email(), emailFormat).ifPresent(violations::add);
     passwordPolicy.violation(command.password()).ifPresent(violations::add);
-    violations.addAll(phoneViolationsOf(command.phones()));
-    return violations;
-  }
-
-  private static Set<Reason> phoneViolationsOf(List<PhoneData> phones) {
-    EnumSet<Reason> violations = EnumSet.noneOf(Reason.class);
-    if (phones == null) {
-      return violations;
-    }
-    Optional<Reason> tooMany = User.phoneCountViolation(phones.size());
-    if (tooMany.isPresent()) {
-      // An oversized list is rejected as a whole, without looking at its entries.
-      return EnumSet.of(tooMany.get());
-    }
-    for (PhoneData phone : phones) {
-      if (phone == null) {
-        violations.add(Reason.PHONE_NULL);
-      } else {
-        violations.addAll(Phone.violations(phone.number(), phone.cityCode(), phone.countryCode()));
-      }
-    }
+    violations.addAll(User.phoneListViolations(command.phones()));
     return violations;
   }
 

@@ -1,5 +1,6 @@
 package com.registro.usuarios.application;
 
+import com.registro.usuarios.domain.model.PhoneInput;
 import java.util.List;
 
 /**
@@ -10,7 +11,8 @@ public record RegisterUserCommand(
     String name, String email, String password, List<PhoneData> phones) {
 
   /** One phone as submitted. */
-  public record PhoneData(String number, String cityCode, String countryCode) {}
+  public record PhoneData(String number, String cityCode, String countryCode)
+      implements PhoneInput {}
 
   /** The password is never printed, whether or not it is present. */
   @Override

@@ -3,6 +3,8 @@ package com.registro.usuarios.domain.model;
 import com.registro.usuarios.domain.exception.InvalidUserDataException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -63,6 +65,31 @@ public final class User {
   /** The rule for the size of the phone list, checked before any entry is inspected. */
   public static Optional<Reason> phoneCountViolation(int count) {
     return count > MAX_PHONES ? Optional.of(Reason.PHONES_TOO_MANY) : Optional.empty();
+  }
+
+  /**
+   * Every rule that a submitted list of phones breaks. An absent list is allowed (no phones). A
+   * list with too many entries is rejected as a whole, without looking at its entries. Otherwise
+   * each entry is judged: a null entry gives {@link Reason#PHONE_NULL}, any other the reasons of
+   * {@link Phone#violations}. The result is a new read-only set of distinct reasons.
+   */
+  public static Set<Reason> phoneListViolations(List<? extends PhoneInput> phones) {
+    if (phones == null) {
+      return Set.of();
+    }
+    Optional<Reason> tooMany = phoneCountViolation(phones.size());
+    if (tooMany.isPresent()) {
+      return Set.of(tooMany.get());
+    }
+    EnumSet<Reason> violations = EnumSet.noneOf(Reason.class);
+    for (PhoneInput phone : phones) {
+      if (phone == null) {
+        violations.add(Reason.PHONE_NULL);
+      } else {
+        violations.addAll(Phone.violations(phone.number(), phone.cityCode(), phone.countryCode()));
+      }
+    }
+    return Collections.unmodifiableSet(violations);
   }
 
   public UserId id() {
