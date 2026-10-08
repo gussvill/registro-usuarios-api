@@ -27,7 +27,7 @@ exercise statement.
 | [ADR-013](#adr-013-h2-hibernate-and-a-versioned-schemasql-with-validate) | H2, Hibernate and a versioned `schema.sql` with `validate` |
 | [ADR-014](#adr-014-jjwt-with-jackson-2-beside-jackson-3) | JJWT with Jackson 2 beside Jackson 3 |
 | [ADR-015](#adr-015-bcrypt-through-spring-security-crypto-without-the-security-starter) | BCrypt through `spring-security-crypto`, without the security starter |
-| [ADR-016](#adr-016-the-token-is-persisted-in-clear-and-the-default-secret-is-for-development-only) | The token is persisted in clear and the default secret is for development only |
+| [ADR-016](#adr-016-the-token-is-persisted-in-clear-and-the-signing-key-is-ephemeral-unless-configured) | The token is persisted in clear and the signing key is ephemeral unless configured |
 | [ADR-017](#adr-017-a-password-policy-strategy-with-a-deliberately-weak-default) | A password policy Strategy with a deliberately weak default |
 | [ADR-018](#adr-018-the-literal-contrycode) | The literal `contrycode` |
 | [ADR-019](#adr-019-email-normalisation-and-field-limits) | Email normalisation and field limits |
@@ -363,7 +363,9 @@ Dockerfile uses the same wrapper, so the image and the local build use one toolc
 
 **Decision.**
 
-- H2 in memory, with the H2 console enabled for inspection, and Hibernate as the JPA provider.
+- H2 in memory, with the H2 console enabled for inspection, and Hibernate as the JPA provider. The
+  console accepts only local connections, so it works with `./gradlew bootRun`; with `docker run -p`
+  it is served but refuses the connection.
 - The schema is a versioned script, `src/main/resources/schema.sql`, run by Spring at start-up.
   Hibernate only validates it: `spring.jpa.hibernate.ddl-auto=validate`. The setting is explicit
   because with an embedded database Boot otherwise defaults to `create-drop`, which would make the
@@ -431,32 +433,40 @@ additional library, and BCrypt is adequate here).
 ones with a 400 instead of silently truncating (ADR-006). The class that wraps the encoder is the
 only place that knows the algorithm.
 
-## ADR-016: The token is persisted in clear and the default secret is for development only
+## ADR-016: The token is persisted in clear and the signing key is ephemeral unless configured
 
 **Context.** The statement requires the token to be persisted with the user. A token stored in clear
-is a bearer credential at rest, which would normally be avoided.
+is a bearer credential at rest, which would normally be avoided. The service must also run with no
+setup, but this repository is public, so any signing secret committed to it, or baked into the
+image, is a secret everyone knows.
 
 **Decision.** The token is stored as issued, in `users.token VARCHAR(1024)`. A test checks that the
 longest possible token (a 254-character email) fits. The token is not validated on any request, so
 nothing in the service depends on the stored value.
 
 The secret and the expiration are properties: `app.token.secret` (environment variable
-`TOKEN_SECRET`) and `app.token.expiration` (default 15 minutes, must be positive). The secret has a
-default so that a reviewer can run the service with no setup, and the default is labelled
-"DEV ONLY" in `application.properties` and in the README.
+`TOKEN_SECRET`) and `app.token.expiration` (default 15 minutes, must be positive). **No secret
+ships.** When `app.token.secret` is absent or empty, `JjwtTokenIssuer` generates a random 256-bit
+key from `SecureRandom` at start-up and logs one `INFO` line saying that an ephemeral signing key is
+in use and that tokens will not survive a restart; the key is never logged. When a secret is
+configured, today's rules apply: at least 32 bytes, otherwise the start-up fails with a message that
+names the property and never the value.
 
 | Option | Verdict |
 |--------|---------|
-| A published development-only default | Chosen: the service runs at once, the weakness is stated, and a short secret fails the start-up |
-| No default | Rejected: the reviewer cannot just run it |
-| A random key at each start | Rejected: the reviewer cannot verify a token with a known secret |
+| A random key at each start unless a secret is configured | Chosen: the service runs at once, nothing usable is published, and a short configured secret still fails the start-up |
+| A published development-only default | Rejected: in a public repository and in the image it is a signing key anyone can use |
+| No default and a failed start-up without a secret | Rejected: the reviewer cannot just run it, and nothing verifies the tokens anyway |
 
-**Consequences.** Anyone who reads the repository knows the default secret. A deployment must set
-`TOKEN_SECRET`. A leaked database leaks valid tokens until they expire. Storing a hash of the token
-would defeat the requirement that it is persisted for later use, so it is not done.
+**Consequences.** Without `TOKEN_SECRET`, tokens are signed with a key that exists only in the
+process, so they cannot be verified after a restart or by another instance. Nothing in the service
+verifies a token, so this affects no behaviour here; a deployment that hands tokens to a consumer
+must set `TOKEN_SECRET`. A leaked database leaks valid tokens until they expire. Storing a hash of
+the token would defeat the requirement that it is persisted for later use, so it is not done.
 Secrets are not logged at any level: the records that carry a password, a token or a secret redact
 it in `toString()`, the single success log line uses a masked email, and tests capture the output at
-DEBUG and TRACE and look for the password, the hash, the token and the secret.
+DEBUG and TRACE and look for the password, the hash, the token and the secret. A test also fails if
+the main sources contain the former development secret.
 
 ## ADR-017: A password policy Strategy with a deliberately weak default
 
@@ -643,14 +653,16 @@ targets the JUnit 5 platform and Boot 4.1.1 manages JUnit 6.
   headers) is answered by the container's own error page, normally HTML, and is outside the
   `mensaje` contract (ADR-010). Everything that reaches the application, including errors forwarded
   to the error path, is covered.
-- **Development-only secret and clear-text token.** The default `app.token.secret` is public. The
-  token is stored in clear because the statement requires it to be persisted (ADR-016). Set
-  `TOKEN_SECRET` for any real use.
+- **Ephemeral signing key and clear-text token.** Without `TOKEN_SECRET` the signing key is random
+  and lives only in the process, so tokens do not survive a restart. The token is stored in clear
+  because the statement requires it to be persisted (ADR-016). Set `TOKEN_SECRET` when tokens must
+  stay valid.
 - **Weak default password pattern.** It accepts the statement's example, `hunter2` (ADR-017).
 - **In-memory data.** Everything is lost when the process stops.
 - **Development tools are on by default.** The H2 console (`/h2-console`) and Swagger UI expose the
   database and the API description. Disable them with `spring.h2.console.enabled=false` and
-  `springdoc.swagger-ui.enabled=false` outside development.
+  `springdoc.swagger-ui.enabled=false` outside development. The H2 console refuses non-local
+  connections, so it is usable with `bootRun` and not through `docker run -p`.
 - **Email enumeration.** The 409 for a duplicate tells a caller whether an address is registered.
   The statement requires that answer.
 - **Pragmatic email format.** The default pattern is not RFC 5322: it accepts ordinary addresses and

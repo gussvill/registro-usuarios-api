@@ -28,8 +28,9 @@ USER app
 EXPOSE 8080
 # Heap as a share of the container limit instead of a fixed -Xmx that drifts from it.
 ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
-# TOKEN_SECRET (at least 32 bytes) is read from the environment at start-up and is deliberately
-# not set here: without it the application falls back to its public, development-only default.
+# No signing secret is baked into the image. Without TOKEN_SECRET the application generates a random
+# key at start-up and its tokens do not survive a restart; to keep them valid, pass a secret of at
+# least 32 bytes:
 #   docker run -e TOKEN_SECRET=... -p 8080:8080 <image>
 # No HEALTHCHECK instruction on purpose: whoever runs the container decides how to probe it.
 ENTRYPOINT ["java", "-jar", "app.jar"]

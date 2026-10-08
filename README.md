@@ -99,11 +99,12 @@ Any of them can be set from the environment.
 |----------|----------------------|---------|---------|
 | `app.registration.email-pattern` | `APP_REGISTRATION_EMAIL_PATTERN` | `^[a-z0-9._%+-]+@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$` | Email format, applied to the lower-cased address |
 | `app.registration.password-pattern` | `APP_REGISTRATION_PASSWORD_PATTERN` | `^(?=.*[A-Za-z])(?=.*[0-9])\S{7,72}$` | Password format: a letter and a digit, 7 to 72 characters without spaces |
-| `app.token.secret` | `TOKEN_SECRET` | a public, development-only value | HS256 signing secret, at least 32 bytes; the application refuses to start with a shorter one |
+| `app.token.secret` | `TOKEN_SECRET` | none | HS256 signing secret, at least 32 bytes; the application refuses to start with a shorter one. When it is not set, a random 256-bit key is generated at start-up and tokens do not survive a restart |
 | `app.token.expiration` | `APP_TOKEN_EXPIRATION` | `15m` | Token lifetime (`120s`, `15m`, ...); must be positive |
 
-**Set `TOKEN_SECRET` for any use beyond a local run.** The default is in this repository, so anyone
-can sign a token with it:
+**No signing secret ships with the application.** Without `TOKEN_SECRET` the service generates a
+random key at each start and logs one `INFO` line saying so (never the key). Set it to keep tokens
+valid across restarts:
 
 ```
 docker run --rm -p 8080:8080 -e TOKEN_SECRET='replace-with-at-least-32-random-bytes' registro-usuarios-api
@@ -121,7 +122,9 @@ With that pattern `hunter2` is answered with `400` and `La contraseña no cumple
 The 72-byte password limit holds whatever the pattern is.
 
 The H2 console and Swagger UI are development tools and are on by default. To turn them off, set
-`SPRING_H2_CONSOLE_ENABLED=false` and `SPRINGDOC_SWAGGER_UI_ENABLED=false`.
+`SPRING_H2_CONSOLE_ENABLED=false` and `SPRINGDOC_SWAGGER_UI_ENABLED=false`. The H2 console only
+accepts connections from the machine it runs on, so it is usable with `./gradlew bootRun`; with
+`docker run -p` the page is served but refuses the connection ("remote connections are disabled").
 
 ## API documentation
 
@@ -137,7 +140,7 @@ The database is H2, in memory: it is created at start-up and lost when the proce
 | What | Value |
 |------|-------|
 | Creation script | [`src/main/resources/schema.sql`](src/main/resources/schema.sql) |
-| H2 console | `http://localhost:8080/h2-console` |
+| H2 console | `http://localhost:8080/h2-console` (with `./gradlew bootRun`; see the note above for Docker) |
 | JDBC URL | `jdbc:h2:mem:userdb` |
 | User name | `sa` |
 | Password | (empty) |
@@ -227,7 +230,8 @@ alternatives that were discarded, is in
 - Requests that the servlet container rejects before any application code runs (an invalid
   percent-escape in the path, a malformed request line, oversized headers) are answered by the
   container's own error page and are outside the JSON contract.
-- The default token secret is public and the token is stored in clear.
+- Without `TOKEN_SECRET` the signing key is ephemeral and tokens do not survive a restart; the token
+  is stored in clear.
 - The default password pattern is weak on purpose.
 - The data is in memory and is lost on restart.
 - The H2 console and Swagger UI are on by default.

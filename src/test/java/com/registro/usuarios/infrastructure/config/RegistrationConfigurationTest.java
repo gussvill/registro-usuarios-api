@@ -248,7 +248,7 @@ class RegistrationConfigurationTest {
   }
 
   @Test
-  void aMissingSecretStopsTheStartupAndTheFailureNamesTheProperty() {
+  void aMissingSecretStartsTheApplicationWithAnEphemeralKey() {
     runner
         .withPropertyValues(
             "app.registration.email-pattern=^.+$",
@@ -256,10 +256,20 @@ class RegistrationConfigurationTest {
             "app.token.expiration=3600s")
         .run(
             context -> {
-              assertThat(context).hasFailed();
-              assertThat(messagesOf(context.getStartupFailure()))
-                  .anySatisfy(m -> assertThat(m).contains("app.token.secret"));
+              assertThat(context).hasNotFailed();
+              User user =
+                  context
+                      .getBean(RegisterUserUseCase.class)
+                      .register(command("juan@dominio.cl", "hunter2"));
+              assertThat(user.token()).matches("[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+");
             });
+  }
+
+  @Test
+  void anEmptySecretIsTheSameAsNoSecret() {
+    withDefaults()
+        .withPropertyValues("app.token.secret=")
+        .run(context -> assertThat(context).hasNotFailed());
   }
 
   @Test
@@ -360,13 +370,7 @@ class RegistrationConfigurationTest {
               assertThat(context).hasNotFailed();
               assertThat(context.getBean(TokenProperties.class).expiration())
                   .isEqualTo(Duration.ofMinutes(15));
-              assertThat(
-                      context
-                          .getBean(TokenProperties.class)
-                          .secret()
-                          .getBytes(StandardCharsets.UTF_8)
-                          .length)
-                  .isGreaterThanOrEqualTo(32);
+              assertThat(context.getBean(TokenProperties.class).secret()).isNullOrEmpty();
               assertThat(context.getEnvironment().getProperty("spring.mvc.log-resolved-exception"))
                   .isEqualTo("false");
             });
@@ -421,17 +425,28 @@ class RegistrationConfigurationTest {
   }
 
   @Test
-  void theShippedSecretDefaultIsLabelledDevOnlyAndTakenFromTheEnvironment() throws Exception {
+  void theShippedPropertiesTakeTheSecretFromTheEnvironmentAndCarryNoValueForIt() throws Exception {
     List<String> lines = Files.readAllLines(PROPERTIES);
-    int secretLine =
-        lines.indexOf(
-            lines.stream()
-                .filter(l -> l.startsWith("app.token.secret="))
-                .findFirst()
-                .orElseThrow());
 
-    assertThat(lines.get(secretLine)).contains("${TOKEN_SECRET:");
-    assertThat(lines.subList(Math.max(0, secretLine - 3), secretLine))
-        .anySatisfy(line -> assertThat(line).containsIgnoringCase("dev only"));
+    assertThat(lines).contains("app.token.secret=${TOKEN_SECRET:}");
+  }
+
+  @Test
+  void noSigningSecretIsShippedInTheMainSources() throws Exception {
+    try (Stream<Path> files = Files.walk(Path.of("src/main"))) {
+      List<Path> offenders =
+          files
+              .filter(Files::isRegularFile)
+              .filter(
+                  file -> {
+                    try {
+                      return Files.readString(file).contains("dev-only-secret");
+                    } catch (java.io.IOException e) {
+                      throw new java.io.UncheckedIOException(e);
+                    }
+                  })
+              .toList();
+      assertThat(offenders).isEmpty();
+    }
   }
 }

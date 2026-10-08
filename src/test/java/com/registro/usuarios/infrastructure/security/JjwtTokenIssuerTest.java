@@ -3,6 +3,10 @@ package com.registro.usuarios.infrastructure.security;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.registro.usuarios.domain.model.Email;
 import com.registro.usuarios.domain.model.UserId;
 import io.jsonwebtoken.Claims;
@@ -11,15 +15,22 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.Date;
+import java.util.HexFormat;
+import java.util.List;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import javax.crypto.SecretKey;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.slf4j.LoggerFactory;
 
 /** The issuer verified the way a consumer would: parse the token back with the shared secret. */
 // JJWT's parser clock and claim accessors are expressed in java.util.Date.
@@ -150,10 +161,124 @@ class JjwtTokenIssuerTest {
   }
 
   @Test
-  void aMissingSecretIsRejectedLikeAShortOne() {
-    assertThatThrownBy(() -> issuer(null, Duration.ofMinutes(1)))
+  void aBlankButNotEmptySecretIsConfiguredAndRejectedAsTooShort() {
+    assertThatThrownBy(() -> issuer("   ", Duration.ofMinutes(1)))
         .isInstanceOf(IllegalStateException.class)
-        .hasMessageContaining("app.token.secret");
+        .hasMessageContaining("app.token.secret")
+        .hasMessageContaining("32 bytes");
+  }
+
+  // --- no configured secret: an ephemeral key, never a shipped one ---
+
+  /** A random source that always yields the same bytes, so a test knows the generated key. */
+  private static final class KnownRandom extends SecureRandom {
+    private static final long serialVersionUID = 1L;
+    static final byte BYTE = 0x41;
+
+    @Override
+    public void nextBytes(byte[] bytes) {
+      Arrays.fill(bytes, BYTE);
+    }
+  }
+
+  private static final byte[] KNOWN_KEY = knownKey();
+
+  private static byte[] knownKey() {
+    byte[] key = new byte[32];
+    new KnownRandom().nextBytes(key);
+    return key;
+  }
+
+  private static Jws<Claims> parseWithKnownKey(String token) {
+    return Jwts.parser()
+        .verifyWith(Keys.hmacShaKeyFor(KNOWN_KEY))
+        .clock(() -> Date.from(ISSUED_AT))
+        .build()
+        .parseSignedClaims(token);
+  }
+
+  @ParameterizedTest
+  @NullSource
+  @ValueSource(strings = "")
+  void withoutASecretTheTokensAreSignedWithAGenerated256BitKey(String missing) {
+    JjwtTokenIssuer issuer =
+        new JjwtTokenIssuer(new TokenProperties(missing, Duration.ofHours(1)), new KnownRandom());
+
+    String token = issuer.issue(SUBJECT, EMAIL, ISSUED_AT);
+
+    Jws<Claims> parsed = parseWithKnownKey(token);
+    assertThat(parsed.getHeader().getAlgorithm()).isEqualTo("HS256");
+    assertThat(parsed.getPayload().getSubject()).isEqualTo(SUBJECT.value().toString());
+    assertThat(KNOWN_KEY).hasSize(32);
+  }
+
+  @Test
+  void twoStartsWithoutASecretSignWithDifferentKeysAndNeitherIsAShippedValue() {
+    JjwtTokenIssuer first = issuer(null, Duration.ofHours(1));
+    JjwtTokenIssuer second = issuer(null, Duration.ofHours(1));
+
+    String firstToken = first.issue(SUBJECT, EMAIL, ISSUED_AT);
+    String secondToken = second.issue(SUBJECT, EMAIL, ISSUED_AT);
+
+    assertThat(signatureOf(firstToken)).isNotEqualTo(signatureOf(secondToken));
+    assertThatThrownBy(
+            () -> parse(firstToken, "dev-only-secret-change-me-0123456789abcdef", ISSUED_AT))
+        .isInstanceOf(SignatureException.class);
+  }
+
+  private static String signatureOf(String token) {
+    return token.substring(token.lastIndexOf('.') + 1);
+  }
+
+  @Test
+  void startingWithoutASecretLogsOneInfoLineAndNeverTheKey() {
+    Logger logger = (Logger) LoggerFactory.getLogger(JjwtTokenIssuer.class);
+    Level previous = logger.getLevel();
+    ListAppender<ILoggingEvent> appender = new ListAppender<>();
+    appender.start();
+    logger.addAppender(appender);
+    logger.setLevel(Level.TRACE);
+    try {
+      JjwtTokenIssuer issuer =
+          new JjwtTokenIssuer(new TokenProperties(null, Duration.ofHours(1)), new KnownRandom());
+      issuer.issue(SUBJECT, EMAIL, ISSUED_AT);
+
+      List<ILoggingEvent> events = appender.list;
+      assertThat(events).hasSize(1);
+      ILoggingEvent event = events.get(0);
+      assertThat(event.getLevel()).isEqualTo(Level.INFO);
+      assertThat(event.getFormattedMessage())
+          .contains("ephemeral signing key")
+          .contains("restart")
+          .contains("app.token.secret");
+      assertThat(event.getThrowableProxy()).isNull();
+      assertThat(event.getFormattedMessage())
+          .doesNotContain(new String(KNOWN_KEY, StandardCharsets.ISO_8859_1))
+          .doesNotContain(Base64.getEncoder().encodeToString(KNOWN_KEY))
+          .doesNotContain(Base64.getUrlEncoder().withoutPadding().encodeToString(KNOWN_KEY))
+          .doesNotContainIgnoringCase(HexFormat.of().formatHex(KNOWN_KEY));
+    } finally {
+      logger.detachAppender(appender);
+      logger.setLevel(previous);
+    }
+  }
+
+  @Test
+  void aConfiguredSecretLogsNothing() {
+    Logger logger = (Logger) LoggerFactory.getLogger(JjwtTokenIssuer.class);
+    Level previous = logger.getLevel();
+    ListAppender<ILoggingEvent> appender = new ListAppender<>();
+    appender.start();
+    logger.addAppender(appender);
+    logger.setLevel(Level.TRACE);
+    try {
+      issuer(SECRET, Duration.ofHours(1)).issue(SUBJECT, EMAIL, ISSUED_AT);
+
+      assertThat(appender.list).isEmpty();
+    } finally {
+      logger.detachAppender(appender);
+      logger.setLevel(previous);
+    }
   }
 
   @ParameterizedTest
