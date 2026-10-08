@@ -1,0 +1,1059 @@
+{
+  "info": {
+    "name": "API de registro de usuarios",
+    "description": "Pruebas de punta a punta de POST /api/v1/users y de los errores del contrato {\"mensaje\": \"...\"}. Se puede ejecutar varias veces contra la misma instancia: cada ejecución usa correos únicos, salvo la solicitud 00, que envía el ejemplo literal del enunciado y acepta 201 (primera vez) o 409 (ya registrado). La variable de colección baseUrl apunta a http://localhost:8080.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 Ejemplo literal del enunciado (juan@rodriguez.org)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Estado 201 (primera vez) o 409 (ya registrado)', function () {",
+              "  pm.expect(pm.response.code).to.be.oneOf([201, 409]);",
+              "});",
+              "",
+              "pm.test('Content-Type es application/json', function () {",
+              "  pm.expect(pm.response.headers.get('Content-Type')).to.match(/^application\\/json/);",
+              "});",
+              "",
+              "function validarUsuarioCreado(body, correoEsperado, telefonosEsperados) {",
+              "  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;",
+              "  pm.test('id es un UUID', function () {",
+              "    pm.expect(body.id).to.match(uuid);",
+              "  });",
+              "  pm.test('created, modified y last_login existen y son iguales', function () {",
+              "    pm.expect(body.created).to.be.a('string').and.not.empty;",
+              "    pm.expect(body.modified).to.eql(body.created);",
+              "    pm.expect(body.last_login).to.eql(body.created);",
+              "  });",
+              "  pm.test('token tiene tres partes separadas por punto', function () {",
+              "    pm.expect(body.token).to.be.a('string');",
+              "    pm.expect(body.token.split('.')).to.have.lengthOf(3);",
+              "    body.token.split('.').forEach(function (parte) { pm.expect(parte).to.match(/^[A-Za-z0-9_-]+$/); });",
+              "  });",
+              "  pm.test('isactive es true', function () {",
+              "    pm.expect(body.isactive).to.eql(true);",
+              "  });",
+              "  pm.test('nombre y correo se devuelven (correo en minúsculas)', function () {",
+              "    pm.expect(body.name).to.eql('Juan Rodriguez');",
+              "    pm.expect(body.email).to.eql(correoEsperado.toLowerCase());",
+              "  });",
+              "  pm.test('los teléfonos se devuelven con contrycode', function () {",
+              "    pm.expect(body.phones).to.eql(telefonosEsperados);",
+              "  });",
+              "  pm.test('la respuesta no contiene la clave password', function () {",
+              "    pm.expect(body).to.not.have.property('password');",
+              "    pm.expect(JSON.stringify(body)).to.not.include('hunter2');",
+              "  });",
+              "  pm.test('la respuesta tiene exactamente las nueve claves documentadas', function () {",
+              "    pm.expect(Object.keys(body).sort()).to.eql(",
+              "      ['created', 'email', 'id', 'isactive', 'last_login', 'modified', 'name', 'phones', 'token'].sort());",
+              "  });",
+              "}",
+              "",
+              "if (pm.response.code === 201) {",
+              "  validarUsuarioCreado(pm.response.json(), 'juan@rodriguez.org', [{ number: '1234567', citycode: '1', contrycode: '57' }]);",
+              "} else {",
+              "  pm.test('El 409 tiene exactamente {\"mensaje\":\"El correo ya registrado\"}', function () {",
+              "    pm.expect(pm.response.json()).to.eql({ mensaje: 'El correo ya registrado' });",
+              "  });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users"
+          ]
+        },
+        "description": "Envía tal cual el cuerpo de ejemplo del enunciado. En una instancia nueva responde 201; después responde 409 porque el correo ya está registrado. La prueba acepta ambos resultados y valida la forma del cuerpo correspondiente.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\":\"Juan Rodriguez\",\"email\":\"juan@rodriguez.org\",\"password\":\"hunter2\",\"phones\":[{\"number\":\"1234567\",\"citycode\":\"1\",\"contrycode\":\"57\"}]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "01 Registrar usuario válido con correo único",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const marca = Date.now() + '-' + Math.floor(Math.random() * 1000000);",
+              "pm.collectionVariables.set('uniqueEmail', 'postman-' + marca + '@rodriguez.org');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Estado 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test('Content-Type es application/json', function () {",
+              "  pm.expect(pm.response.headers.get('Content-Type')).to.match(/^application\\/json/);",
+              "});",
+              "",
+              "function validarUsuarioCreado(body, correoEsperado, telefonosEsperados) {",
+              "  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;",
+              "  pm.test('id es un UUID', function () {",
+              "    pm.expect(body.id).to.match(uuid);",
+              "  });",
+              "  pm.test('created, modified y last_login existen y son iguales', function () {",
+              "    pm.expect(body.created).to.be.a('string').and.not.empty;",
+              "    pm.expect(body.modified).to.eql(body.created);",
+              "    pm.expect(body.last_login).to.eql(body.created);",
+              "  });",
+              "  pm.test('token tiene tres partes separadas por punto', function () {",
+              "    pm.expect(body.token).to.be.a('string');",
+              "    pm.expect(body.token.split('.')).to.have.lengthOf(3);",
+              "    body.token.split('.').forEach(function (parte) { pm.expect(parte).to.match(/^[A-Za-z0-9_-]+$/); });",
+              "  });",
+              "  pm.test('isactive es true', function () {",
+              "    pm.expect(body.isactive).to.eql(true);",
+              "  });",
+              "  pm.test('nombre y correo se devuelven (correo en minúsculas)', function () {",
+              "    pm.expect(body.name).to.eql('Juan Rodriguez');",
+              "    pm.expect(body.email).to.eql(correoEsperado.toLowerCase());",
+              "  });",
+              "  pm.test('los teléfonos se devuelven con contrycode', function () {",
+              "    pm.expect(body.phones).to.eql(telefonosEsperados);",
+              "  });",
+              "  pm.test('la respuesta no contiene la clave password', function () {",
+              "    pm.expect(body).to.not.have.property('password');",
+              "    pm.expect(JSON.stringify(body)).to.not.include('hunter2');",
+              "  });",
+              "  pm.test('la respuesta tiene exactamente las nueve claves documentadas', function () {",
+              "    pm.expect(Object.keys(body).sort()).to.eql(",
+              "      ['created', 'email', 'id', 'isactive', 'last_login', 'modified', 'name', 'phones', 'token'].sort());",
+              "  });",
+              "}",
+              "",
+              "validarUsuarioCreado(pm.response.json(), pm.collectionVariables.get('uniqueEmail'), [{ number: '1234567', citycode: '1', contrycode: '57' }]);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users"
+          ]
+        },
+        "description": "Forma literal del enunciado con un correo distinto en cada ejecución (guardado en la variable de colección uniqueEmail). Responde 201.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\":\"Juan Rodriguez\",\"email\":\"{{uniqueEmail}}\",\"password\":\"hunter2\",\"phones\":[{\"number\":\"1234567\",\"citycode\":\"1\",\"contrycode\":\"57\"}]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "02 Correo repetido responde 409",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Estado 409', function () {",
+              "  pm.response.to.have.status(409);",
+              "});",
+              "",
+              "pm.test('Content-Type es application/json', function () {",
+              "  pm.expect(pm.response.headers.get('Content-Type')).to.match(/^application\\/json/);",
+              "});",
+              "",
+              "pm.test('El cuerpo tiene una única clave, mensaje, con el texto esperado', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(Object.keys(body)).to.eql(['mensaje']);",
+              "  pm.expect(body.mensaje).to.eql(\"El correo ya registrado\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users"
+          ]
+        },
+        "description": "Repite el correo registrado en la solicitud 01. Responde 409 con el mensaje exacto del enunciado.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\":\"Juan Rodriguez\",\"email\":\"{{uniqueEmail}}\",\"password\":\"hunter2\",\"phones\":[{\"number\":\"1234567\",\"citycode\":\"1\",\"contrycode\":\"57\"}]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "03 Mismo correo en mayúsculas responde 409",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('upperEmail', String(pm.collectionVariables.get('uniqueEmail')).toUpperCase());"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Estado 409', function () {",
+              "  pm.response.to.have.status(409);",
+              "});",
+              "",
+              "pm.test('Content-Type es application/json', function () {",
+              "  pm.expect(pm.response.headers.get('Content-Type')).to.match(/^application\\/json/);",
+              "});",
+              "",
+              "pm.test('El cuerpo tiene una única clave, mensaje, con el texto esperado', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(Object.keys(body)).to.eql(['mensaje']);",
+              "  pm.expect(body.mensaje).to.eql(\"El correo ya registrado\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users"
+          ]
+        },
+        "description": "El correo de la solicitud 01 escrito en mayúsculas es la misma dirección. Responde 409.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\":\"Juan Rodriguez\",\"email\":\"{{upperEmail}}\",\"password\":\"hunter2\",\"phones\":[{\"number\":\"1234567\",\"citycode\":\"1\",\"contrycode\":\"57\"}]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "04 Correo sin formato válido responde 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Estado 400', function () {",
+              "  pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test('Content-Type es application/json', function () {",
+              "  pm.expect(pm.response.headers.get('Content-Type')).to.match(/^application\\/json/);",
+              "});",
+              "",
+              "pm.test('El cuerpo tiene una única clave, mensaje, con el texto esperado', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(Object.keys(body)).to.eql(['mensaje']);",
+              "  pm.expect(body.mensaje).to.eql(\"El correo no tiene un formato válido\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users"
+          ]
+        },
+        "description": "Un correo sin arroba ni dominio incumple el formato. Responde 400 con un solo mensaje.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\":\"Juan Rodriguez\",\"email\":\"juan.rodriguez\",\"password\":\"hunter2\",\"phones\":[{\"number\":\"1234567\",\"citycode\":\"1\",\"contrycode\":\"57\"}]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "05 Contraseña que no cumple el patrón responde 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Estado 400', function () {",
+              "  pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test('Content-Type es application/json', function () {",
+              "  pm.expect(pm.response.headers.get('Content-Type')).to.match(/^application\\/json/);",
+              "});",
+              "",
+              "pm.test('El cuerpo tiene una única clave, mensaje, con el texto esperado', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(Object.keys(body)).to.eql(['mensaje']);",
+              "  pm.expect(body.mensaje).to.eql(\"La contraseña no cumple el formato requerido\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users"
+          ]
+        },
+        "description": "Una contraseña sin dígito y demasiado corta no cumple el patrón por defecto. Responde 400.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\":\"Juan Rodriguez\",\"email\":\"valido@dominio.cl\",\"password\":\"abc\",\"phones\":[{\"number\":\"1234567\",\"citycode\":\"1\",\"contrycode\":\"57\"}]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "06 Faltan campos obligatorios responde 400 con varios mensajes",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Estado 400', function () {",
+              "  pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test('Content-Type es application/json', function () {",
+              "  pm.expect(pm.response.headers.get('Content-Type')).to.match(/^application\\/json/);",
+              "});",
+              "",
+              "pm.test('El cuerpo tiene una única clave, mensaje, con los mensajes unidos por \"; \"', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(Object.keys(body)).to.eql(['mensaje']);",
+              "  pm.expect(body.mensaje).to.eql('El correo es obligatorio; El nombre es obligatorio; La contraseña es obligatoria');",
+              "  pm.expect(body.mensaje.split('; ')).to.have.lengthOf(3);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users"
+          ]
+        },
+        "description": "Un objeto vacío omite nombre, correo y contraseña. Responde 400 con los tres mensajes ordenados y unidos por \"; \".",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "07 Teléfono con número no numérico responde 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Estado 400', function () {",
+              "  pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test('Content-Type es application/json', function () {",
+              "  pm.expect(pm.response.headers.get('Content-Type')).to.match(/^application\\/json/);",
+              "});",
+              "",
+              "pm.test('El cuerpo tiene una única clave, mensaje, con el texto esperado', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(Object.keys(body)).to.eql(['mensaje']);",
+              "  pm.expect(body.mensaje).to.eql(\"El número de teléfono solo puede contener dígitos\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users"
+          ]
+        },
+        "description": "El número del teléfono contiene un guion. Responde 400.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\":\"Juan Rodriguez\",\"email\":\"valido@dominio.cl\",\"password\":\"hunter2\",\"phones\":[{\"number\":\"123-4567\",\"citycode\":\"1\",\"contrycode\":\"57\"}]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "08 Registrar sin teléfonos responde 201 con lista vacía",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const marca = Date.now() + '-' + Math.floor(Math.random() * 1000000);",
+              "pm.collectionVariables.set('noPhonesEmail', 'sin-telefonos-' + marca + '@rodriguez.org');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Estado 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test('Content-Type es application/json', function () {",
+              "  pm.expect(pm.response.headers.get('Content-Type')).to.match(/^application\\/json/);",
+              "});",
+              "",
+              "function validarUsuarioCreado(body, correoEsperado, telefonosEsperados) {",
+              "  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;",
+              "  pm.test('id es un UUID', function () {",
+              "    pm.expect(body.id).to.match(uuid);",
+              "  });",
+              "  pm.test('created, modified y last_login existen y son iguales', function () {",
+              "    pm.expect(body.created).to.be.a('string').and.not.empty;",
+              "    pm.expect(body.modified).to.eql(body.created);",
+              "    pm.expect(body.last_login).to.eql(body.created);",
+              "  });",
+              "  pm.test('token tiene tres partes separadas por punto', function () {",
+              "    pm.expect(body.token).to.be.a('string');",
+              "    pm.expect(body.token.split('.')).to.have.lengthOf(3);",
+              "    body.token.split('.').forEach(function (parte) { pm.expect(parte).to.match(/^[A-Za-z0-9_-]+$/); });",
+              "  });",
+              "  pm.test('isactive es true', function () {",
+              "    pm.expect(body.isactive).to.eql(true);",
+              "  });",
+              "  pm.test('nombre y correo se devuelven (correo en minúsculas)', function () {",
+              "    pm.expect(body.name).to.eql('Juan Rodriguez');",
+              "    pm.expect(body.email).to.eql(correoEsperado.toLowerCase());",
+              "  });",
+              "  pm.test('los teléfonos se devuelven con contrycode', function () {",
+              "    pm.expect(body.phones).to.eql(telefonosEsperados);",
+              "  });",
+              "  pm.test('la respuesta no contiene la clave password', function () {",
+              "    pm.expect(body).to.not.have.property('password');",
+              "    pm.expect(JSON.stringify(body)).to.not.include('hunter2');",
+              "  });",
+              "  pm.test('la respuesta tiene exactamente las nueve claves documentadas', function () {",
+              "    pm.expect(Object.keys(body).sort()).to.eql(",
+              "      ['created', 'email', 'id', 'isactive', 'last_login', 'modified', 'name', 'phones', 'token'].sort());",
+              "  });",
+              "}",
+              "",
+              "validarUsuarioCreado(pm.response.json(), pm.collectionVariables.get('noPhonesEmail'), []);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users"
+          ]
+        },
+        "description": "Los teléfonos son opcionales: sin la clave phones se registra el usuario y la respuesta lleva phones como arreglo vacío.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\":\"Juan Rodriguez\",\"email\":\"{{noPhonesEmail}}\",\"password\":\"hunter2\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "09 Correo en dominio.cl con parte local única responde 201",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const marca = Date.now() + '-' + Math.floor(Math.random() * 1000000);",
+              "pm.collectionVariables.set('dominioEmail', 'aaaaaaa-' + marca + '@dominio.cl');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Estado 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test('Content-Type es application/json', function () {",
+              "  pm.expect(pm.response.headers.get('Content-Type')).to.match(/^application\\/json/);",
+              "});",
+              "",
+              "function validarUsuarioCreado(body, correoEsperado, telefonosEsperados) {",
+              "  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;",
+              "  pm.test('id es un UUID', function () {",
+              "    pm.expect(body.id).to.match(uuid);",
+              "  });",
+              "  pm.test('created, modified y last_login existen y son iguales', function () {",
+              "    pm.expect(body.created).to.be.a('string').and.not.empty;",
+              "    pm.expect(body.modified).to.eql(body.created);",
+              "    pm.expect(body.last_login).to.eql(body.created);",
+              "  });",
+              "  pm.test('token tiene tres partes separadas por punto', function () {",
+              "    pm.expect(body.token).to.be.a('string');",
+              "    pm.expect(body.token.split('.')).to.have.lengthOf(3);",
+              "    body.token.split('.').forEach(function (parte) { pm.expect(parte).to.match(/^[A-Za-z0-9_-]+$/); });",
+              "  });",
+              "  pm.test('isactive es true', function () {",
+              "    pm.expect(body.isactive).to.eql(true);",
+              "  });",
+              "  pm.test('nombre y correo se devuelven (correo en minúsculas)', function () {",
+              "    pm.expect(body.name).to.eql('Juan Rodriguez');",
+              "    pm.expect(body.email).to.eql(correoEsperado.toLowerCase());",
+              "  });",
+              "  pm.test('los teléfonos se devuelven con contrycode', function () {",
+              "    pm.expect(body.phones).to.eql(telefonosEsperados);",
+              "  });",
+              "  pm.test('la respuesta no contiene la clave password', function () {",
+              "    pm.expect(body).to.not.have.property('password');",
+              "    pm.expect(JSON.stringify(body)).to.not.include('hunter2');",
+              "  });",
+              "  pm.test('la respuesta tiene exactamente las nueve claves documentadas', function () {",
+              "    pm.expect(Object.keys(body).sort()).to.eql(",
+              "      ['created', 'email', 'id', 'isactive', 'last_login', 'modified', 'name', 'phones', 'token'].sort());",
+              "  });",
+              "}",
+              "",
+              "validarUsuarioCreado(pm.response.json(), pm.collectionVariables.get('dominioEmail'), [{ number: '1234567', citycode: '1', contrycode: '57' }]);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users"
+          ]
+        },
+        "description": "Correo del estilo aaaaaaa@dominio.cl del enunciado, con una parte local única por ejecución. Responde 201.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\":\"Juan Rodriguez\",\"email\":\"{{dominioEmail}}\",\"password\":\"hunter2\",\"phones\":[{\"number\":\"1234567\",\"citycode\":\"1\",\"contrycode\":\"57\"}]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "10 JSON mal formado responde 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Estado 400', function () {",
+              "  pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test('Content-Type es application/json', function () {",
+              "  pm.expect(pm.response.headers.get('Content-Type')).to.match(/^application\\/json/);",
+              "});",
+              "",
+              "pm.test('El cuerpo tiene una única clave, mensaje, con el texto esperado', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(Object.keys(body)).to.eql(['mensaje']);",
+              "  pm.expect(body.mensaje).to.eql(\"El cuerpo de la solicitud no es válido\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users"
+          ]
+        },
+        "description": "El cuerpo no es JSON válido. Responde 400 con el mensaje del cuerpo no válido.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\":",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "11 Content-Type text/plain responde 415",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Estado 415', function () {",
+              "  pm.response.to.have.status(415);",
+              "});",
+              "",
+              "pm.test('Content-Type es application/json', function () {",
+              "  pm.expect(pm.response.headers.get('Content-Type')).to.match(/^application\\/json/);",
+              "});",
+              "",
+              "pm.test('El cuerpo tiene una única clave, mensaje, con el texto esperado', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(Object.keys(body)).to.eql(['mensaje']);",
+              "  pm.expect(body.mensaje).to.eql(\"Tipo de contenido no soportado\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "text/plain",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users"
+          ]
+        },
+        "description": "Solo se acepta application/json. Responde 415.",
+        "body": {
+          "mode": "raw",
+          "raw": "texto plano",
+          "options": {
+            "raw": {
+              "language": "text"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "12 Accept application/xml responde 406 con cuerpo JSON",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Estado 406', function () {",
+              "  pm.response.to.have.status(406);",
+              "});",
+              "",
+              "pm.test('Content-Type es application/json', function () {",
+              "  pm.expect(pm.response.headers.get('Content-Type')).to.match(/^application\\/json/);",
+              "});",
+              "",
+              "pm.test('El cuerpo tiene una única clave, mensaje, con el texto esperado', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(Object.keys(body)).to.eql(['mensaje']);",
+              "  pm.expect(body.mensaje).to.eql(\"Formato de respuesta no aceptable\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Accept",
+            "value": "application/xml",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users"
+          ]
+        },
+        "description": "El servicio solo produce JSON. Con Accept application/xml responde 406, y el cuerpo del error es JSON.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\":\"Juan Rodriguez\",\"email\":\"xml@dominio.cl\",\"password\":\"hunter2\",\"phones\":[{\"number\":\"1234567\",\"citycode\":\"1\",\"contrycode\":\"57\"}]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "13 GET sobre la ruta de registro responde 405",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Estado 405', function () {",
+              "  pm.response.to.have.status(405);",
+              "});",
+              "",
+              "pm.test('Content-Type es application/json', function () {",
+              "  pm.expect(pm.response.headers.get('Content-Type')).to.match(/^application\\/json/);",
+              "});",
+              "",
+              "pm.test('El cuerpo tiene una única clave, mensaje, con el texto esperado', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(Object.keys(body)).to.eql(['mensaje']);",
+              "  pm.expect(body.mensaje).to.eql(\"Método no permitido\");",
+              "});",
+              "",
+              "pm.test('El encabezado Allow incluye POST', function () {",
+              "  pm.expect(pm.response.headers.get('Allow')).to.include('POST');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users"
+          ]
+        },
+        "description": "La ruta solo admite POST. Responde 405 y conserva el encabezado Allow."
+      }
+    },
+    {
+      "name": "14 Ruta desconocida responde 404",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Estado 404', function () {",
+              "  pm.response.to.have.status(404);",
+              "});",
+              "",
+              "pm.test('Content-Type es application/json', function () {",
+              "  pm.expect(pm.response.headers.get('Content-Type')).to.match(/^application\\/json/);",
+              "});",
+              "",
+              "pm.test('El cuerpo tiene una única clave, mensaje, con el texto esperado', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(Object.keys(body)).to.eql(['mensaje']);",
+              "  pm.expect(body.mensaje).to.eql(\"Recurso no encontrado\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/ruta-que-no-existe",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "ruta-que-no-existe"
+          ]
+        },
+        "description": "Una ruta que no existe responde 404 con el mensaje del catálogo."
+      }
+    },
+    {
+      "name": "15 Documento OpenAPI responde 200",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Estado 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Content-Type es application/json', function () {",
+              "  pm.expect(pm.response.headers.get('Content-Type')).to.match(/^application\\/json/);",
+              "});",
+              "",
+              "pm.test('El documento declara la versión de OpenAPI y la ruta de registro', function () {",
+              "  const doc = pm.response.json();",
+              "  pm.expect(doc).to.have.property('openapi');",
+              "  pm.expect(doc.paths).to.have.property('/api/v1/users');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/v3/api-docs",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v3",
+            "api-docs"
+          ]
+        },
+        "description": "Documento OpenAPI generado por la aplicación."
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    }
+  ]
+}
