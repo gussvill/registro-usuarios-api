@@ -62,6 +62,9 @@ class ArchitectureRulesBiteTest {
         bite("ADAPTERS_DO_NOT_DEPEND_ON_EACH_OTHER", "ReachesPersistence"),
         bite("ADAPTERS_DO_NOT_DEPEND_ON_EACH_OTHER", "ReachesWeb"),
         bite("WEB_DOES_NOT_USE_JPA_ENTITIES", "UsesEntity"),
+        bite(
+            "WEB_DEPENDS_ON_THE_INBOUND_PORT_NOT_ON_THE_IMPLEMENTATION",
+            "ReachesUseCaseImplementation"),
         bite("NO_FIELD_INJECTION", "FieldInjected"),
         bite("JPA_ENTITIES_LIVE_IN_PERSISTENCE", "MisplacedEntity"));
   }
@@ -86,6 +89,16 @@ class ArchitectureRulesBiteTest {
   }
 
   @Test
+  void aWebClassThatUsesTheInboundPortIsNotReportedByThePortRule() {
+    EvaluationResult result =
+        rule("WEB_DEPENDS_ON_THE_INBOUND_PORT_NOT_ON_THE_IMPLEMENTATION").evaluate(FIXTURES);
+
+    assertThat(result.getFailureReport().toString())
+        .contains("ReachesUseCaseImplementation")
+        .doesNotContain("UsesInboundPort");
+  }
+
+  @Test
   void noViolationOriginatesFromAnInnocentFixture() {
     // A clean class may be the target of a forbidden dependency, but it is never the culprit: the
     // origin is the first <...> of each detail line.
@@ -98,6 +111,7 @@ class ArchitectureRulesBiteTest {
             .as("%s: %s", name, detail)
             .doesNotContain("CleanDomainType")
             .doesNotContain("CleanAdapter")
+            .doesNotContain("UsesInboundPort")
             .doesNotContain("TransactionalUseCase");
       }
     }

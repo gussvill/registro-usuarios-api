@@ -1,7 +1,7 @@
 package com.registro.usuarios.infrastructure.web;
 
-import com.registro.usuarios.application.RegisterUserCommand;
-import com.registro.usuarios.application.RegisterUserCommand.PhoneData;
+import com.registro.usuarios.application.port.RegisterUserCommand;
+import com.registro.usuarios.application.port.RegisterUserCommand.PhoneData;
 import com.registro.usuarios.domain.model.Phone;
 import com.registro.usuarios.domain.model.User;
 import java.util.ArrayList;

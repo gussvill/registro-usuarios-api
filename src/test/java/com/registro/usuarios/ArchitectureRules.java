@@ -73,6 +73,19 @@ final class ArchitectureRules {
           .notDependOnEachOther()
           .because("every adapter talks to the domain, so a replaced adapter drags no other along");
 
+  /**
+   * The web adapter reaches the use case through its inbound port, which lives in a sub-package of
+   * the application layer; the classes directly in the application package are implementations.
+   */
+  static final ArchRule WEB_DEPENDS_ON_THE_INBOUND_PORT_NOT_ON_THE_IMPLEMENTATION =
+      noClasses()
+          .that()
+          .resideInAPackage("com.registro..infrastructure.web..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAPackage("com.registro..application")
+          .because("the web layer depends on an abstraction owned by the application layer");
+
   /** A persistence entity never crosses the web layer. */
   static final ArchRule WEB_DOES_NOT_USE_JPA_ENTITIES =
       noClasses()

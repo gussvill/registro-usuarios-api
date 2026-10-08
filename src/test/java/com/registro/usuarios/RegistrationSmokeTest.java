@@ -3,6 +3,7 @@ package com.registro.usuarios;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.registro.usuarios.application.RegisterUserUseCase;
+import com.registro.usuarios.application.port.RegisterUser;
 import com.registro.usuarios.support.FullContextTest;
 import com.registro.usuarios.support.RegistrationClient;
 import com.registro.usuarios.support.RegistrationClient.Reply;
@@ -205,7 +206,7 @@ class RegistrationSmokeTest {
 
   @Test
   void theRegistrationUseCaseIsATransactionalProxyOfTheApplicationClass() {
-    RegisterUserUseCase useCase = context.getBean(RegisterUserUseCase.class);
+    RegisterUser useCase = context.getBean(RegisterUser.class);
 
     assertThat(AopUtils.isCglibProxy(useCase)).isTrue();
     assertThat(AopUtils.getTargetClass(useCase)).isEqualTo(RegisterUserUseCase.class);

@@ -5,7 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
-import com.registro.usuarios.application.RegisterUserCommand.PhoneData;
+import com.registro.usuarios.application.port.RegisterUserCommand;
+import com.registro.usuarios.application.port.RegisterUserCommand.PhoneData;
 import com.registro.usuarios.domain.exception.EmailAlreadyRegisteredException;
 import com.registro.usuarios.domain.model.Email;
 import com.registro.usuarios.domain.model.Phone;

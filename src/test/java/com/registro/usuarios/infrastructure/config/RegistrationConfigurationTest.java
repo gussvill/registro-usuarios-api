@@ -2,9 +2,9 @@ package com.registro.usuarios.infrastructure.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.registro.usuarios.application.RegisterUserCommand;
-import com.registro.usuarios.application.RegisterUserCommand.PhoneData;
-import com.registro.usuarios.application.RegisterUserUseCase;
+import com.registro.usuarios.application.port.RegisterUser;
+import com.registro.usuarios.application.port.RegisterUserCommand;
+import com.registro.usuarios.application.port.RegisterUserCommand.PhoneData;
 import com.registro.usuarios.domain.exception.InvalidUserDataException;
 import com.registro.usuarios.domain.model.Email;
 import com.registro.usuarios.domain.model.Reason;
@@ -75,8 +75,7 @@ class RegistrationConfigurationTest {
         "Juan Rodriguez", email, password, List.of(new PhoneData("1234567", "1", "57")));
   }
 
-  private static List<Reason> reasonsOfRejection(
-      RegisterUserUseCase useCase, RegisterUserCommand c) {
+  private static List<Reason> reasonsOfRejection(RegisterUser useCase, RegisterUserCommand c) {
     try {
       useCase.register(c);
     } catch (InvalidUserDataException rejected) {
@@ -146,7 +145,7 @@ class RegistrationConfigurationTest {
             "app.token.expiration=3600s")
         .run(
             context -> {
-              RegisterUserUseCase useCase = context.getBean(RegisterUserUseCase.class);
+              RegisterUser useCase = context.getBean(RegisterUser.class);
 
               assertThat(reasonsOfRejection(useCase, command("juan@rodriguez.org", "hunter2")))
                   .containsExactly(Reason.EMAIL_FORMAT);
@@ -165,7 +164,7 @@ class RegistrationConfigurationTest {
             "app.token.expiration=3600s")
         .run(
             context -> {
-              RegisterUserUseCase useCase = context.getBean(RegisterUserUseCase.class);
+              RegisterUser useCase = context.getBean(RegisterUser.class);
 
               assertThat(reasonsOfRejection(useCase, command("juan@dominio.cl", "hunter2")))
                   .containsExactly(Reason.PASSWORD_FORMAT);
@@ -197,7 +196,7 @@ class RegistrationConfigurationTest {
             context -> {
               User user =
                   context
-                      .getBean(RegisterUserUseCase.class)
+                      .getBean(RegisterUser.class)
                       .register(command("juan@dominio.cl", "hunter2"));
 
               Claims claims =
@@ -222,7 +221,7 @@ class RegistrationConfigurationTest {
               assertThat(context.getBean(Clock.class).getZone().getId()).isEqualTo("Z");
               User user =
                   context
-                      .getBean(RegisterUserUseCase.class)
+                      .getBean(RegisterUser.class)
                       .register(command("juan@dominio.cl", "hunter2"));
               assertThat(Duration.between(user.created(), context.getBean(Clock.class).instant()))
                   .isLessThan(Duration.ofSeconds(30));
@@ -259,7 +258,7 @@ class RegistrationConfigurationTest {
               assertThat(context).hasNotFailed();
               User user =
                   context
-                      .getBean(RegisterUserUseCase.class)
+                      .getBean(RegisterUser.class)
                       .register(command("juan@dominio.cl", "hunter2"));
               assertThat(user.token()).matches("[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+");
             });

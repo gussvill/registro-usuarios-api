@@ -1,6 +1,6 @@
 package com.registro.usuarios.infrastructure.web;
 
-import com.registro.usuarios.application.RegisterUserUseCase;
+import com.registro.usuarios.application.port.RegisterUser;
 import com.registro.usuarios.domain.model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,9 +12,9 @@ class UserController implements UserApi {
 
   private static final Logger LOG = LoggerFactory.getLogger(UserController.class);
 
-  private final RegisterUserUseCase registerUser;
+  private final RegisterUser registerUser;
 
-  UserController(RegisterUserUseCase registerUser) {
+  UserController(RegisterUser registerUser) {
     this.registerUser = registerUser;
   }
 

@@ -10,8 +10,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
-import com.registro.usuarios.application.RegisterUserCommand;
-import com.registro.usuarios.application.RegisterUserUseCase;
+import com.registro.usuarios.application.port.RegisterUser;
+import com.registro.usuarios.application.port.RegisterUserCommand;
 import com.registro.usuarios.domain.exception.EmailAlreadyRegisteredException;
 import com.registro.usuarios.domain.exception.InvalidUserDataException;
 import com.registro.usuarios.domain.model.Reason;
@@ -59,7 +59,7 @@ class ErrorContractTest {
           "timestamp", "status", "error", "path", "message", "trace", "type", "title", "detail");
 
   @Autowired private MockMvc mvc;
-  @MockitoBean private RegisterUserUseCase useCase;
+  @MockitoBean private RegisterUser useCase;
   private final JsonMapper json = new JsonMapper();
 
   // --- helpers ---

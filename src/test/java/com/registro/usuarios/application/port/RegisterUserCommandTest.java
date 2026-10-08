@@ -1,8 +1,8 @@
-package com.registro.usuarios.application;
+package com.registro.usuarios.application.port;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.registro.usuarios.application.RegisterUserCommand.PhoneData;
+import com.registro.usuarios.application.port.RegisterUserCommand.PhoneData;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 

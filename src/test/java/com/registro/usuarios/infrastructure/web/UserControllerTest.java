@@ -11,9 +11,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.registro.usuarios.application.RegisterUserCommand;
-import com.registro.usuarios.application.RegisterUserCommand.PhoneData;
-import com.registro.usuarios.application.RegisterUserUseCase;
+import com.registro.usuarios.application.port.RegisterUser;
+import com.registro.usuarios.application.port.RegisterUserCommand;
+import com.registro.usuarios.application.port.RegisterUserCommand.PhoneData;
 import com.registro.usuarios.domain.model.Email;
 import com.registro.usuarios.domain.model.Phone;
 import com.registro.usuarios.domain.model.User;
@@ -55,7 +55,7 @@ class UserControllerTest {
   private static final UUID ID = UUID.fromString("0b9e3b0e-6a4c-4d52-9b8e-1f1f2d6d7a10");
 
   @Autowired private MockMvc mvc;
-  @MockitoBean private RegisterUserUseCase useCase;
+  @MockitoBean private RegisterUser useCase;
   private final JsonMapper json = new JsonMapper();
 
   private static User user(String email, Instant at, Phone... phones) {

@@ -58,6 +58,11 @@ class ArchitectureTest {
   }
 
   @Test
+  void theWebLayerDependsOnTheInboundPortNotOnTheImplementation() {
+    ArchitectureRules.WEB_DEPENDS_ON_THE_INBOUND_PORT_NOT_ON_THE_IMPLEMENTATION.check(PRODUCTION);
+  }
+
+  @Test
   void noClassUsesFieldInjection() {
     ArchitectureRules.NO_FIELD_INJECTION.check(PRODUCTION);
   }

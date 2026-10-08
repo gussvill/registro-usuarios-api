@@ -1,4 +1,4 @@
-package com.registro.usuarios.application;
+package com.registro.usuarios.application.port;
 
 import com.registro.usuarios.domain.model.PhoneInput;
 import java.util.List;

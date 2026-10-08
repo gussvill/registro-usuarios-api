@@ -1,6 +1,7 @@
 package com.registro.usuarios.infrastructure.config;
 
 import com.registro.usuarios.application.RegisterUserUseCase;
+import com.registro.usuarios.application.port.RegisterUser;
 import com.registro.usuarios.domain.policy.PasswordPolicy;
 import com.registro.usuarios.domain.policy.RegexPasswordPolicy;
 import com.registro.usuarios.domain.port.PasswordHasher;
@@ -32,7 +33,7 @@ class ApplicationConfig {
   }
 
   @Bean
-  RegisterUserUseCase registerUserUseCase(
+  RegisterUser registerUser(
       UserRepository users,
       PasswordHasher hasher,
       TokenIssuer tokens,

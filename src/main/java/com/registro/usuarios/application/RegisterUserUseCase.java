@@ -1,6 +1,8 @@
 package com.registro.usuarios.application;
 
-import com.registro.usuarios.application.RegisterUserCommand.PhoneData;
+import com.registro.usuarios.application.port.RegisterUser;
+import com.registro.usuarios.application.port.RegisterUserCommand;
+import com.registro.usuarios.application.port.RegisterUserCommand.PhoneData;
 import com.registro.usuarios.domain.exception.EmailAlreadyRegisteredException;
 import com.registro.usuarios.domain.exception.InvalidUserDataException;
 import com.registro.usuarios.domain.model.Email;
@@ -23,13 +25,14 @@ import java.util.regex.Pattern;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Registers a user. It orchestrates and decides nothing: the rules live in the domain.
+ * Implements the {@link RegisterUser} port. It orchestrates and decides nothing: the rules live in
+ * the domain.
  *
  * <p>This is the transaction boundary, which is the one concession to the framework in this layer.
  * The class stays non-final and {@link #register} public because the annotation works through a
  * proxy. The class carries no stereotype annotation; the wiring decides how it is created.
  */
-public class RegisterUserUseCase {
+public class RegisterUserUseCase implements RegisterUser {
 
   private final UserRepository users;
   private final PasswordHasher hasher;
@@ -53,12 +56,7 @@ public class RegisterUserUseCase {
     this.clock = clock;
   }
 
-  /**
-   * Registers a new user.
-   *
-   * @throws InvalidUserDataException if any field breaks a rule; every broken field is reported
-   * @throws EmailAlreadyRegisteredException if the email is taken
-   */
+  @Override
   @Transactional
   public User register(RegisterUserCommand command) {
     Set<Reason> violations = violationsOf(command);
