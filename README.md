@@ -1,33 +1,20 @@
-**Requires any JDK 17 or newer to launch Gradle (Gradle downloads a JDK 17 toolchain if none is installed), or Docker.**
+# API de registro de usuarios
 
-# User registration API
+Servicio REST con un solo endpoint, `POST /api/v1/users`, que registra un usuario y responde con el
+usuario almacenado, un JWT firmado y los campos generados. Spring Boot 4.1.1, Java 17, base de datos H2
+en memoria, solo JSON.
 
-A REST service with one endpoint, `POST /api/v1/users`, that registers a user and answers with the
-stored user, a signed JWT and the generated fields. Spring Boot 4.1.1, Java 17, an in-memory H2
-database, JSON only.
+## Ejecutar
 
-## Quick start
-
-Run it with Gradle (the build compiles and tests on a Java 17 toolchain; if no JDK 17 is installed,
-Gradle downloads one the first time):
+**Requisito:** cualquier JDK 17 o superior para iniciar Gradle (Gradle descarga un toolchain de JDK 17
+si no hay ninguno instalado), o Docker.
 
 ```
 ./gradlew bootRun
 ```
 
-The service listens on `http://localhost:8080`. Alternatively, with Docker only:
-
-```
-docker build -t registro-usuarios-api .
-docker run --rm -p 8080:8080 registro-usuarios-api
-```
-
-The image has two stages (JDK 17 to build, JRE 17 to run), runs as a non-root user and exposes
-port 8080.
-
-## Try it
-
-Register the example user from the exercise statement:
+El servicio escucha en `http://localhost:8080`. En otra terminal, registre el usuario de ejemplo del
+enunciado:
 
 ```
 curl -i -X POST http://localhost:8080/api/v1/users \
@@ -35,24 +22,38 @@ curl -i -X POST http://localhost:8080/api/v1/users \
   -d '{"name":"Juan Rodriguez","email":"juan@rodriguez.org","password":"hunter2","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
 ```
 
-The answer is `201` with this body (the id, the timestamps and the token differ on every call; the
-token is shortened here):
+La documentación interactiva (Swagger UI) está en `http://localhost:8080/swagger-ui.html`.
 
-```json
-{"id":"eac35bbc-1f3b-430a-8daf-1643a78dec93","name":"Juan Rodriguez","email":"juan@rodriguez.org","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}],"created":"2026-10-07T23:14:44.150664Z","modified":"2026-10-07T23:14:44.150664Z","last_login":"2026-10-07T23:14:44.150664Z","token":"eyJhbGciOiJIUzI1NiJ9...","isactive":true}
+**Alternativa solo con Docker:**
+
+```
+docker build -t registro-usuarios-api .
+docker run --rm -p 8080:8080 registro-usuarios-api
 ```
 
-`created`, `modified` and `last_login` are the same instant. The token is HS256 with the claims
-`sub` (the user id), `email`, `iat` and `exp` (15 minutes after `iat` by default). The password is
-never returned.
+La imagen tiene dos etapas (JDK 17 para construir, JRE 17 para ejecutar), corre como usuario sin
+privilegios y expone el puerto 8080. No necesita configuración.
 
-Send the same request again and the answer is `409`:
+## Qué responde
+
+La respuesta al ejemplo es `201` con este cuerpo (el id, las marcas de tiempo y el token cambian en
+cada llamada; aquí el token está abreviado):
+
+```json
+{"id":"9048ce8d-03f7-4b80-a63c-e14f767b6cbb","name":"Juan Rodriguez","email":"juan@rodriguez.org","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}],"created":"2026-10-08T00:25:56.057817Z","modified":"2026-10-08T00:25:56.057817Z","last_login":"2026-10-08T00:25:56.057817Z","token":"eyJhbGciOiJIUzI1NiJ9...","isactive":true}
+```
+
+`created`, `modified` y `last_login` son el mismo instante. El token es HS256 con los claims `sub` (el
+id del usuario), `email`, `iat` y `exp` (15 minutos después de `iat` por defecto). La contraseña nunca
+se devuelve.
+
+Si se envía la misma solicitud otra vez, la respuesta es `409`:
 
 ```
 {"mensaje":"El correo ya registrado"}
 ```
 
-A request that breaks several rules reports every broken field, sorted and joined with `"; "`:
+Una solicitud que rompe varias reglas informa todos los campos erróneos, ordenados y unidos con `"; "`:
 
 ```
 curl -s -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application/json' \
@@ -63,179 +64,173 @@ curl -s -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application
 {"mensaje":"El correo no tiene un formato válido; El nombre es obligatorio; La contraseña no cumple el formato requerido"}
 ```
 
-## HTTP status codes
+### Códigos de estado
 
-| Status | When | `mensaje` |
-|--------|------|-----------|
-| 201 | The user was registered | (the user, not an error) |
-| 400 | One or more fields break a rule | The messages of the broken fields, joined with `"; "` |
-| 400 | The body is not valid JSON, is empty or has a wrongly typed field | `El cuerpo de la solicitud no es válido` |
-| 400 | Any other 400 raised inside the application | `La solicitud no es válida` |
-| 404 | Unknown route | `Recurso no encontrado` |
-| 405 | Wrong method on a known route (the `Allow` header is kept) | `Método no permitido` |
-| 406 | The `Accept` header cannot be satisfied | `Formato de respuesta no aceptable` |
-| 409 | The email is already registered | `El correo ya registrado` |
-| 415 | The `Content-Type` is not JSON | `Tipo de contenido no soportado` |
-| 500 | Anything unexpected | `Error interno del servidor` |
+| Estado | Cuándo | `mensaje` |
+|--------|--------|-----------|
+| 201 | El usuario fue registrado | (el usuario, no un error) |
+| 400 | Uno o más campos incumplen una regla | Los mensajes de los campos erróneos, unidos con `"; "` |
+| 400 | El cuerpo no es JSON válido, está vacío o un campo tiene el tipo equivocado | `El cuerpo de la solicitud no es válido` |
+| 400 | Cualquier otro 400 producido dentro de la aplicación | `La solicitud no es válida` |
+| 404 | Ruta desconocida | `Recurso no encontrado` |
+| 405 | Método incorrecto en una ruta conocida (se conserva el encabezado `Allow`) | `Método no permitido` |
+| 406 | No se puede satisfacer el encabezado `Accept` | `Formato de respuesta no aceptable` |
+| 409 | El correo ya está registrado | `El correo ya registrado` |
+| 415 | El `Content-Type` no es JSON | `Tipo de contenido no soportado` |
+| 500 | Cualquier cosa inesperada | `Error interno del servidor` |
 
-## Error format
+### Formato de error
 
-Every error is a JSON object with a single key, as the exercise statement requires:
+Todo error es un objeto JSON con una sola clave, como exige el enunciado:
 
 ```json
 {"mensaje": "..."}
 ```
 
-The text is Spanish. The rejected value is never echoed, and a 500 never carries internal text. The
-format is not RFC 9457 problem details because the statement fixes this shape; the reasoning is in
-[ADR-008](docs/architecture-decisions.md#adr-008-the-mensaje-error-contract-instead-of-rfc-9457).
+El texto está en español. El valor rechazado nunca se repite en la respuesta, y un 500 nunca incluye
+texto interno. El formato no es RFC 9457 porque el enunciado fija esta forma; el razonamiento está en
+el [ADR-008](docs/architecture-decisions.md#adr-008-el-contrato-de-error-mensaje-en-lugar-de-rfc-9457).
 
-## Configuration
+## Configuración
 
-Properties live in [`src/main/resources/application.properties`](src/main/resources/application.properties).
-Any of them can be set from the environment.
+Las propiedades están en [`src/main/resources/application.properties`](src/main/resources/application.properties).
+Cualquiera se puede fijar desde el entorno.
 
-| Property | Environment variable | Default | Meaning |
-|----------|----------------------|---------|---------|
-| `app.registration.email-pattern` | `APP_REGISTRATION_EMAIL_PATTERN` | `^[a-z0-9._%+-]+@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$` | Email format, applied to the lower-cased address |
-| `app.registration.password-pattern` | `APP_REGISTRATION_PASSWORD_PATTERN` | `^(?=.*[A-Za-z])(?=.*[0-9])\S{7,72}$` | Password format: a letter and a digit, 7 to 72 characters without spaces |
-| `app.token.secret` | `TOKEN_SECRET` | none | HS256 signing secret, at least 32 bytes; the application refuses to start with a shorter one. When it is not set, a random 256-bit key is generated at start-up and tokens do not survive a restart |
-| `app.token.expiration` | `APP_TOKEN_EXPIRATION` | `15m` | Token lifetime (`120s`, `15m`, ...); must be positive |
+| Propiedad | Variable de entorno | Valor por defecto | Significado |
+|-----------|---------------------|-------------------|-------------|
+| `app.registration.email-pattern` | `APP_REGISTRATION_EMAIL_PATTERN` | `^[a-z0-9._%+-]+@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$` | Formato del correo, aplicado a la dirección en minúsculas |
+| `app.registration.password-pattern` | `APP_REGISTRATION_PASSWORD_PATTERN` | `^(?=.*[A-Za-z])(?=.*[0-9])\S{7,72}$` | Formato de la contraseña: una letra y un dígito, de 7 a 72 caracteres sin espacios |
+| `app.token.secret` | `TOKEN_SECRET` | ninguno | Secreto de firma HS256, de al menos 32 bytes; la aplicación no arranca con uno más corto. Si no se define, se genera una clave aleatoria de 256 bits al arrancar y los tokens no sobreviven a un reinicio |
+| `app.token.expiration` | `APP_TOKEN_EXPIRATION` | `15m` | Vigencia del token (`120s`, `15m`, ...); debe ser positiva |
 
-**No signing secret ships with the application.** Without `TOKEN_SECRET` the service generates a
-random key at each start and logs one `INFO` line saying so (never the key). Set it to keep tokens
-valid across restarts:
+**La aplicación no distribuye ningún secreto de firma.** Sin `TOKEN_SECRET` el servicio genera una
+clave aleatoria en cada arranque y registra una línea `INFO` que lo indica (nunca la clave). Fíjelo
+para que los tokens sigan siendo válidos tras un reinicio:
 
 ```
 docker run --rm -p 8080:8080 -e TOKEN_SECRET='replace-with-at-least-32-random-bytes' registro-usuarios-api
 ```
 
-**The default password pattern is weak on purpose**, because the statement's example, `hunter2`,
-has to pass. To require twelve or more characters with a lower-case letter, an upper-case letter, a
-digit and a symbol:
+**El patrón de contraseña por defecto es débil a propósito**, porque la contraseña de ejemplo del
+enunciado, `hunter2`, debe pasar. Para exigir doce o más caracteres con una minúscula, una mayúscula,
+un dígito y un símbolo:
 
 ```
 APP_REGISTRATION_PASSWORD_PATTERN='^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9\s])\S{12,72}$' ./gradlew bootRun
 ```
 
-With that pattern `hunter2` is answered with `400` and `La contraseña no cumple el formato requerido`.
-The 72-byte password limit holds whatever the pattern is.
+Con ese patrón, `hunter2` recibe `400` y `La contraseña no cumple el formato requerido`. El límite de
+72 bytes de la contraseña se mantiene sea cual sea el patrón.
 
-The H2 console and Swagger UI are development tools and are on by default. To turn them off, set
-`SPRING_H2_CONSOLE_ENABLED=false` and `SPRINGDOC_SWAGGER_UI_ENABLED=false`. The H2 console only
-accepts connections from the machine it runs on, so it is usable with `./gradlew bootRun`; with
-`docker run -p` the page is served but refuses the connection ("remote connections are disabled").
+La consola H2 y Swagger UI son herramientas de desarrollo y vienen activadas. Para desactivarlas:
 
-## API documentation
+```
+SPRING_H2_CONSOLE_ENABLED=false SPRINGDOC_SWAGGER_UI_ENABLED=false ./gradlew bootRun
+```
 
-| What | URL |
-|------|-----|
+## Documentación de la API y base de datos
+
+| Qué | Valor |
+|-----|-------|
 | Swagger UI | `http://localhost:8080/swagger-ui.html` |
-| OpenAPI document | `http://localhost:8080/v3/api-docs` |
+| Documento OpenAPI | `http://localhost:8080/v3/api-docs` |
+| Script de creación | [`src/main/resources/schema.sql`](src/main/resources/schema.sql) |
+| Consola H2 | `http://localhost:8080/h2-console` |
+| URL JDBC | `jdbc:h2:mem:userdb` |
+| Usuario / contraseña | `sa` / (vacía) |
 
-## Database
+La base de datos es H2 en memoria: se crea al arrancar y se pierde cuando el proceso se detiene. El
+script crea `users` (con restricción `UNIQUE` sobre el correo) y `phones` (una fila por teléfono,
+enlazada al usuario por una clave foránea). Hibernate solo lo valida (`ddl-auto=validate`); nunca crea
+ni altera una tabla.
 
-The database is H2, in memory: it is created at start-up and lost when the process stops.
+**La consola H2 solo acepta conexiones locales**: se usa con `./gradlew bootRun`. Con `docker run -p`
+la página se sirve, pero rechaza la conexión ("remote connections are disabled").
 
-| What | Value |
-|------|-------|
-| Creation script | [`src/main/resources/schema.sql`](src/main/resources/schema.sql) |
-| H2 console | `http://localhost:8080/h2-console` (with `./gradlew bootRun`; see the note above for Docker) |
-| JDBC URL | `jdbc:h2:mem:userdb` |
-| User name | `sa` |
-| Password | (empty) |
-
-The script creates `users` (with a `UNIQUE` constraint on the email) and `phones` (one row per phone,
-linked to the user by a foreign key). Hibernate only validates it (`ddl-auto=validate`); it never
-creates or alters a table.
-
-## Tests and quality gates
+## Pruebas y compuertas de calidad
 
 ```
-./gradlew test                       # the test suite
-./gradlew build                      # compile, format check, tests, coverage gate
-./gradlew clean build --rerun-tasks  # the same from scratch, nothing cached
-./gradlew spotlessApply              # fix formatting
+./gradlew test                       # la suite de pruebas
+./gradlew build                      # compila, verifica formato, pruebas y umbral de cobertura
+./gradlew clean build --rerun-tasks  # lo mismo desde cero, sin caché
+./gradlew spotlessApply              # corrige el formato
+bash scripts/acceptance.sh           # con el servicio en marcha: solicitudes reales con curl
 ```
 
-- **538 tests**, none skipped; a clean build takes about 25 seconds.
-- Layers: plain JUnit for the domain and the use case (no Spring, no database), Spring slices for
-  the web and persistence adapters, full-context tests over real HTTP against H2, and architecture
-  tests.
-- **Coverage:** JaCoCo enforces at least 80 % of lines in `domain` and `application`; the measured
-  value is 100 % (197 of 197 lines). Infrastructure is measured but not gated. The report is
-  written to `build/reports/jacoco/test/html/index.html`.
-- **Static checks:** Spotless with Google Java Format, Error Prone, `-Xlint:all -Werror`, and seven
-  ArchUnit rules (the domain imports no framework, dependencies point inwards, adapters do not
-  depend on each other, no field injection). A second test class proves each rule fails when a
-  fixture class breaks it.
-- **Acceptance script:** with the service running, `bash scripts/acceptance.sh` makes real requests with
-  `curl` (the statement's example, the duplicate, invalid and malformed bodies, 404, 405, 406, 415,
-  Swagger UI and the OpenAPI document) and exits non-zero at the
-  first failure. Use a fresh instance each time, because the example address can be registered only
-  once; set `BASE_URL` to test another address.
-- **CI:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs `./gradlew build` and builds the
-  image on every push and pull request to `main`. It has not been run on GitHub yet.
+- **Capas de prueba:** JUnit simple para el dominio y el caso de uso (sin Spring ni base de datos),
+  cortes de Spring para los adaptadores web y de persistencia, pruebas de contexto completo sobre HTTP
+  real contra H2, y pruebas de arquitectura.
+- **Cobertura:** JaCoCo exige al menos 80 % de líneas en `domain` y `application`. La infraestructura
+  se mide, pero no tiene umbral. El informe queda en `build/reports/jacoco/test/html/index.html`.
+- **Verificaciones estáticas:** Spotless con Google Java Format, Error Prone, `-Xlint:all -Werror` y
+  reglas de ArchUnit (el dominio no importa ningún framework, las dependencias apuntan hacia adentro,
+  los adaptadores no dependen entre sí, sin inyección en campos). Una segunda clase de pruebas demuestra
+  que cada regla falla cuando una clase de fixture la rompe.
+- **Script de aceptación:** hace solicitudes reales con `curl` (el ejemplo del enunciado, el duplicado,
+  cuerpos inválidos y mal formados, 404, 405, 406, 415, Swagger UI y el documento OpenAPI) y termina con
+  código distinto de cero en el primer fallo. Use una instancia nueva cada vez, porque la dirección del
+  ejemplo solo se puede registrar una vez; `BASE_URL` apunta a otra dirección.
+- **CI:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) ejecuta `./gradlew build` y construye la
+  imagen en cada push y pull request a `main`.
 
-## Architecture
+## Arquitectura
 
-- `domain` has no framework: `User`, `Email`, `Phone`, `UserId`, the password policy, the validation
-  rules and the three ports (`UserRepository`, `PasswordHasher`, `TokenIssuer`).
-- `application` holds one class, `RegisterUserUseCase`, which orchestrates the registration and owns
-  the transaction. `@Transactional` is the only framework type allowed there.
-- `infrastructure` holds the adapters: `web` (controller, JSON records, error handling),
-  `persistence` (JPA), `security` (BCrypt, JJWT) and `config` (wiring and properties).
+![Componentes](docs/diagrams/components.png)
 
-[Component diagram](docs/diagrams/components.svg) and
-[registration sequence](docs/diagrams/registration-sequence.svg):
+![Secuencia del registro](docs/diagrams/registration-sequence.png)
 
-![Components](docs/diagrams/components.svg)
+Los diagramas son Mermaid ([`components.mmd`](docs/diagrams/components.mmd),
+[`registration-sequence.mmd`](docs/diagrams/registration-sequence.mmd)) y se exportan a PNG en la misma
+carpeta.
 
-![Registration sequence](docs/diagrams/registration-sequence.svg)
+- `domain` no tiene framework: `User`, `Email`, `Phone`, `UserId`, la política de contraseña, las
+  reglas de validación y los tres puertos (`UserRepository`, `PasswordHasher`, `TokenIssuer`).
+- `application` tiene una sola clase, `RegisterUserUseCase`, que orquesta el registro y es dueña de la
+  transacción. `@Transactional` es el único tipo del framework permitido allí.
+- `infrastructure` contiene los adaptadores: `web` (controlador, records JSON, manejo de errores),
+  `persistence` (JPA), `security` (BCrypt, JJWT) y `config` (cableado y propiedades).
 
-The diagrams are Mermaid, in [`components.mmd`](docs/diagrams/components.mmd) and
-[`registration-sequence.mmd`](docs/diagrams/registration-sequence.mmd), and are also exported as PNG
-in the same folder.
+**Por qué un hexágono para un solo endpoint.** Hay puertos donde hay una dependencia reemplazable: la
+base de datos, el hash de contraseñas y la firma de tokens. Eso permite probar el dominio y el caso de
+uso sin contenedor ni base de datos, y mantiene los tipos de terceros (JPA, BCrypt, JJWT) fuera de las
+reglas de negocio. El costo, dicho en una frase: hay más tipos de los que el comportamiento necesita, y
+un servicio tan pequeño normalmente no requeriría un hexágono. Cada decisión, con las alternativas
+descartadas, está en [`docs/architecture-decisions.md`](docs/architecture-decisions.md#adr-001-un-hexágono-ligero-para-un-servicio-de-un-solo-endpoint).
 
-**An honest note on the design.** By ordinary criteria this service does not need ports and
-adapters: it has one entry point, one database, two tables and create-only logic. A controller,
-a service and a repository with validation annotations would be the default. The hexagon is used
-because the exercise asks for design patterns and good practices, and it is kept light: one use case,
-no inbound port interface, ports only where a real dependency exists. Every decision, with the
-alternatives that were discarded, is in
-[`docs/architecture-decisions.md`](docs/architecture-decisions.md).
+## Supuestos sobre el enunciado
 
-## Assumptions about the statement
+- **`contrycode` se conserva tal como está escrito.** El enunciado escribe así el campo de país del
+  teléfono, de modo que solicitudes, respuestas y el documento OpenAPI lo usan
+  ([ADR-018](docs/architecture-decisions.md#adr-018-el-contrycode-literal)).
+- **`{"mensaje": "..."}` se usa solo para errores.** Las respuestas exitosas llevan el usuario, sin
+  envoltorio.
+- **Un correo duplicado es un 409.** El texto es el que da el enunciado.
+- **Los teléfonos son opcionales.** `phones` puede estar ausente, ser `null` o vacío y siempre se
+  devuelve como arreglo. Cada teléfono necesita sus tres campos.
+- **Los campos de teléfono son dígitos.** `number` y `citycode` contienen solo los dígitos 0 a 9;
+  `contrycode` son dígitos con un `+` inicial opcional. El ejemplo del enunciado (`"1234567"`, `"1"`,
+  `"57"`) es válido; `"123-4567"` o `"57+"` reciben un `400` con su propio mensaje.
+- **El correo se pasa a minúsculas y no se recorta.** Dos direcciones que difieren solo en mayúsculas
+  son la misma dirección.
+- **Los límites de los campos son supuestos**, porque el enunciado no da ninguno: nombre 255
+  caracteres, correo 254, contraseña 72 bytes, 10 teléfonos, número de teléfono 20 caracteres, códigos
+  de ciudad y de país 10 cada uno.
+- **El token se almacena en claro**, porque el enunciado exige que se persista.
+- **Java 17 en lugar de "Java 8+".** Spring Boot 3 y posteriores necesitan Java 17
+  ([ADR-011](docs/architecture-decisions.md#adr-011-spring-boot-411-y-java-17-frente-al-java-8-del-enunciado)).
 
-- **`contrycode` is kept as written.** The statement spells the phone's country field that way, so
-  requests, responses and the OpenAPI document use it
-  ([ADR-018](docs/architecture-decisions.md#adr-018-the-literal-contrycode)).
-- **`{"mensaje": "..."}` is used for errors only.** Successful answers carry the user, not a wrapper.
-- **A duplicate email is a 409.** The text is the one the statement gives.
-- **Phones are optional.** `phones` may be absent, `null` or empty and is always returned as an array.
-  Each phone needs its three fields.
-- **The email is lower-cased and not trimmed.** Two addresses that differ only in case are the same
-  address.
-- **Field limits are assumptions**, since the statement gives none: name 255 characters, email 254,
-  password 72 bytes, 10 phones, phone number 20 characters, city and country codes 10 each.
-- **Phone fields are digits.** `number` and `citycode` contain only the digits 0 to 9; `contrycode`
-  is digits with an optional leading `+`. The statement's example (`"1234567"`, `"1"`, `"57"`) is
-  valid; `"123-4567"` or `"57+"` is a `400` with its own message.
-- **The token is stored in clear**, because the statement requires it to be persisted.
-- **Java 17 instead of "Java 8+".** Spring Boot 3 and later need Java 17
-  ([ADR-011](docs/architecture-decisions.md#adr-011-spring-boot-411-and-java-17-against-the-statements-java-8)).
+## Limitaciones conocidas
 
-## Known limitations
+- Las solicitudes que el contenedor de servlets rechaza antes de que corra código de la aplicación (una
+  secuencia de porcentaje inválida en la ruta, una línea de solicitud mal formada, encabezados
+  demasiado grandes) se responden con la página de error propia del contenedor y quedan fuera del
+  contrato JSON.
+- Sin `TOKEN_SECRET` la clave de firma es efímera y los tokens no sobreviven a un reinicio; el token se
+  almacena en claro.
+- El patrón de contraseña por defecto es débil a propósito.
+- Los datos están en memoria y se pierden al reiniciar.
+- La consola H2 y Swagger UI vienen activadas.
+- Una respuesta de duplicado le dice a quien llama que una dirección está registrada.
 
-- Requests that the servlet container rejects before any application code runs (an invalid
-  percent-escape in the path, a malformed request line, oversized headers) are answered by the
-  container's own error page and are outside the JSON contract.
-- Without `TOKEN_SECRET` the signing key is ephemeral and tokens do not survive a restart; the token
-  is stored in clear.
-- The default password pattern is weak on purpose.
-- The data is in memory and is lost on restart.
-- The H2 console and Swagger UI are on by default.
-- A duplicate answer tells a caller that an address is registered.
-
-The full list, with the reasoning, is at the end of
-[`docs/architecture-decisions.md`](docs/architecture-decisions.md#known-limitations).
+La lista completa, con su razonamiento, está al final de
+[`docs/architecture-decisions.md`](docs/architecture-decisions.md#limitaciones-conocidas).

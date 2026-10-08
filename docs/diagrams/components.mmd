@@ -1,5 +1,5 @@
 flowchart LR
-  Client([HTTP client])
+  Client([Cliente HTTP])
 
   subgraph infra_in [infrastructure.web]
     Web["UserController / UserApi<br/>GlobalExceptionHandler<br/>ApiErrorController"]
@@ -10,23 +10,23 @@ flowchart LR
   end
 
   subgraph dom [domain]
-    Model["User, UserId, Email, Phone<br/>PasswordPolicy, RegexPasswordPolicy<br/>domain exceptions"]
-    Ports["Ports<br/>UserRepository<br/>PasswordHasher<br/>TokenIssuer"]
+    Model["User, UserId, Email, Phone<br/>PasswordPolicy, RegexPasswordPolicy<br/>excepciones de dominio"]
+    Ports["Puertos<br/>UserRepository<br/>PasswordHasher<br/>TokenIssuer"]
   end
 
-  subgraph infra_out [infrastructure adapters]
+  subgraph infra_out [adaptadores de infrastructure]
     Pers["persistence<br/>UserPersistenceAdapter"]
     Sec["security<br/>BCryptPasswordHasher<br/>JjwtTokenIssuer"]
   end
 
   Cfg["infrastructure.config<br/>ApplicationConfig<br/>RegistrationProperties, OpenApiConfig"]
-  H2[("H2 in-memory<br/>schema.sql")]
+  H2[("H2 en memoria<br/>schema.sql")]
 
   Client -->|"POST /api/v1/users"| Web
   Web --> UC
   UC --> Model
   UC --> Ports
-  Pers -.->|implements UserRepository| Ports
-  Sec -.->|implements PasswordHasher, TokenIssuer| Ports
+  Pers -.->|implementa UserRepository| Ports
+  Sec -.->|implementa PasswordHasher y TokenIssuer| Ports
   Pers --> H2
-  Cfg -.->|creates the use case and the policy| UC
+  Cfg -.->|crea el caso de uso y la política| UC

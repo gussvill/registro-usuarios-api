@@ -1,683 +1,713 @@
-# Architecture decisions
+# Decisiones de arquitectura
 
-This document records why the service is built the way it is. Each decision is a short record
-with its context, the decision, the alternatives that were discarded and the consequences. It is
-self-contained: everything it refers to is in this repository.
+Este documento registra por qué el servicio está construido como está. Cada decisión es un registro
+breve con su contexto, la decisión, las alternativas descartadas y las consecuencias. Es autocontenido:
+todo lo que menciona está en este repositorio.
 
-The service has one capability: `POST /api/v1/users` registers a user and answers with the stored
-user, a signed token and the generated fields. The decisions below follow from that and from the
-exercise statement.
+El servicio tiene una sola capacidad: `POST /api/v1/users` registra un usuario y responde con el
+usuario almacenado, un token firmado y los campos generados. Las decisiones siguientes se derivan de
+eso y del enunciado del ejercicio.
 
-## Index
+## Índice
 
-| Id | Decision |
+| Id | Decisión |
 |----|----------|
-| [ADR-001](#adr-001-a-light-hexagon-for-a-one-endpoint-service) | A light hexagon for a one-endpoint service |
-| [ADR-002](#adr-002-ports-and-adapters-one-reason-each) | Ports and adapters, one reason each |
-| [ADR-003](#adr-003-no-inbound-port-interface) | No inbound port interface |
-| [ADR-004](#adr-004-transactional-on-the-use-case-is-the-only-framework-concession) | `@Transactional` on the use case is the only framework concession |
-| [ADR-005](#adr-005-a-separate-persistence-model-with-write-only-mapping) | A separate persistence model with write-only mapping |
-| [ADR-006](#adr-006-validation-lives-in-the-domain) | Validation lives in the domain |
-| [ADR-007](#adr-007-strict-json-string-typing) | Strict JSON string typing |
-| [ADR-008](#adr-008-the-mensaje-error-contract-instead-of-rfc-9457) | The `{"mensaje"}` error contract instead of RFC 9457 |
-| [ADR-009](#adr-009-status-mapping) | Status mapping |
-| [ADR-010](#adr-010-an-error-controller-for-errors-forwarded-to-the-error-path) | An error controller for errors forwarded to the error path |
-| [ADR-011](#adr-011-spring-boot-411-and-java-17-against-the-statements-java-8) | Spring Boot 4.1.1 and Java 17 against the statement's "Java 8+" |
-| [ADR-012](#adr-012-gradle-as-the-build-tool) | Gradle as the build tool |
-| [ADR-013](#adr-013-h2-hibernate-and-a-versioned-schemasql-with-validate) | H2, Hibernate and a versioned `schema.sql` with `validate` |
-| [ADR-014](#adr-014-jjwt-with-jackson-2-beside-jackson-3) | JJWT with Jackson 2 beside Jackson 3 |
-| [ADR-015](#adr-015-bcrypt-through-spring-security-crypto-without-the-security-starter) | BCrypt through `spring-security-crypto`, without the security starter |
-| [ADR-016](#adr-016-the-token-is-persisted-in-clear-and-the-signing-key-is-ephemeral-unless-configured) | The token is persisted in clear and the signing key is ephemeral unless configured |
-| [ADR-017](#adr-017-a-password-policy-strategy-with-a-deliberately-weak-default) | A password policy Strategy with a deliberately weak default |
-| [ADR-018](#adr-018-the-literal-contrycode) | The literal `contrycode` |
-| [ADR-019](#adr-019-email-normalisation-and-field-limits) | Email normalisation and field limits |
-| [ADR-020](#adr-020-application-generated-identifier-and-a-single-clock-reading) | Application-generated identifier and a single clock reading |
-| [ADR-021](#adr-021-quality-gates) | Quality gates |
-| [ADR-022](#adr-022-what-was-deliberately-left-out) | What was deliberately left out |
+| [ADR-001](#adr-001-un-hexágono-ligero-para-un-servicio-de-un-solo-endpoint) | Un hexágono ligero para un servicio de un solo endpoint |
+| [ADR-002](#adr-002-puertos-y-adaptadores-una-razón-para-cada-uno) | Puertos y adaptadores, una razón para cada uno |
+| [ADR-003](#adr-003-sin-interfaz-de-puerto-de-entrada) | Sin interfaz de puerto de entrada |
+| [ADR-004](#adr-004-transactional-en-el-caso-de-uso-es-la-única-concesión-al-framework) | `@Transactional` en el caso de uso es la única concesión al framework |
+| [ADR-005](#adr-005-un-modelo-de-persistencia-separado-con-mapeo-de-solo-escritura) | Un modelo de persistencia separado con mapeo de solo escritura |
+| [ADR-006](#adr-006-la-validación-vive-en-el-dominio) | La validación vive en el dominio |
+| [ADR-007](#adr-007-tipado-estricto-de-strings-en-json) | Tipado estricto de strings en JSON |
+| [ADR-008](#adr-008-el-contrato-de-error-mensaje-en-lugar-de-rfc-9457) | El contrato de error `{"mensaje"}` en lugar de RFC 9457 |
+| [ADR-009](#adr-009-mapeo-de-estados) | Mapeo de estados |
+| [ADR-010](#adr-010-un-controlador-de-errores-para-los-errores-reenviados-a-la-ruta-de-error) | Un controlador de errores para los errores reenviados a la ruta de error |
+| [ADR-011](#adr-011-spring-boot-411-y-java-17-frente-al-java-8-del-enunciado) | Spring Boot 4.1.1 y Java 17 frente al "Java 8+" del enunciado |
+| [ADR-012](#adr-012-gradle-como-herramienta-de-build) | Gradle como herramienta de build |
+| [ADR-013](#adr-013-h2-hibernate-y-un-schemasql-versionado-con-validate) | H2, Hibernate y un `schema.sql` versionado con `validate` |
+| [ADR-014](#adr-014-jjwt-con-jackson-2-junto-a-jackson-3) | JJWT con Jackson 2 junto a Jackson 3 |
+| [ADR-015](#adr-015-bcrypt-mediante-spring-security-crypto-sin-el-starter-de-seguridad) | BCrypt mediante `spring-security-crypto`, sin el starter de seguridad |
+| [ADR-016](#adr-016-el-token-se-persiste-en-claro-y-la-clave-de-firma-es-efímera-salvo-que-se-configure) | El token se persiste en claro y la clave de firma es efímera salvo que se configure |
+| [ADR-017](#adr-017-un-strategy-de-política-de-contraseña-con-un-valor-por-defecto-débil-a-propósito) | Un Strategy de política de contraseña con un valor por defecto débil a propósito |
+| [ADR-018](#adr-018-el-contrycode-literal) | El `contrycode` literal |
+| [ADR-019](#adr-019-normalización-del-correo-y-límites-de-campos) | Normalización del correo y límites de campos |
+| [ADR-020](#adr-020-identificador-generado-por-la-aplicación-y-una-única-lectura-del-reloj) | Identificador generado por la aplicación y una única lectura del reloj |
+| [ADR-021](#adr-021-compuertas-de-calidad) | Compuertas de calidad |
+| [ADR-022](#adr-022-lo-que-se-dejó-fuera-deliberadamente) | Lo que se dejó fuera deliberadamente |
 
-Below the records: [components](#components) and [known limitations](#known-limitations).
+Después de los registros: [componentes](#componentes) y [limitaciones conocidas](#limitaciones-conocidas).
 
 ---
 
-## ADR-001: A light hexagon for a one-endpoint service
+## ADR-001: Un hexágono ligero para un servicio de un solo endpoint
 
-**Context.** By ordinary criteria this service does not need ports and adapters. It has one entry
-point, one database, two tables and create-only logic. Without the exercise it would be a
-controller, a service and a repository with a request DTO and validation annotations, and that
-would be the correct default. Hexagonal architecture pays when the domain must be tested without
-infrastructure, when there is more than one entry point or an unstable external dependency, or when
-the service will outlive its framework. Only the first of those is true here, and only mildly.
+**Contexto.** Esto es un compromiso y se declara primero: un servicio tan pequeño normalmente no
+necesitaría un hexágono. Tiene un punto de entrada, una base de datos, dos tablas y lógica solo de
+creación. Sin el ejercicio sería un controlador, un servicio y un repositorio con un DTO de entrada y
+anotaciones de validación, y esa sería la opción más barata. La arquitectura hexagonal rinde cuando el
+dominio debe probarse sin infraestructura, cuando hay más de un punto de entrada o una dependencia
+externa inestable, o cuando el servicio vivirá más que su framework. Aquí solo se cumple la primera, y
+solo en parte.
 
-**Decision.** The exercise statement asks for design patterns and good practices to be shown, so
-the service is built as a hexagon and kept as light as it can be. Five rules limit the cost:
+**Decisión.** El enunciado pide mostrar patrones de diseño y buenas prácticas, así que el servicio se
+construye como un hexágono y se mantiene lo más liviano posible. Cinco reglas acotan el costo:
 
-1. One use case class and no inbound port interface (ADR-003).
-2. A port exists only where there is a real, replaceable dependency: the database, hashing and
-   token signing (ADR-002). Time uses `java.time.Clock`, not a custom port.
-3. No read path. The repository port has two methods and there is no mapping from storage back to
-   the domain.
-4. No mapper library, no Lombok, no domain events, no CQRS.
-5. Every pattern is tied to a variation that exists today (see the table in ADR-002 and the
-   patterns listed below).
+1. Una sola clase de caso de uso y ninguna interfaz de puerto de entrada (ADR-003).
+2. Un puerto existe solo donde hay una dependencia real y reemplazable: la base de datos, el hash y la
+   firma del token (ADR-002). El tiempo usa `java.time.Clock`, no un puerto propio.
+3. Sin camino de lectura. El puerto del repositorio tiene dos métodos y no hay mapeo desde el
+   almacenamiento de vuelta al dominio.
+4. Sin biblioteca de mapeo, sin Lombok, sin eventos de dominio, sin CQRS.
+5. Cada patrón de la tabla siguiente se nombra con la razón por la que está. Strategy es la única
+   vitrina deliberada: responde al requisito de "regex configurable" del enunciado y tiene una sola
+   implementación de producción.
 
-Patterns in use, and the variation each one absorbs:
+Patrones en uso y por qué:
 
-| Pattern | Where | Variation it absorbs |
-|---------|-------|----------------------|
-| Ports and adapters | `domain.port` and `infrastructure.*` | Database, hashing and signing are replaced by fakes in the unit tests |
-| Value object | `Email`, `UserId`, `Phone` | Normalisation and validity in one place |
-| Strategy | `PasswordPolicy` | The password rule must be configurable and is the one most likely to change |
-| Adapter | `UserPersistenceAdapter`, `JjwtTokenIssuer`, `BCryptPasswordHasher` | Third-party interfaces against the ports |
-| Builder | `User.Builder` | Three adjacent `String` fields (`name`, `passwordHash`, `token`) invite a positional constructor call that stores a token as a hash |
-| Controller advice | `GlobalExceptionHandler` | One place that translates every error |
+| Patrón | Dónde | Por qué está |
+|--------|-------|--------------|
+| Puertos y adaptadores | `domain.port` e `infrastructure.*` | La base de datos, el hash y la firma son dependencias reemplazables, y las pruebas unitarias las sustituyen por dobles de prueba |
+| Value object | `Email`, `UserId`, `Phone` | Normalización y validez en un solo lugar |
+| Strategy | `PasswordPolicy` | Vitrina deliberada para la regla de contraseña configurable del enunciado; una implementación de producción, `RegexPasswordPolicy`, construida desde una propiedad (ADR-017) |
+| Adapter | `UserPersistenceAdapter`, `JjwtTokenIssuer`, `BCryptPasswordHasher` | Interfaces de terceros frente a los puertos |
+| Builder | `User.Builder` | Tres campos `String` contiguos (`name`, `passwordHash`, `token`) invitan a una llamada posicional que guarda un token como si fuera un hash |
 
-**Alternatives discarded.**
+`GlobalExceptionHandler` es un `@RestControllerAdvice`: un mecanismo del framework que da al servicio
+un único lugar para traducir errores (ADR-008), no un patrón de diseño de esta lista.
 
-- Package by layer without a domain (`controller`, `service`, `repository`): simpler and sufficient
-  for the behaviour, but it shows none of the requested patterns.
-- Nested `adapter/in`, `adapter/out`, `application/port/in`, `application/port/out` packages: four
-  more package levels for a handful of classes.
-- Factory, Observer, domain events and CQRS: no variation in this service asks for them.
+**Alternativas descartadas.**
 
-**Consequences.**
+- Paquetes por capa sin dominio (`controller`, `service`, `repository`): más simple y suficiente para
+  el comportamiento, pero no muestra ninguno de los patrones pedidos.
+- Paquetes anidados `adapter/in`, `adapter/out`, `application/port/in`, `application/port/out`: cuatro
+  niveles de paquete más para un puñado de clases.
+- Factory, Observer, eventos de dominio y CQRS: nada en este servicio los requiere.
 
-- There are more types than the behaviour needs, and the reader has to follow a port to find the
-  class behind it. ArchUnit rules and a test that proves each rule fails on a violation keep the
-  structure honest (ADR-021).
-- The domain is tested in plain JUnit, with no Spring context and no database.
-- If the service stays a single endpoint, the layered default would have been cheaper. If a second
-  entry point or a second storage appears, the ports are already where the change would go.
+**Consecuencias.**
 
-## ADR-002: Ports and adapters, one reason each
+- Hay más tipos de los que el comportamiento necesita, y quien lee debe seguir un puerto para
+  encontrar la clase que hay detrás. Las reglas de ArchUnit y una prueba que demuestra que cada regla
+  falla ante una violación mantienen la estructura honesta (ADR-021).
+- El dominio se prueba con JUnit simple, sin contexto de Spring ni base de datos.
+- Si el servicio sigue siendo un solo endpoint, el diseño por capas habría sido más barato. Si aparece
+  un segundo punto de entrada o un segundo almacenamiento, los puertos ya están donde iría el cambio.
 
-**Context.** A port is an interface owned by the inner side and implemented from the outside. It is
-worth having only if something real stands on the other side.
+## ADR-002: Puertos y adaptadores, una razón para cada uno
 
-**Decision.** Three outbound ports live in `domain.port`.
+**Contexto.** Un puerto es una interfaz que pertenece al lado interno y se implementa desde fuera.
+Solo vale la pena si hay algo real al otro lado.
 
-| Port | Adapter | Why the port exists |
-|------|---------|---------------------|
-| `UserRepository` (`existsByEmail`, `save`) | `UserPersistenceAdapter`, backed by Spring Data JPA; `InMemoryUserRepository` in the test tree | The use case is tested without a database, and a second implementation really exists |
-| `PasswordHasher` (`hash`) | `BCryptPasswordHasher`; a fake in the tests | BCrypt is deliberately slow; unit tests must not pay for it |
-| `TokenIssuer` (`issue`) | `JjwtTokenIssuer`; a fake in the tests | Keeps JJWT, key handling and its Jackson 2 dependency out of the inner layers |
+**Decisión.** Tres puertos de salida viven en `domain.port`.
 
-Time is not a port: `java.time.Clock` is injected directly and tests use `Clock.fixed`.
+| Puerto | Adaptador | Por qué existe el puerto |
+|--------|-----------|--------------------------|
+| `UserRepository` (`existsByEmail`, `save`) | `UserPersistenceAdapter`, respaldado por Spring Data JPA; `InMemoryUserRepository`, un doble de prueba en el árbol de pruebas | El caso de uso se prueba sin base de datos |
+| `PasswordHasher` (`hash`) | `BCryptPasswordHasher`; un hasher falso, doble de prueba | BCrypt es lento a propósito; las pruebas unitarias no deben pagarlo |
+| `TokenIssuer` (`issue`) | `JjwtTokenIssuer`; un emisor falso, doble de prueba | Mantiene JJWT, el manejo de claves y su dependencia de Jackson 2 fuera de las capas internas |
 
-**Alternatives discarded.**
+El tiempo no es un puerto: `java.time.Clock` se inyecta directamente y las pruebas usan `Clock.fixed`.
 
-- Calling `JpaRepository` from the use case: couples the application layer to Spring Data and
-  exposes `deleteAll` and `findAll` to code that must only create.
-- Calling `BCryptPasswordEncoder` from the use case: puts Spring Security in the application layer.
-- A custom `TimeProvider` port: the JDK type already is the abstraction.
-- A password-policy provider port: an interface whose only job is to return another interface.
-  `PasswordPolicy` is a Strategy and the wiring class builds it from properties.
+**Alternativas descartadas.**
 
-**Consequences.** Each port has two implementations (production and test), so none is
-speculative. The adapters are package-private and independent of each other, which an ArchUnit
-rule enforces.
+- Llamar a `JpaRepository` desde el caso de uso: acopla la capa de aplicación a Spring Data y expone
+  `deleteAll` y `findAll` a código que solo debe crear.
+- Llamar a `BCryptPasswordEncoder` desde el caso de uso: pone Spring Security en la capa de aplicación.
+- Un puerto `TimeProvider` propio: el tipo del JDK ya es la abstracción.
+- Un puerto proveedor de la política de contraseña: una interfaz cuyo único trabajo es devolver otra
+  interfaz. `PasswordPolicy` es un Strategy y la clase de cableado lo construye desde propiedades.
 
-## ADR-003: No inbound port interface
+**Consecuencias.** Cada puerto tiene un adaptador de producción. La segunda implementación de cada
+puerto, en el árbol de pruebas, es un doble de prueba (un repositorio en memoria, un hasher falso, un
+emisor falso), no un segundo adaptador de producción: los puertos se justifican por una dependencia
+reemplazable y por la capacidad de prueba, no por una segunda implementación real. Los adaptadores son
+privados al paquete e independientes entre sí, lo que una regla de ArchUnit hace cumplir.
 
-**Context.** Hexagonal diagrams usually show an inbound port in front of the use case.
+## ADR-003: Sin interfaz de puerto de entrada
 
-**Decision.** `UserController` depends on the concrete `RegisterUserUseCase`. An interface with one
-implementer adds a file and a hop and removes nothing. The web slice tests replace the class with a
-mock.
+**Contexto.** Los diagramas hexagonales suelen mostrar un puerto de entrada delante del caso de uso.
 
-**Alternatives discarded.** A `RegisterUserPort` interface with a `...Service` implementation.
+**Decisión.** `UserController` depende de la clase concreta `RegisterUserUseCase`. Una interfaz con un
+solo implementador agrega un archivo y un salto y no quita nada. Las pruebas del corte web
+reemplazan la clase por un mock.
 
-**Consequences.** If a second entry point (a message consumer, a command line) is added, extracting
-an interface from the class is a mechanical change made when the second caller exists.
+**Alternativas descartadas.** Una interfaz `RegisterUserPort` con una implementación `...Service`.
 
-## ADR-004: `@Transactional` on the use case is the only framework concession
+**Consecuencias.** Si se agrega un segundo punto de entrada (un consumidor de mensajes, una línea de
+comandos), extraer una interfaz de la clase es un cambio mecánico que se hace cuando existe el segundo
+llamador.
 
-**Context.** The existence check and the insert must belong to one consistent operation, and the
-application layer is the natural owner of that boundary.
+## ADR-004: `@Transactional` en el caso de uso es la única concesión al framework
 
-**Decision.** `RegisterUserUseCase.register` carries Spring's `@Transactional`. This is the only
-framework type in the `domain` and `application` packages. The class has no stereotype annotation:
-`ApplicationConfig` creates it as a bean.
+**Contexto.** La comprobación de existencia y la inserción deben pertenecer a una misma operación
+consistente, y la capa de aplicación es la dueña natural de ese límite.
 
-| Option | Verdict |
-|--------|---------|
-| `@Transactional` on the use case method | Chosen: one import, recognised at once by any reader |
-| A decorator built with `TransactionTemplate` in the configuration | Rejected: it keeps the application layer free of Spring but adds an interface and a class whose only job is to avoid one annotation |
-| `@Transactional` on the persistence adapter | Rejected: the existence check and the save would run in separate transactions |
-| On the controller | Rejected: it mixes HTTP with consistency |
+**Decisión.** `RegisterUserUseCase.register` lleva el `@Transactional` de Spring. Es el único tipo del
+framework en los paquetes `domain` y `application`. La clase no tiene anotación de estereotipo:
+`ApplicationConfig` la crea como bean.
 
-**Consequences.**
+| Opción | Veredicto |
+|--------|-----------|
+| `@Transactional` en el método del caso de uso | Elegida: un import, reconocible de inmediato por cualquier lector |
+| Un decorador construido con `TransactionTemplate` en la configuración | Rechazada: mantiene la capa de aplicación libre de Spring, pero agrega una interfaz y una clase cuyo único trabajo es evitar una anotación |
+| `@Transactional` en el adaptador de persistencia | Rechazada: la comprobación de existencia y el guardado correrían en transacciones separadas |
+| En el controlador | Rechazada: mezcla HTTP con consistencia |
 
-- The concession is fenced by an ArchUnit allow-list: the `application` package may depend only on
-  `domain`, itself, `java.*` and `org.springframework.transaction.annotation`. A test shows the
-  rule rejecting a `@Service`, a logger and a reach into `infrastructure`.
-- The class must stay non-final and the method public, because the annotation works through a
-  proxy. A test pins both.
-- Hashing runs inside the transaction. That is irrelevant at this scale and is recorded here.
-- The success log line lives in the controller because the allow-list leaves no logger in the
-  application layer.
+**Consecuencias.**
 
-## ADR-005: A separate persistence model with write-only mapping
+- La concesión está acotada por una lista de permitidos de ArchUnit: el paquete `application` solo
+  puede depender de `domain`, de sí mismo, de `java.*` y de `org.springframework.transaction.annotation`.
+  Una prueba muestra la regla rechazando un `@Service`, un logger y un acceso a `infrastructure`.
+- La clase debe seguir sin ser `final` y el método público, porque la anotación funciona mediante un
+  proxy. Una prueba fija ambos.
+- El hash se calcula dentro de la transacción. Es irrelevante a esta escala y queda registrado aquí.
+- La línea de log de éxito vive en el controlador porque la lista de permitidos no deja ningún logger
+  en la capa de aplicación.
 
-**Context.** The domain aggregate `User` is immutable and validated at construction. JPA wants a
-no-argument constructor, mutable fields and non-final classes.
+## ADR-005: Un modelo de persistencia separado con mapeo de solo escritura
 
-**Decision.** `UserJpaEntity` and `PhoneJpaEntity` live in `infrastructure.persistence` and are
-separate from the domain model. Mapping goes one way, from `User` to the entity (`UserJpaEntity.from`).
-There is no mapping back, because nothing reads a user in this service.
+**Contexto.** El agregado de dominio `User` es inmutable y se valida al construirse. JPA quiere un
+constructor sin argumentos, campos mutables y clases no finales.
 
-- Phones are a bidirectional `@OneToMany(mappedBy, cascade = ALL, orphanRemoval = true)` with a
-  lazy `@ManyToOne`, ordered by their identity key so submitted order survives a reload.
-- `users.id` is assigned by the application (ADR-020), so the entity implements `Persistable` with a
-  transient "new" flag. Without it Spring Data would treat an assigned id as an existing row and
-  issue a `SELECT` before every insert; a test asserts that no lookup happens.
+**Decisión.** `UserJpaEntity` y `PhoneJpaEntity` viven en `infrastructure.persistence` y están
+separadas del modelo de dominio. El mapeo va en un solo sentido, de `User` a la entidad
+(`UserJpaEntity.from`). No hay mapeo de vuelta, porque nada lee un usuario en este servicio.
 
-**Alternatives discarded.**
+- Los teléfonos son un `@OneToMany(mappedBy, cascade = ALL, orphanRemoval = true)` bidireccional con un
+  `@ManyToOne` perezoso, ordenados por su clave de identidad para que el orden enviado sobreviva a una
+  recarga.
+- `users.id` lo asigna la aplicación (ADR-020), así que la entidad implementa `Persistable` con una
+  marca transitoria de "nueva". Sin ella, Spring Data trataría un id asignado como una fila existente y
+  emitiría un `SELECT` antes de cada inserción; una prueba comprueba que no hay ninguna consulta previa.
 
-- Annotating the aggregate: the domain would import `jakarta.persistence`, lose its immutability
-  and need a no-argument constructor.
-- `@ElementCollection` for phones: a table without a primary key.
-- A unidirectional `@JoinColumn` collection: one insert and one update per phone.
+**Alternativas descartadas.**
 
-**Consequences.** There is mapping code to write and test, but it is write-only and short. Because
-the response is built from the in-memory aggregate and not from a reload, the data returned and the
-data stored are identical by construction, which a test also checks against the stored row.
+- Anotar el agregado: el dominio importaría `jakarta.persistence`, perdería su inmutabilidad y
+  necesitaría un constructor sin argumentos.
+- `@ElementCollection` para los teléfonos: una tabla sin clave primaria.
+- Una colección unidireccional con `@JoinColumn`: un insert y un update por teléfono.
 
-## ADR-006: Validation lives in the domain
+**Consecuencias.** Hay código de mapeo que escribir y probar, pero es de solo escritura y corto. Como
+la respuesta se construye desde el agregado en memoria y no desde una recarga, los datos devueltos y los
+almacenados son idénticos por construcción, lo que una prueba también verifica contra la fila guardada.
 
-**Context.** A request can break several rules at once, and the error contract asks for every
-broken field in one message, at most one message per field, taking the first failing rule in the
-order required, then length, then format. The two formats (email and password) are runtime
-configuration.
+## ADR-006: La validación vive en el dominio
 
-**Decision.** Each rule is a pure function in the domain that returns a typed reason (`Email.violation`,
-`User.nameViolation`, `Phone.violations`, `PasswordPolicy.violation`). The use case gathers the
-reasons into a set, and a non-empty set becomes one `InvalidUserDataException` before the repository
-is touched. The value objects call the same functions in their constructors, so an `Email` cannot
-exist in an invalid state when it is built through another path. The domain carries no client text:
-`ErrorMessages` in the web layer maps each reason to its message. The request records carry no Bean
-Validation annotations.
+**Contexto.** Una solicitud puede romper varias reglas a la vez, y el contrato de errores pide todos
+los campos erróneos en un solo mensaje, como máximo un mensaje por campo, tomando la primera regla que
+falla en este orden: obligatorio, largo, formato. Los dos formatos (correo y contraseña) son
+configuración en tiempo de ejecución.
 
-| Option | Verdict |
-|--------|---------|
-| Rules as pure functions in the domain, collected by the use case | Chosen: one definition per rule, ordering is plain code, domain tests need no framework |
-| Built-in Bean Validation constraints | Rejected: all constraints of a field fire together and unordered, so a blank email would report both "required" and "format" |
-| `@GroupSequence` (required, then length, then format) | Rejected: the sequence is global, so once any field fails the first group the later groups are skipped for every field |
-| One custom constraint per field that delegates to the domain | Rejected: the same logic wrapped in eight annotation types with Spring-injected patterns |
+**Decisión.** Cada regla es una función pura del dominio que devuelve un motivo tipado
+(`Email.violation`, `User.nameViolation`, `Phone.violations`, `PasswordPolicy.violation`). El caso de uso
+reúne los motivos en un conjunto, y un conjunto no vacío se convierte en una sola
+`InvalidUserDataException` antes de tocar el repositorio. Los value objects llaman a las mismas
+funciones en sus constructores, de modo que un `Email` no puede existir en estado inválido si se
+construye por otro camino. El dominio no lleva texto para el cliente: `ErrorMessages`, en la capa web,
+asigna a cada motivo su mensaje. Los records de solicitud no llevan anotaciones de Bean Validation.
 
-**Consequences.**
+| Opción | Veredicto |
+|--------|-----------|
+| Reglas como funciones puras en el dominio, reunidas por el caso de uso | Elegida: una definición por regla, el orden es código simple, las pruebas de dominio no necesitan framework |
+| Restricciones integradas de Bean Validation | Rechazada: todas las restricciones de un campo se disparan juntas y sin orden, así que un correo vacío reportaría "obligatorio" y "formato" a la vez |
+| `@GroupSequence` (obligatorio, luego largo, luego formato) | Rechazada: la secuencia es global, así que cuando un campo falla el primer grupo se omiten los grupos siguientes para todos los campos |
+| Una restricción personalizada por campo que delega al dominio | Rechazada: la misma lógica envuelta en ocho tipos de anotación con patrones inyectados por Spring |
 
-- Length always precedes the pattern, so an oversized value never reaches the regular expression
-  engine. A test sends a 50,000-character email against a pattern prone to catastrophic
-  backtracking and requires an answer within five seconds.
-- The "required" and byte-length rules of the password sit in the domain outside the Strategy, so
-  the 72-byte bound holds whatever pattern an operator configures.
-- Bean Validation is still used, for the two configuration records, so a bad property stops the
-  start-up.
+**Consecuencias.**
 
-## ADR-007: Strict JSON string typing
+- El largo siempre precede al patrón, así que un valor desmesurado nunca llega al motor de expresiones
+  regulares. Una prueba envía un correo de 50.000 caracteres contra un patrón propenso a backtracking
+  catastrófico y exige una respuesta en menos de cinco segundos.
+- Las reglas de "obligatorio" y de largo en bytes de la contraseña están en el dominio, fuera del
+  Strategy, de modo que el límite de 72 bytes se mantiene sea cual sea el patrón que configure un
+  operador.
+- Bean Validation se sigue usando para los dos records de configuración, de modo que una propiedad
+  incorrecta detiene el arranque.
 
-**Context.** By default the JSON mapper turns `"name": 123` into the string `"123"`. A client that
-sends the wrong type should get a 400, not a silently converted value.
+## ADR-007: Tipado estricto de strings en JSON
 
-**Decision.** `JacksonConfig` registers a mapper customizer that fails the coercion of an integer,
-a float or a boolean into a textual property. Arrays and objects sent for a string, and a scalar
-sent for a phone entry, already fail by default.
+**Contexto.** Por defecto el mapeador JSON convierte `"name": 123` en el string `"123"`. Un cliente que
+envía el tipo equivocado debe recibir un 400, no un valor convertido en silencio.
 
-A wrongly typed body fails during binding, before the controller or any domain rule runs, so the
-answer is the generic body message and never a field message.
+**Decisión.** `JacksonConfig` registra un customizer del mapeador que hace fallar la coerción de un
+entero, un decimal o un booleano a una propiedad de texto. Los arreglos y objetos enviados donde va un
+string, y un escalar enviado como entrada de teléfono, ya fallan por defecto.
 
-**Alternatives discarded.** A custom deserializer per field (repeated on six fields and easy to
-forget on a new one); reading the body as a tree and inspecting it by hand (bypasses data binding and
-the published schema).
+Un cuerpo con tipos incorrectos falla durante el enlace, antes de que se ejecute el controlador o
+cualquier regla de dominio, así que la respuesta es el mensaje genérico de cuerpo y nunca un mensaje de
+campo.
 
-**Consequences.** One class covers every string field. A digit string such as `"123"` is still a
-valid string. A JSON `null` reaches the use case as a missing value.
+**Alternativas descartadas.** Un deserializador propio por campo (repetido en seis campos y fácil de
+olvidar en uno nuevo); leer el cuerpo como árbol e inspeccionarlo a mano (se salta el enlace de datos y
+el esquema publicado).
 
-## ADR-008: The `{"mensaje"}` error contract instead of RFC 9457
+**Consecuencias.** Una sola clase cubre todos los campos de texto. Un string de dígitos como `"123"`
+sigue siendo un string válido. Un `null` JSON llega al caso de uso como valor ausente.
 
-**Context.** Spring Boot can answer errors as RFC 9457 problem details. The exercise statement
-fixes a different shape: a JSON object with a single `mensaje` key, and the exact text
-`El correo ya registrado` for a duplicate email.
+## ADR-008: El contrato de error `{"mensaje"}` en lugar de RFC 9457
 
-**Decision.** Every error answers `{"mensaje": "<text>"}` with a JSON content type. One
-`@RestControllerAdvice`, `GlobalExceptionHandler`, extends `ResponseEntityExceptionHandler`, so
-every standard Spring MVC exception goes through one overridable method and the shape is replaced in
-one place. The statement fixes only the duplicate text; the other messages are written in Spanish
-to match it, are listed in `ErrorMessages` and never contain the rejected value.
+**Contexto.** Spring Boot puede responder los errores como problem details de RFC 9457. El enunciado
+fija otra forma: un objeto JSON con una sola clave `mensaje` y el texto exacto
+`El correo ya registrado` para un correo duplicado.
 
-**The 406 rule.** If a client sends `Accept: application/xml`, writing the error body would itself
-be negotiated against that header, fail again and end as an empty 406. Every error response sets a
-concrete `Content-Type`, which makes Spring skip negotiation and write JSON. A test fails without it.
+**Decisión.** Todo error responde `{"mensaje": "<texto>"}` con un tipo de contenido JSON. Un solo
+`@RestControllerAdvice`, `GlobalExceptionHandler`, extiende `ResponseEntityExceptionHandler`, de modo
+que cada excepción estándar de Spring MVC pasa por un método sobrescribible y la forma se reemplaza en
+un solo lugar. El enunciado fija únicamente el texto del duplicado; los demás mensajes están escritos
+en español para ser coherentes con él, figuran en `ErrorMessages` y nunca contienen el valor rechazado.
 
-**Alternatives discarded.** `spring.mvc.problemdetails.enabled`: standard, but the statement mandates
-the other shape. A custom `ErrorAttributes` bean: the stock error controller still negotiates, so a
-browser would get HTML and a 406 an empty body.
+**La regla del 406.** Si un cliente envía `Accept: application/xml`, escribir el cuerpo del error se
+negociaría contra ese encabezado, volvería a fallar y terminaría en un 406 vacío. Toda respuesta de
+error fija un `Content-Type` concreto, lo que hace que Spring omita la negociación y escriba JSON. Una
+prueba falla sin ello.
 
-**Consequences.** The error shape is not the standard one, and the service says so rather than
-mixing both. The OpenAPI document, Swagger UI and the H2 console are tools, not API responses, and
-keep their own formats.
+**Alternativas descartadas.** `spring.mvc.problemdetails.enabled`: es estándar, pero el enunciado
+exige la otra forma. Un bean `ErrorAttributes` propio: el controlador de errores de serie sigue
+negociando, así que un navegador recibiría HTML y un 406 un cuerpo vacío.
 
-## ADR-009: Status mapping
+**Consecuencias.** La forma del error no es la estándar, y el servicio lo dice en lugar de mezclar
+ambas. El documento OpenAPI, Swagger UI y la consola H2 son herramientas, no respuestas de la API, y
+conservan sus propios formatos.
 
-| Situation | Status | `mensaje` |
+## ADR-009: Mapeo de estados
+
+| Situación | Estado | `mensaje` |
 |-----------|--------|-----------|
-| Registered | 201 | (the user) |
-| One or more fields break a rule | 400 | the messages of the broken fields, distinct, sorted, joined with `"; "` |
-| Body unreadable, malformed, empty, wrongly typed | 400 | `El cuerpo de la solicitud no es válido` |
-| Any other 400 raised inside the application | 400 | `La solicitud no es válida` |
-| Unknown route | 404 | `Recurso no encontrado` |
-| Method not allowed on a known route (`Allow` header kept) | 405 | `Método no permitido` |
-| `Accept` cannot be satisfied | 406 | `Formato de respuesta no aceptable` |
-| `Content-Type` is not JSON | 415 | `Tipo de contenido no soportado` |
-| Email already registered | 409 | `El correo ya registrado` |
-| Any other 409 without a typed rejection | 409 | `La solicitud entra en conflicto con el estado actual del recurso` |
-| Anything unexpected | 500 | `Error interno del servidor` |
+| Registrado | 201 | (el usuario) |
+| Uno o más campos incumplen una regla | 400 | los mensajes de los campos erróneos, distintos, ordenados y unidos con `"; "` |
+| Cuerpo ilegible, mal formado, vacío o con tipos incorrectos | 400 | `El cuerpo de la solicitud no es válido` |
+| Cualquier otro 400 producido dentro de la aplicación | 400 | `La solicitud no es válida` |
+| Ruta desconocida | 404 | `Recurso no encontrado` |
+| Método no permitido en una ruta conocida (se conserva el encabezado `Allow`) | 405 | `Método no permitido` |
+| No se puede satisfacer `Accept` | 406 | `Formato de respuesta no aceptable` |
+| `Content-Type` no es JSON | 415 | `Tipo de contenido no soportado` |
+| Correo ya registrado | 409 | `El correo ya registrado` |
+| Cualquier otro 409 sin rechazo tipado | 409 | `La solicitud entra en conflicto con el estado actual del recurso` |
+| Cualquier cosa inesperada | 500 | `Error interno del servidor` |
 
-**Decisions inside the table.**
+**Decisiones dentro de la tabla.**
 
-- 409 for a duplicate, not 400 or 422: the conflict is with the state of the resource, not with the
-  shape of the request.
-- Messages are sorted on the Spanish text and joined with `"; "`, so the response is deterministic
-  and a test can compare it exactly. A repeated reason appears once.
-- The 500 body is fixed text. The server log gets the class and the stack frames of the failure and
-  of each cause, never an exception message, because a message can quote the request (a database
-  reports the value it refused). A test makes a database message quote a marker value and requires
-  that the marker is not in the log.
-- Any 4xx without a specific row answers `La solicitud no es válida` and keeps its status; a 413 or
-  a 431 is not announced as an internal error.
+- 409 para un duplicado, no 400 ni 422: el conflicto es con el estado del recurso, no con la forma de
+  la solicitud.
+- Los mensajes se ordenan por el texto en español y se unen con `"; "`, de modo que la respuesta es
+  determinista y una prueba puede compararla exactamente. Un motivo repetido aparece una sola vez.
+- El cuerpo del 500 es texto fijo. El log del servidor recibe la clase y los frames de la traza de la
+  falla y de cada causa, nunca un mensaje de excepción, porque un mensaje puede citar la solicitud (una
+  base de datos informa el valor que rechazó). Una prueba hace que un mensaje de base de datos cite un
+  valor marcador y exige que ese marcador no aparezca en el log.
+- Cualquier 4xx sin fila específica responde `La solicitud no es válida` y conserva su estado; un 413 o
+  un 431 no se anuncia como error interno.
 
-**Consequences.** The same mapping is shared by the advice and the error controller through
-`ErrorMessages.forStatus`, so the two cannot drift apart.
+**Consecuencias.** El mismo mapeo lo comparten el advice y el controlador de errores mediante
+`ErrorMessages.forStatus`, de modo que los dos no pueden divergir.
 
-## ADR-010: An error controller for errors forwarded to the error path
+## ADR-010: Un controlador de errores para los errores reenviados a la ruta de error
 
-**Context.** Some errors never reach a Spring MVC handler method: a filter that calls `sendError`,
-or any error the servlet container forwards to its error page. Boot's stock `/error` handler
-negotiates its content, so it can answer an HTML page or an empty body.
+**Contexto.** Algunos errores nunca llegan a un método manejador de Spring MVC: un filtro que llama a
+`sendError`, o cualquier error que el contenedor de servlets reenvía a su página de error. El
+manejador `/error` de serie de Boot negocia su contenido, así que puede responder una página HTML o un
+cuerpo vacío.
 
-**Decision.** `ApiErrorController` replaces Boot's `/error` handler. Errors forwarded to `/error` get
-the same JSON body as every other error, for every method and every `Accept` value, with an explicit
-JSON content type. A direct `GET /error` with no forwarded status is a request for a missing page
-and is answered as a 404. The controller is hidden from the OpenAPI document.
+**Decisión.** `ApiErrorController` reemplaza el manejador `/error` de Boot. Los errores reenviados a
+`/error` reciben el mismo cuerpo JSON que cualquier otro error, para todo método y todo valor de
+`Accept`, con un tipo de contenido JSON explícito. Un `GET /error` directo, sin estado reenviado, es una
+solicitud de una página inexistente y se responde con 404. El controlador está oculto del documento
+OpenAPI.
 
-**Alternatives discarded.**
+**Alternativas descartadas.**
 
-- A Tomcat error-report valve, to also answer in JSON the requests Tomcat rejects before any web
-  application is chosen (the request `GET /api/v1/users/%zz` was the case). It was removed: it is
-  specific to Tomcat, it depends on the order of the valves in Boot's host pipeline, and it could
-  only cover part of the container's rejections, because the HTTP parser answers a malformed
-  request line or oversized headers before any valve runs. Two classes, an ordering rule and
-  raw-socket tests bought a partial guarantee, so the contract states its boundary instead.
-- `ErrorAttributes` only: see ADR-008.
+- Una válvula de reporte de errores de Tomcat, para responder también en JSON las solicitudes que
+  Tomcat rechaza antes de elegir una aplicación web (el caso era `GET /api/v1/users/%zz`). Se eliminó:
+  es específica de Tomcat, depende del orden de las válvulas en el pipeline del host de Boot y solo
+  podía cubrir una parte de los rechazos del contenedor, porque el parser HTTP responde una línea de
+  solicitud mal formada o encabezados demasiado grandes antes de que corra cualquier válvula. Dos
+  clases, una regla de orden y pruebas por socket crudo compraban una garantía parcial, así que el
+  contrato declara su límite en su lugar.
+- Solo `ErrorAttributes`: ver ADR-008.
 
-**Consequences.**
+**Consecuencias.**
 
-- **Limit.** A request that the servlet container rejects before any application code runs (an
-  invalid percent-escape in the path, a malformed request line, oversized headers) is answered by
-  the container's own error page, normally HTML, and is outside the `mensaje` contract. This is
-  recorded in the known limitations and the README.
-- The forwarded-error cases are tested over a raw socket, because MockMvc does not perform the
-  container's error dispatch.
+- **Límite.** Una solicitud que el contenedor de servlets rechaza antes de que corra código de la
+  aplicación (una secuencia de porcentaje inválida en la ruta, una línea de solicitud mal formada,
+  encabezados demasiado grandes) se responde con la página de error propia del contenedor, normalmente
+  HTML, y queda fuera del contrato `mensaje`. Está registrado en las limitaciones conocidas y en el
+  README.
+- Los casos de error reenviado se prueban por un socket crudo, porque MockMvc no realiza el despacho de
+  errores del contenedor.
 
-## ADR-011: Spring Boot 4.1.1 and Java 17 against the statement's "Java 8+"
+## ADR-011: Spring Boot 4.1.1 y Java 17 frente al "Java 8+" del enunciado
 
-**Context.** The statement asks for Java 8 or later. Spring Boot 3 and 4 need at least Java 17. The
-last Boot line that runs on Java 8 (2.7) no longer receives open-source updates.
+**Contexto.** El enunciado pide Java 8 o superior. Spring Boot 3 y 4 necesitan al menos Java 17. La
+última línea de Boot que corre en Java 8 (2.7) ya no recibe actualizaciones de código abierto.
 
-**Decision.** Spring Boot 4.1.1 on a Java 17 toolchain. Java 17 is "8 or later" and is the lowest
-version a supported Boot line runs on, so the service stays on a maintained framework without
-requiring a newer JDK than necessary. The Gradle toolchain makes the build use JDK 17 regardless of
-the JDK that starts Gradle, and the `foojay-resolver-convention` plugin in `settings.gradle` lets
-Gradle download a JDK 17 when none is installed.
+**Decisión.** Spring Boot 4.1.1 sobre un toolchain de Java 17. Java 17 es "8 o superior" y es la
+versión más baja en la que corre una línea de Boot con soporte, de modo que el servicio queda sobre un
+framework mantenido sin exigir un JDK más nuevo de lo necesario. El toolchain de Gradle hace que el
+build use JDK 17 sea cual sea el JDK que inicia Gradle, y el plugin `foojay-resolver-convention` de
+`settings.gradle` permite que Gradle descargue un JDK 17 cuando no hay ninguno instalado.
 
-**Alternatives discarded.** Boot 2.7 on Java 8: matches the statement literally but starts the
-project on an unmaintained line. A newer Java: needlessly raises what a reviewer must install.
+**Alternativas descartadas.** Boot 2.7 sobre Java 8: coincide literalmente con el enunciado, pero
+comienza el proyecto sobre una línea sin mantenimiento. Un Java más nuevo: sube innecesariamente el
+mínimo.
 
-**Consequences.**
+**Consecuencias.**
 
-- Reviewers need any JDK 17 or newer to launch Gradle, which downloads a JDK 17 toolchain if none is
-  installed, or Docker. The README says so first.
-- Error Prone is pinned to 2.42.0, the last line that runs on JDK 17 (ADR-021).
-- Some third-party types have not caught up with the Boot 4 generation. JJWT still brings Jackson 2
+- Quien revise necesita cualquier JDK 17 o superior para iniciar Gradle, que descarga un toolchain de
+  JDK 17 si no hay ninguno instalado, o Docker. El README lo dice primero.
+- Error Prone está fijado en 2.42.0, la última línea que corre en JDK 17 (ADR-021).
+- Algunos tipos de terceros no han alcanzado la generación de Boot 4. JJWT todavía trae Jackson 2
   (ADR-014).
 
-## ADR-012: Gradle as the build tool
+## ADR-012: Gradle como herramienta de build
 
-**Context.** The statement does not name a build tool.
+**Contexto.** El enunciado no nombra una herramienta de build.
 
-**Decision.** Gradle with the Groovy DSL, through the committed wrapper (9.7.1). One `./gradlew build`
-compiles with Error Prone, checks formatting, runs every test and enforces the coverage gate. The
-Gradle plugin for Spring Boot builds the executable jar, named `app.jar` so the image's entry point
-does not change with the project version.
+**Decisión.** Gradle con DSL Groovy, mediante el wrapper versionado (9.7.1). Un solo
+`./gradlew build` compila con Error Prone, verifica el formato, ejecuta todas las pruebas y aplica el
+umbral de cobertura. El plugin de Spring Boot para Gradle construye el jar ejecutable, llamado
+`app.jar` para que el punto de entrada de la imagen no cambie con la versión del proyecto.
 
-**Alternatives discarded.** Maven would have worked equally well. Gradle was chosen as a preference:
-the wrapper and the Java toolchain select the JDK reproducibly, and the plugins used here (Spring
-Boot, JaCoCo, Spotless, Error Prone) configure in a short build file. It is not a technical
-necessity.
+**Alternativas descartadas.** Maven habría funcionado igual de bien. Se eligió Gradle por preferencia:
+el wrapper y el toolchain de Java seleccionan el JDK de forma reproducible, y los plugins usados aquí
+(Spring Boot, JaCoCo, Spotless, Error Prone) se configuran en un archivo de build corto. No es una
+necesidad técnica.
 
-**Consequences.** Nothing but a JDK 17 or newer is needed to launch the build: the wrapper downloads
-the exact Gradle version, and the toolchain resolver downloads a JDK 17 if none is installed. The
-Dockerfile uses the same wrapper, so the image and the local build use one toolchain.
+**Consecuencias.** Para iniciar el build solo hace falta un JDK 17 o superior: el wrapper descarga la
+versión exacta de Gradle y el resolvedor de toolchains descarga un JDK 17 si no hay ninguno instalado.
+El Dockerfile usa el mismo wrapper, así que la imagen y el build local usan un mismo toolchain.
 
-## ADR-013: H2, Hibernate and a versioned `schema.sql` with `validate`
+## ADR-013: H2, Hibernate y un `schema.sql` versionado con `validate`
 
-**Context.** The statement asks for an in-memory database and a script that creates it.
+**Contexto.** El enunciado pide una base de datos en memoria y un script que la cree.
 
-**Decision.**
+**Decisión.**
 
-- H2 in memory, with the H2 console enabled for inspection, and Hibernate as the JPA provider. The
-  console accepts only local connections, so it works with `./gradlew bootRun`; with `docker run -p`
-  it is served but refuses the connection.
-- The schema is a versioned script, `src/main/resources/schema.sql`, run by Spring at start-up.
-  Hibernate only validates it: `spring.jpa.hibernate.ddl-auto=validate`. The setting is explicit
-  because with an embedded database Boot otherwise defaults to `create-drop`, which would make the
-  script decorative.
-- `spring.jpa.open-in-view=false`, so no persistence session outlives the use case.
-- Timestamps are `TIMESTAMP(6) WITH TIME ZONE`, so the stored value is a UTC instant at
-  microsecond precision.
+- H2 en memoria, con la consola de H2 habilitada para inspección, y Hibernate como proveedor JPA. La
+  consola solo acepta conexiones locales, así que funciona con `./gradlew bootRun`; con
+  `docker run -p` se sirve la página pero rechaza la conexión.
+- El esquema es un script versionado, `src/main/resources/schema.sql`, que Spring ejecuta al arrancar.
+  Hibernate solo lo valida: `spring.jpa.hibernate.ddl-auto=validate`. El ajuste es explícito porque,
+  con una base embebida, Boot usaría por defecto `create-drop`, lo que volvería decorativo al script.
+- `spring.jpa.open-in-view=false`, de modo que ninguna sesión de persistencia sobrevive al caso de uso.
+- Las marcas de tiempo son `TIMESTAMP(6) WITH TIME ZONE`, de modo que el valor almacenado es un
+  instante UTC con precisión de microsegundos.
 
-**What `validate` checks and what it does not.** It checks that every mapped table and column exists
-and that the column type is compatible with the mapped Java type. A column declared `INTEGER` where
-a string is mapped fails the start-up. It does **not** distinguish `TIMESTAMP` from
-`TIMESTAMP WITH TIME ZONE`. That part of the schema is proved by tests that round-trip instants at
-microsecond precision and compare the stored value with the response.
+**Qué verifica `validate` y qué no.** Verifica que cada tabla y columna mapeada exista y que el tipo de
+columna sea compatible con el tipo Java mapeado. Una columna declarada `INTEGER` donde se mapea un
+string hace fallar el arranque. **No** distingue `TIMESTAMP` de `TIMESTAMP WITH TIME ZONE`. Esa parte
+del esquema se demuestra con pruebas que hacen ida y vuelta con instantes de precisión de microsegundos y
+comparan el valor almacenado con la respuesta.
 
-**Alternatives discarded.** `create-drop`: no reviewable script. Flyway or Liquibase: correct for a
-real service with a persistent database, but a dependency too many for one in-memory script.
+**Alternativas descartadas.** `create-drop`: no hay un script revisable. Flyway o Liquibase: correctos
+para un servicio real con base persistente, pero una dependencia de más para un script en memoria.
 
-**Consequences.** The script is the single source of the schema and is checked by tests that boot
-against it (columns at their maximum length, the `UNIQUE` constraint on the email, the foreign key
-from phones to users). The script is idempotent (`IF NOT EXISTS`). Data does not survive a restart.
-Moving to a persistent database would add a migration tool and replace H2.
+**Consecuencias.** El script es la única fuente del esquema y lo verifican pruebas que arrancan contra
+él (columnas en su largo máximo, la restricción `UNIQUE` del correo, la clave foránea de teléfonos a
+usuarios). El script es idempotente (`IF NOT EXISTS`). Los datos no sobreviven a un reinicio. Pasar a
+una base persistente agregaría una herramienta de migración y reemplazaría H2.
 
-## ADR-014: JJWT with Jackson 2 beside Jackson 3
+## ADR-014: JJWT con Jackson 2 junto a Jackson 3
 
-**Context.** Spring Boot 4.1 serialises JSON with Jackson 3 (`tools.jackson`). JJWT 0.13.0 serialises
-its claims with Jackson 2 (`com.fasterxml.jackson`) through its `jjwt-jackson` module.
+**Contexto.** Spring Boot 4.1 serializa JSON con Jackson 3 (`tools.jackson`). JJWT 0.13.0 serializa sus
+claims con Jackson 2 (`com.fasterxml.jackson`) mediante su módulo `jjwt-jackson`.
 
-**Decision.** Use JJWT and let the two Jackson generations coexist. The two do not interact: Spring
-MVC uses Jackson 3 for requests and responses, and JJWT uses Jackson 2 privately to write the claims
-of the token. The annotations the records use (`@JsonProperty`, `@JsonPropertyOrder`) stay in the
-`com.fasterxml.jackson.annotation` package for Jackson 3 as well.
+**Decisión.** Usar JJWT y dejar coexistir las dos generaciones de Jackson. No interactúan: Spring MVC
+usa Jackson 3 para solicitudes y respuestas, y JJWT usa Jackson 2 de forma privada para escribir los
+claims del token. Las anotaciones que usan los records (`@JsonProperty`, `@JsonPropertyOrder`) siguen
+en el paquete `com.fasterxml.jackson.annotation` también para Jackson 3.
 
-The token is HS256 (one service issues it and nothing verifies it). The claims are `sub` (the user
-id), `email`, `iat` and `exp`. The signing key is built from the raw bytes of the secret, and the
-`JjwtTokenIssuer` constructor refuses a secret shorter than 32 bytes or a non-positive expiration
-with a message that names the property and never the value, so the application does not start
-rather than answer 500 on the first registration.
+El token es HS256 (un servicio lo emite y nada lo verifica). Los claims son `sub` (el id del usuario),
+`email`, `iat` y `exp`. La clave de firma se construye con los bytes crudos del secreto, y el
+constructor de `JjwtTokenIssuer` rechaza un secreto de menos de 32 bytes o una expiración no positiva
+con un mensaje que nombra la propiedad y nunca el valor, de modo que la aplicación no arranca en lugar
+de responder 500 en el primer registro.
 
-**Alternatives discarded.**
+**Alternativas descartadas.**
 
-- RS256 or ES256: right once another party verifies tokens; here it is key management for no consumer.
-- Hashing an arbitrary passphrase to 256 bits: it would turn a four-character secret into a "valid"
-  key and hide the weakness.
-- `jjwt-gson` or hand-written JWT code: possible, but JJWT is the common choice and a test proves the
-  pair works.
+- RS256 o ES256: correcto cuando otra parte verifica los tokens; aquí sería gestión de claves sin
+  consumidor.
+- Aplicar un hash a una frase arbitraria para obtener 256 bits: convertiría un secreto de cuatro
+  caracteres en una clave "válida" y ocultaría la debilidad.
+- `jjwt-gson` o código JWT escrito a mano: posible, pero JJWT es la elección común y una prueba
+  demuestra que el par funciona.
 
-**Consequences.** Two Jackson generations are on the runtime classpath. A full-context test parses a
-token from a response written by Jackson 3 with JJWT, so the coexistence is checked on every build.
-Dropping Jackson 2 later means replacing `jjwt-jackson`.
+**Consecuencias.** Dos generaciones de Jackson están en el classpath de ejecución. Una prueba de
+contexto completo interpreta con JJWT un token de una respuesta escrita por Jackson 3, de modo que la
+coexistencia se verifica en cada build. Eliminar Jackson 2 más adelante implicaría reemplazar
+`jjwt-jackson`.
 
-## ADR-015: BCrypt through `spring-security-crypto`, without the security starter
+## ADR-015: BCrypt mediante `spring-security-crypto`, sin el starter de seguridad
 
-**Context.** The password must be stored as a salted hash and never returned.
+**Contexto.** La contraseña debe almacenarse como un hash con sal y nunca devolverse.
 
-**Decision.** `BCryptPasswordHasher` uses `BCryptPasswordEncoder` with strength 12 from
-`spring-security-crypto`, the small module with no web or servlet dependency.
-`spring-boot-starter-security` is not added: its default filter chain would answer 401 outside the
-error contract, and CSRF protection would block the `POST`.
+**Decisión.** `BCryptPasswordHasher` usa `BCryptPasswordEncoder` con costo 12 de
+`spring-security-crypto`, el módulo pequeño sin dependencia web ni de servlets.
+`spring-boot-starter-security` no se agrega: su cadena de filtros por defecto respondería 401 fuera del
+contrato de errores, y la protección CSRF bloquearía el `POST`.
 
-**Alternatives discarded.** The security starter with a permissive configuration (a larger surface to
-configure and to get wrong for one hash function); Argon2 (stronger on paper, needs a native or
-additional library, and BCrypt is adequate here).
+**Alternativas descartadas.** El starter de seguridad con una configuración permisiva (una superficie
+mayor que configurar y en la que equivocarse para una sola función de hash); Argon2 (más fuerte en el
+papel, necesita una biblioteca nativa o adicional, y BCrypt es adecuado aquí).
 
-**Consequences.** BCrypt only uses the first 72 bytes of a password, so the domain rejects longer
-ones with a 400 instead of silently truncating (ADR-006). The class that wraps the encoder is the
-only place that knows the algorithm.
+**Consecuencias.** BCrypt solo usa los primeros 72 bytes de una contraseña, así que el dominio rechaza
+las más largas con un 400 en lugar de truncarlas en silencio (ADR-006). La clase que envuelve el
+codificador es el único lugar que conoce el algoritmo.
 
-## ADR-016: The token is persisted in clear and the signing key is ephemeral unless configured
+## ADR-016: El token se persiste en claro y la clave de firma es efímera salvo que se configure
 
-**Context.** The statement requires the token to be persisted with the user. A token stored in clear
-is a bearer credential at rest, which would normally be avoided. The service must also run with no
-setup, but this repository is public, so any signing secret committed to it, or baked into the
-image, is a secret everyone knows.
+**Contexto.** El enunciado exige que el token se persista junto con el usuario. Un token almacenado en
+claro es una credencial al portador en reposo, algo que normalmente se evitaría. El servicio además debe
+correr sin preparación, pero este repositorio es público, así que cualquier secreto de firma que se
+suba a él, o se incorpore a la imagen, es un secreto que todos conocen.
 
-**Decision.** The token is stored as issued, in `users.token VARCHAR(1024)`. A test checks that the
-longest possible token (a 254-character email) fits. The token is not validated on any request, so
-nothing in the service depends on the stored value.
+**Decisión.** El token se almacena tal como se emite, en `users.token VARCHAR(1024)`. Una prueba
+comprueba que el token más largo posible (un correo de 254 caracteres) cabe. El token no se valida en
+ninguna solicitud, de modo que nada del servicio depende del valor almacenado.
 
-The secret and the expiration are properties: `app.token.secret` (environment variable
-`TOKEN_SECRET`) and `app.token.expiration` (default 15 minutes, must be positive). **No secret
-ships.** When `app.token.secret` is absent or empty, `JjwtTokenIssuer` generates a random 256-bit
-key from `SecureRandom` at start-up and logs one `INFO` line saying that an ephemeral signing key is
-in use and that tokens will not survive a restart; the key is never logged. When a secret is
-configured, today's rules apply: at least 32 bytes, otherwise the start-up fails with a message that
-names the property and never the value.
+El secreto y la expiración son propiedades: `app.token.secret` (variable de entorno `TOKEN_SECRET`) y
+`app.token.expiration` (15 minutos por defecto, debe ser positiva). **No se distribuye ningún
+secreto.** Cuando `app.token.secret` está ausente o vacío, `JjwtTokenIssuer` genera una clave aleatoria
+de 256 bits con `SecureRandom` al arrancar y registra una línea `INFO` que indica que se usa una clave
+de firma efímera y que los tokens no sobrevivirán a un reinicio; la clave nunca se registra. Cuando hay
+un secreto configurado se aplican las reglas de siempre: al menos 32 bytes, de lo contrario el arranque
+falla con un mensaje que nombra la propiedad y nunca el valor.
 
-| Option | Verdict |
-|--------|---------|
-| A random key at each start unless a secret is configured | Chosen: the service runs at once, nothing usable is published, and a short configured secret still fails the start-up |
-| A published development-only default | Rejected: in a public repository and in the image it is a signing key anyone can use |
-| No default and a failed start-up without a secret | Rejected: the reviewer cannot just run it, and nothing verifies the tokens anyway |
+| Opción | Veredicto |
+|--------|-----------|
+| Una clave aleatoria en cada arranque salvo que se configure un secreto | Elegida: el servicio corre de inmediato, no se publica nada utilizable y un secreto configurado demasiado corto sigue haciendo fallar el arranque |
+| Un valor por defecto publicado solo para desarrollo | Rechazada: en un repositorio público y en la imagen es una clave de firma que cualquiera puede usar |
+| Sin valor por defecto y arranque fallido sin secreto | Rechazada: quien revisa no puede simplemente ejecutarlo, y nada verifica los tokens de todos modos |
 
-**Consequences.** Without `TOKEN_SECRET`, tokens are signed with a key that exists only in the
-process, so they cannot be verified after a restart or by another instance. Nothing in the service
-verifies a token, so this affects no behaviour here; a deployment that hands tokens to a consumer
-must set `TOKEN_SECRET`. A leaked database leaks valid tokens until they expire. Storing a hash of
-the token would defeat the requirement that it is persisted for later use, so it is not done.
-Secrets are not logged at any level: the records that carry a password, a token or a secret redact
-it in `toString()`, the single success log line uses a masked email, and tests capture the output at
-DEBUG and TRACE and look for the password, the hash, the token and the secret. A test also fails if
-the main sources contain the former development secret.
+**Consecuencias.** Sin `TOKEN_SECRET`, los tokens se firman con una clave que existe solo en el
+proceso, de modo que no se pueden verificar tras un reinicio ni desde otra instancia. Nada en el
+servicio verifica un token, así que esto no afecta ningún comportamiento aquí; un despliegue que
+entregue tokens a un consumidor debe fijar `TOKEN_SECRET`. Una base de datos filtrada filtra tokens
+válidos hasta que expiran. Almacenar un hash del token contradiría el requisito de que se persista para
+uso posterior, así que no se hace. Los secretos no se registran en ningún nivel: los records que llevan
+una contraseña, un token o un secreto los ocultan en `toString()`, la única línea de log de éxito usa un
+correo enmascarado, y las pruebas capturan la salida en DEBUG y TRACE y buscan la contraseña, el hash,
+el token y el secreto. Una prueba también falla si las fuentes principales contienen el antiguo
+secreto de desarrollo.
 
-## ADR-017: A password policy Strategy with a deliberately weak default
+## ADR-017: Un Strategy de política de contraseña con un valor por defecto débil a propósito
 
-**Context.** The statement makes the password rule configurable, and its example password is
+**Contexto.** El enunciado hace configurable la regla de contraseña, y su contraseña de ejemplo es
 `hunter2`.
 
-**Decision.** `PasswordPolicy` is an interface (a Strategy) with `RegexPasswordPolicy` as the
-implementation built from `app.registration.password-pattern`. The default is
+**Decisión.** `PasswordPolicy` es una interfaz (un Strategy) con `RegexPasswordPolicy` como
+implementación, construida desde `app.registration.password-pattern`. El valor por defecto es
 
 ```
 ^(?=.*[A-Za-z])(?=.*[0-9])\S{7,72}$
 ```
 
-At least one letter and one digit, 7 to 72 characters without whitespace. It accepts `hunter2` and
-rejects `abc12`. It is weak on purpose, because the statement's example has to pass.
+Al menos una letra y un dígito, de 7 a 72 caracteres sin espacios en blanco. Acepta `hunter2` y rechaza
+`abc12`. Es débil a propósito, porque el ejemplo del enunciado debe pasar.
 
-**Hardening.** One property replaces it. For example, twelve or more characters with a lower-case
-letter, an upper-case letter, a digit and a symbol:
+**Endurecimiento.** Una propiedad lo reemplaza. Por ejemplo, doce o más caracteres con una minúscula,
+una mayúscula, un dígito y un símbolo:
 
 ```
 ^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9\s])\S{12,72}$
 ```
 
-The 72-character and 72-byte bounds are enforced by the domain whatever the pattern is.
+Los límites de 72 caracteres y 72 bytes los aplica el dominio sea cual sea el patrón.
 
-**Alternatives discarded.** A `Pattern` field in the use case: it works but hides the one extension
-point the statement names. A symmetric `EmailPolicy` interface: the email format will always be one
-regular expression, so a `Pattern` parameter is enough and an abstraction without a second
-implementation is not added. The asymmetry is deliberate.
+**Por qué un Strategy aquí.** `PasswordPolicy` es la vitrina deliberada del requisito de "regex
+configurable" del enunciado, y tiene una sola implementación de producción, `RegexPasswordPolicy`. La
+interfaz no está forzada por una segunda implementación; nombra el punto de extensión que el enunciado
+pide, y las pruebas unitarias la usan con expresiones regulares simples.
 
-**Consequences.** The default accepts weak passwords; the weakness is documented in the README and
-here. An invalid regular expression stops the start-up with a message that names the property.
+**Alternativas descartadas.** Un campo `Pattern` en el caso de uso: funciona pero oculta el único punto
+de extensión que nombra el enunciado. Una interfaz simétrica `EmailPolicy`: el formato del correo
+también es una expresión regular, así que basta un parámetro `Pattern` y no se agrega una segunda
+abstracción para lo mismo. La asimetría es deliberada: el enunciado pide que la regla de contraseña sea
+configurable como política, y el Strategy se muestra una sola vez.
 
-## ADR-018: The literal `contrycode`
+**Consecuencias.** El valor por defecto acepta contraseñas débiles; la debilidad está documentada en el
+README y aquí. Una expresión regular inválida detiene el arranque con un mensaje que nombra la
+propiedad.
 
-**Context.** The statement spells the phone's country field `contrycode`.
+## ADR-018: El `contrycode` literal
 
-**Decision.** The field is spelled exactly so in requests, responses and the OpenAPI document. The
-Java component is `countryCode` with `@JsonProperty("contrycode")`, and the column is
-`country_code`. The typo is kept because it is the wire contract, not corrected silently.
+**Contexto.** El enunciado escribe el campo de país del teléfono como `contrycode`.
 
-**Alternatives discarded.** Accepting both spellings: it doubles the contract for a typo, and a
-client would never know which one is the real one.
+**Decisión.** El campo se escribe exactamente así en solicitudes, respuestas y el documento OpenAPI. El
+componente Java es `countryCode` con `@JsonProperty("contrycode")`, y la columna es `country_code`. Se
+conserva la errata porque es el contrato en el cable, no se corrige en silencio.
 
-**Consequences.** A client that sends `countrycode` has it ignored as an unknown property, and the
-required `contrycode` is then reported as missing.
+**Alternativas descartadas.** Aceptar ambas grafías: duplica el contrato por una errata, y un cliente
+nunca sabría cuál es la real.
 
-## ADR-019: Email normalisation and field limits
+**Consecuencias.** Un cliente que envía `countrycode` lo ve ignorado como propiedad desconocida, y el
+`contrycode` obligatorio se reporta entonces como ausente.
 
-**Decision.**
+## ADR-019: Normalización del correo y límites de campos
 
-- The email is lower-cased with `Locale.ROOT` (so a Turkish default locale cannot alter it) and is
-  stored lower-cased. Two addresses that differ only in case are the same address, which makes
-  uniqueness case-insensitive. The length limit is measured after lower-casing, because some
-  characters expand.
-- The email is **not trimmed**. A value with a leading or trailing space is not blank, reaches the
-  pattern and fails it. The pattern is matched with `matches()`, so a trailing newline is rejected
-  even though `$` alone would tolerate it. Patterns are therefore written in lower case, since they
-  apply to the lower-cased value.
-- Names and phone fields are stored exactly as received.
-- Phone fields are strings, so leading zeros survive. `number` and `citycode` contain ASCII digits
-  only; `contrycode` contains ASCII digits with an optional leading `+`, which counts toward its
-  limit. The statement's example (`"1234567"`, `"1"`, `"57"`) is valid. Each field is checked in
-  the order required, length, format, with a typed reason of its own (`PHONE_NUMBER_FORMAT`,
-  `CITY_CODE_FORMAT`, `COUNTRY_CODE_FORMAT`). The OpenAPI schema publishes the same patterns,
-  which come from constants in `Phone`.
-- `phones` may be absent, null or empty; it is returned as `[]`.
+**Decisión.**
 
-| Field | Limit |
-|-------|-------|
-| `name` | 255 characters |
-| `email` | 254 characters (after lower-casing) |
-| `password` | 72 characters and 72 UTF-8 bytes |
-| `phones` | 10 entries |
-| `number` | 20 characters |
-| `citycode`, `contrycode` | 10 characters each |
+- El correo se pasa a minúsculas con `Locale.ROOT` (para que un locale por defecto turco no lo altere)
+  y se almacena en minúsculas. Dos direcciones que difieren solo en mayúsculas son la misma dirección,
+  lo que hace la unicidad insensible a mayúsculas. El límite de largo se mide después de pasar a
+  minúsculas, porque algunos caracteres se expanden.
+- El correo **no se recorta**. Un valor con un espacio inicial o final no está en blanco, llega al
+  patrón y lo incumple. El patrón se aplica con `matches()`, así que un salto de línea final se rechaza
+  aunque `$` solo lo toleraría. Por eso los patrones se escriben en minúsculas, ya que se aplican al
+  valor en minúsculas.
+- Los nombres y los campos de teléfono se almacenan exactamente como se reciben.
+- Los campos de teléfono son strings, de modo que los ceros iniciales sobreviven. `number` y `citycode`
+  contienen solo dígitos ASCII; `contrycode` contiene dígitos ASCII con un `+` inicial opcional, que
+  cuenta para su límite. El ejemplo del enunciado (`"1234567"`, `"1"`, `"57"`) es válido. Cada campo se
+  verifica en el orden obligatorio, largo, formato, con un motivo tipado propio
+  (`PHONE_NUMBER_FORMAT`, `CITY_CODE_FORMAT`, `COUNTRY_CODE_FORMAT`). El esquema OpenAPI publica los
+  mismos patrones, que provienen de constantes de `Phone`.
+- `phones` puede estar ausente, ser nulo o vacío; se devuelve como `[]`.
 
-The limits are domain constants. The validation, the JPA column lengths and the OpenAPI
-`maxLength` reference them, and `schema.sql` mirrors them; tests store every column at its maximum
-length against the script, so a mismatch fails the build.
+| Campo | Límite |
+|-------|--------|
+| `name` | 255 caracteres |
+| `email` | 254 caracteres (tras pasar a minúsculas) |
+| `password` | 72 caracteres y 72 bytes UTF-8 |
+| `phones` | 10 entradas |
+| `number` | 20 caracteres |
+| `citycode`, `contrycode` | 10 caracteres cada uno |
 
-**Alternatives discarded.** `jakarta.validation.constraints.Email` accepts `juan@dominio`, which the
-format rule rejects. Trimming input hides a client bug.
+Los límites son constantes del dominio. La validación, los largos de columna JPA y el `maxLength` de
+OpenAPI las referencian, y `schema.sql` las replica; las pruebas almacenan cada columna en su largo
+máximo contra el script, de modo que una discrepancia hace fallar el build.
 
-**Consequences.** The limits are assumptions, because the statement gives none. Every field has a
-bound so hostile input cannot reach the regular expression engine or the database unbounded.
+**Alternativas descartadas.** `jakarta.validation.constraints.Email` acepta `juan@dominio`, que la regla
+de formato rechaza. Recortar la entrada oculta un error del cliente.
 
-## ADR-020: Application-generated identifier and a single clock reading
+**Consecuencias.** Los límites son supuestos, porque el enunciado no da ninguno. Todo campo tiene una
+cota, de modo que una entrada hostil no puede llegar sin límite al motor de expresiones regulares ni a
+la base de datos.
 
-**Decision.**
+## ADR-020: Identificador generado por la aplicación y una única lectura del reloj
 
-- The user id is a random UUID generated by the application (`UserId.generate()`), because the
-  token's `sub` claim needs the id before the row exists. A database-generated id would need a
-  second write to store the token.
-- The use case reads the clock **once**: `clock.instant()` truncated to microseconds. That one value
-  is passed to the token issuer and to the builder, which assigns it to `created`, `modified` and
-  `last_login`. Microseconds are the precision of the `TIMESTAMP(6)` columns, so the response, the
-  token and the stored row show the same instant, and `iat` is that instant at second precision.
-- The clock is a `java.time.Clock` bean, so tests fix it.
+**Decisión.**
 
-**Consequences.** There is no drift between the response and the database. The use case's reading
-of the clock is pinned by a test that uses a clock which advances on every read.
+- El id del usuario es un UUID aleatorio generado por la aplicación (`UserId.generate()`), porque el
+  claim `sub` del token necesita el id antes de que exista la fila. Un id generado por la base de datos
+  requeriría una segunda escritura para almacenar el token.
+- El caso de uso lee el reloj **una vez**: `clock.instant()` truncado a microsegundos. Ese único valor
+  se pasa al emisor de tokens y al builder, que lo asigna a `created`, `modified` y `last_login`. Los
+  microsegundos son la precisión de las columnas `TIMESTAMP(6)`, de modo que la respuesta, el token y la
+  fila almacenada muestran el mismo instante, y `iat` es ese instante con precisión de segundo.
+- El reloj es un bean `java.time.Clock`, de modo que las pruebas lo fijan.
 
-## ADR-021: Quality gates
+**Consecuencias.** No hay deriva entre la respuesta y la base de datos. La lectura del reloj por parte
+del caso de uso está fijada por una prueba que usa un reloj que avanza en cada lectura.
 
-| Gate | What it enforces | Notes |
-|------|------------------|-------|
-| JaCoCo | At least 80 % line coverage over `domain` and `application` | Measured value: 100 % (197 of 197 lines). Infrastructure is exercised by slice and full-context tests but is not gated: a percentage on wiring code invites tests of configuration |
-| Spotless | Google Java Format 1.28.0, no unused imports, no trailing whitespace | `spotlessCheck` runs inside `check`; `./gradlew spotlessApply` fixes it |
-| Error Prone | Static analysis in the Java compiler | Pinned to 2.42.0, the last line that runs on JDK 17 (ADR-011); it ran on this build and reported real diagnostics. Together with `-Xlint:all -Werror` on the main sources |
-| ArchUnit (core) | Layering and dependency rules | Seven rules, listed below |
-| `.editorconfig` | UTF-8, LF, final newline, indentation | Shared by editors |
+## ADR-021: Compuertas de calidad
 
-The ArchUnit rules:
+| Compuerta | Qué hace cumplir | Notas |
+|-----------|------------------|-------|
+| JaCoCo | Al menos 80 % de cobertura de líneas sobre `domain` y `application` | El valor medido está en el informe de JaCoCo de cada build. La infraestructura se ejercita con pruebas de corte y de contexto completo, pero no tiene umbral: un porcentaje sobre código de cableado invita a pruebas de configuración |
+| Spotless | Google Java Format 1.28.0, sin imports sin usar, sin espacios finales | `spotlessCheck` corre dentro de `check`; `./gradlew spotlessApply` lo corrige |
+| Error Prone | Análisis estático dentro del compilador de Java | Fijado en 2.42.0, la última línea que corre en JDK 17 (ADR-011). Junto con `-Xlint:all -Werror` en las fuentes principales |
+| ArchUnit (núcleo) | Reglas de capas y de dependencias | Las reglas listadas abajo |
+| `.editorconfig` | UTF-8, LF, salto de línea final, indentación | Compartido por los editores |
 
-1. `domain` imports none of Spring, Jakarta, Hibernate, either Jackson generation, JJWT or Swagger.
-2. `application` depends only on `domain`, itself, `java.*` and the transaction annotation.
-3. Layers point inward: the domain does not depend on `application` or `infrastructure`, and the
-   application does not depend on `infrastructure`.
-4. `web`, `persistence`, `security` and `config` do not depend on each other.
-5. No class uses field injection.
-6. `@Entity` classes reside in `infrastructure.persistence`.
-7. No class in `web` uses a JPA entity.
+Las reglas de ArchUnit:
 
-**A rule that cannot fail is not a rule.** A second test class feeds each rule a fixture class written
-to break it (22 files in a separate test package) and requires the rule to fail naming that class.
-An empty set of offenders would otherwise pass vacuously, as happens with a mistyped package
-pattern; ArchUnit's own "no classes selected" failure catches that case as well.
+1. `domain` no importa nada de Spring, Jakarta, Hibernate, ninguna generación de Jackson, JJWT ni
+   Swagger.
+2. `application` depende solo de `domain`, de sí misma, de `java.*` y de la anotación de transacción.
+3. Las capas apuntan hacia adentro: el dominio no depende de `application` ni de `infrastructure`, y la
+   aplicación no depende de `infrastructure`.
+4. `web`, `persistence`, `security` y `config` no dependen entre sí.
+5. Ninguna clase usa inyección en campos.
+6. Las clases `@Entity` residen en `infrastructure.persistence`.
+7. Ninguna clase de `web` usa una entidad JPA.
 
-The core ArchUnit library is used from ordinary tests; `archunit-junit5` is not, because its engine
-targets the JUnit 5 platform and Boot 4.1.1 manages JUnit 6.
+**Una regla que no puede fallar no es una regla.** Una segunda clase de pruebas entrega a cada regla
+una clase de fixture escrita para romperla (en un paquete de pruebas aparte) y exige que la regla falle
+nombrando esa clase. Un conjunto vacío de infractores pasaría en vacío, como ocurre con un patrón de
+paquete mal escrito; el propio fallo "no classes selected" de ArchUnit cubre ese caso también.
 
-**Consequences.** `./gradlew build` is the single gate and CI runs it. The gates cost build time
-(about 25 seconds on a clean build with the whole suite) and a stricter compile, which is the point.
+La biblioteca núcleo de ArchUnit se usa desde pruebas ordinarias; `archunit-junit5` no, porque su motor
+apunta a la plataforma JUnit 5 y Boot 4.1.1 administra JUnit 6.
 
-## ADR-022: What was deliberately left out
+**Consecuencias.** `./gradlew build` es la única compuerta y CI la ejecuta. Las compuertas cuestan
+tiempo de build y una compilación más estricta, que es el propósito.
 
-| Left out | Reason |
-|----------|--------|
-| Login endpoint and token validation on requests | Not requested; the token is issued and stored only |
-| Update, delete and list of users | Not requested; the repository port has two methods |
-| Spring Security starter | See ADR-015 |
-| Actuator and health endpoints | Not requested; the image has no `HEALTHCHECK` on purpose, so whoever runs the container decides how to probe it |
-| Flyway or Liquibase | See ADR-013 |
-| Mapper libraries, Lombok | Mapping is small; the response is a record, so a forgotten field is a compile error |
-| Domain events, CQRS, Factory, Observer | No variation in the service asks for them |
-| `Location` header on 201 | There is no `GET` for the resource; a link to a 404 would mislead |
-| Rate limiting, TLS, CORS | Deployment concerns, outside the exercise |
-| Mutation testing, dependency vulnerability scanning | Outside the exercise; worth adding in a real pipeline |
+## ADR-022: Lo que se dejó fuera deliberadamente
 
----
-
-## Components
-
-| Component | Responsibility | Why it exists |
-|-----------|----------------|---------------|
-| `User` (+ `Builder`) | Aggregate of a registered user; immutable after `build()`; checks its invariants | One place that says what a valid registered user is; the builder names every value |
-| `UserId` | Typed identifier around a UUID | Stops an id from being mixed with another string; generated before the row exists |
-| `Email` | Value object: lower-cased, bounded, format-checked, masked for logs | One definition of normalisation and uniqueness |
-| `Phone` | Value object: number, city code, country code | Keeps the three strings together with their limits |
-| `PasswordPolicy`, `RegexPasswordPolicy` | Strategy for the password rules; the regular expression comes from configuration | The statement requires the rule to be configurable |
-| `InvalidUserDataException`, `EmailAlreadyRegisteredException` | Typed domain rejections; no client text | The domain says what went wrong, the web layer decides how to say it |
-| `UserRepository`, `PasswordHasher`, `TokenIssuer` | Outbound ports | The use case is tested without a database, BCrypt or JJWT (ADR-002) |
-| `RegisterUserUseCase`, `RegisterUserCommand` | Orchestrates the registration and owns the transaction | The one application service; the command redacts the password in `toString()` |
-| `UserController`, `UserApi` | HTTP to command to response; the interface carries the OpenAPI annotations | Keeps the controller at a few lines |
-| `RegisterUserRequest`, `PhoneRequest`, `UserResponse`, `PhoneResponse`, `ErrorResponse` | JSON records | Explicit wire contract; the response has no password component |
-| `UserWebMapper` | Static mapping between records and command or aggregate | A forgotten field is a compile error; it never reads the password hash |
-| `GlobalExceptionHandler` | The single `@RestControllerAdvice` | One translation point for every error (ADR-008) |
-| `ErrorMessages` | The message catalogue and the status lookups | Client text in one place, shared by the two error paths |
-| `ApiErrorController` | JSON body for errors forwarded to the error path | ADR-010 |
-| `JacksonConfig` | Strict string typing | ADR-007 |
-| `UserPersistenceAdapter`, `UserJpaRepository`, `UserJpaEntity`, `PhoneJpaEntity` | Implement `UserRepository` with JPA; translate a unique violation into the domain rejection | ADR-005 and the concurrency rule: the constraint, not the pre-check, guarantees uniqueness |
-| `BCryptPasswordHasher` | Implements `PasswordHasher` | ADR-015 |
-| `JjwtTokenIssuer`, `TokenProperties` | Implements `TokenIssuer`; binds `app.token.*`; fails the start-up on a weak secret | ADR-014 and ADR-016 |
-| `ApplicationConfig`, `RegistrationProperties`, `OpenApiConfig` | Wiring of the use case, the policy and the clock; typed `app.registration.*` properties; OpenAPI metadata | The domain and application classes carry no stereotype annotation, so the wiring is here |
-| `schema.sql` | Creates `users` and `phones` | ADR-013 |
+| Se dejó fuera | Razón |
+|---------------|-------|
+| Endpoint de login y validación de tokens en las solicitudes | No se pidió; el token solo se emite y se almacena |
+| Actualizar, borrar y listar usuarios | No se pidió; el puerto del repositorio tiene dos métodos |
+| Starter de Spring Security | Ver ADR-015 |
+| Actuator y endpoints de salud | No se pidió; la imagen no tiene `HEALTHCHECK` a propósito, de modo que quien ejecuta el contenedor decide cómo sondearlo |
+| Flyway o Liquibase | Ver ADR-013 |
+| Bibliotecas de mapeo, Lombok | El mapeo es pequeño; la respuesta es un record, así que un campo olvidado es un error de compilación |
+| Eventos de dominio, CQRS, Factory, Observer | Nada en el servicio los requiere |
+| Encabezado `Location` en el 201 | No hay `GET` para el recurso; un enlace a un 404 induciría a error |
+| Límite de tasa, TLS, CORS | Asuntos de despliegue, fuera del ejercicio |
+| Pruebas de mutación, escaneo de vulnerabilidades de dependencias | Fuera del ejercicio; vale la pena agregarlos en un pipeline real |
 
 ---
 
-## Known limitations
+## Componentes
 
-- **Container-level rejections.** A request that the servlet container rejects before any
-  application code runs (an invalid percent-escape in the path, a malformed request line, oversized
-  headers) is answered by the container's own error page, normally HTML, and is outside the
-  `mensaje` contract (ADR-010). Everything that reaches the application, including errors forwarded
-  to the error path, is covered.
-- **Ephemeral signing key and clear-text token.** Without `TOKEN_SECRET` the signing key is random
-  and lives only in the process, so tokens do not survive a restart. The token is stored in clear
-  because the statement requires it to be persisted (ADR-016). Set `TOKEN_SECRET` when tokens must
-  stay valid.
-- **Weak default password pattern.** It accepts the statement's example, `hunter2` (ADR-017).
-- **In-memory data.** Everything is lost when the process stops.
-- **Development tools are on by default.** The H2 console (`/h2-console`) and Swagger UI expose the
-  database and the API description. Disable them with `spring.h2.console.enabled=false` and
-  `springdoc.swagger-ui.enabled=false` outside development. The H2 console refuses non-local
-  connections, so it is usable with `bootRun` and not through `docker run -p`.
-- **Email enumeration.** The 409 for a duplicate tells a caller whether an address is registered.
-  The statement requires that answer.
-- **Pragmatic email format.** The default pattern is not RFC 5322: it accepts ordinary addresses and
-  rejects values such as `juan@dominio` that have no top-level label. No confirmation e-mail is sent.
-- **Unexpected failures are logged without their messages.** The 500 handler logs classes and
-  stack frames only (ADR-009), so a database message cannot put request data in the log. The cost is
-  that the log does not say why a statement failed (which constraint, which column): the frames and
-  the root-cause class are what a maintainer has. Hibernate's own report of a failed statement is
-  switched off for the same reason (`logging.level.org.hibernate.orm.jdbc.error=OFF`): it quotes the
-  database message, and for a duplicate it would log the clear-text address at WARN. The failure
-  itself is still raised, translated or logged by the exception handler.
-- **Hibernate `validate` and time zones.** It does not tell `TIMESTAMP` from
-  `TIMESTAMP WITH TIME ZONE`; that part of the schema is proved by round-trip tests (ADR-013).
-- **Hashing inside the transaction.** BCrypt at strength 12 holds a database connection for its
-  duration. Irrelevant at this scale (ADR-004).
-- **No authentication, rate limiting or TLS.** Registration is open to any caller.
+| Componente | Responsabilidad | Por qué existe |
+|------------|-----------------|----------------|
+| `User` (+ `Builder`) | Agregado de un usuario registrado; inmutable tras `build()`; verifica sus invariantes | Un solo lugar que dice qué es un usuario registrado válido; el builder nombra cada valor |
+| `UserId` | Identificador tipado alrededor de un UUID | Evita que un id se mezcle con otro string; se genera antes de que exista la fila |
+| `Email` | Value object: en minúsculas, acotado, con formato verificado, enmascarado para logs | Una sola definición de normalización y de unicidad |
+| `Phone` | Value object: número, código de ciudad, código de país | Mantiene juntos los tres strings con sus límites y su formato |
+| `PasswordPolicy`, `RegexPasswordPolicy` | Strategy de las reglas de contraseña; la expresión regular viene de la configuración | El enunciado exige que la regla sea configurable |
+| `InvalidUserDataException`, `EmailAlreadyRegisteredException` | Rechazos de dominio tipados; sin texto para el cliente | El dominio dice qué salió mal, la capa web decide cómo decirlo |
+| `UserRepository`, `PasswordHasher`, `TokenIssuer` | Puertos de salida | El caso de uso se prueba sin base de datos, BCrypt ni JJWT (ADR-002) |
+| `RegisterUserUseCase`, `RegisterUserCommand` | Orquesta el registro y es dueño de la transacción | El único servicio de aplicación; el comando oculta la contraseña en `toString()` |
+| `UserController`, `UserApi` | HTTP a comando a respuesta; la interfaz lleva las anotaciones OpenAPI | Mantiene el controlador en pocas líneas |
+| `RegisterUserRequest`, `PhoneRequest`, `UserResponse`, `PhoneResponse`, `ErrorResponse` | Records JSON | Contrato explícito en el cable; la respuesta no tiene componente de contraseña |
+| `UserWebMapper` | Mapeo estático entre records y comando o agregado | Un campo olvidado es un error de compilación; nunca lee el hash de la contraseña |
+| `GlobalExceptionHandler` | El único `@RestControllerAdvice` | Un solo punto de traducción para todo error (ADR-008) |
+| `ErrorMessages` | El catálogo de mensajes y las búsquedas por estado | Texto para el cliente en un solo lugar, compartido por los dos caminos de error |
+| `ApiErrorController` | Cuerpo JSON para los errores reenviados a la ruta de error | ADR-010 |
+| `JacksonConfig` | Tipado estricto de strings | ADR-007 |
+| `UserPersistenceAdapter`, `UserJpaRepository`, `UserJpaEntity`, `PhoneJpaEntity` | Implementan `UserRepository` con JPA; traducen una violación de unicidad al rechazo de dominio | ADR-005 y la regla de concurrencia: la restricción, no la comprobación previa, garantiza la unicidad |
+| `BCryptPasswordHasher` | Implementa `PasswordHasher` | ADR-015 |
+| `JjwtTokenIssuer`, `TokenProperties` | Implementa `TokenIssuer`; enlaza `app.token.*`; hace fallar el arranque con un secreto débil y genera una clave efímera si no hay secreto | ADR-014 y ADR-016 |
+| `ApplicationConfig`, `RegistrationProperties`, `OpenApiConfig` | Cableado del caso de uso, la política y el reloj; propiedades tipadas `app.registration.*`; metadatos de OpenAPI | Las clases de dominio y de aplicación no llevan anotación de estereotipo, así que el cableado está aquí |
+| `schema.sql` | Crea `users` y `phones` | ADR-013 |
+
+---
+
+## Limitaciones conocidas
+
+- **Rechazos a nivel del contenedor.** Una solicitud que el contenedor de servlets rechaza antes de que
+  corra código de la aplicación (una secuencia de porcentaje inválida en la ruta, una línea de
+  solicitud mal formada, encabezados demasiado grandes) se responde con la página de error propia del
+  contenedor, normalmente HTML, y queda fuera del contrato `mensaje` (ADR-010). Todo lo que llega a la
+  aplicación, incluidos los errores reenviados a la ruta de error, está cubierto.
+- **Clave de firma efímera y token en claro.** Sin `TOKEN_SECRET` la clave de firma es aleatoria y vive
+  solo en el proceso, de modo que los tokens no sobreviven a un reinicio. El token se almacena en claro
+  porque el enunciado exige que se persista (ADR-016). Fije `TOKEN_SECRET` cuando los tokens deban
+  seguir siendo válidos.
+- **Patrón de contraseña débil por defecto.** Acepta el ejemplo del enunciado, `hunter2` (ADR-017).
+- **Datos en memoria.** Todo se pierde cuando el proceso se detiene.
+- **Las herramientas de desarrollo vienen activadas.** La consola H2 (`/h2-console`) y Swagger UI
+  exponen la base de datos y la descripción de la API. Se desactivan con
+  `spring.h2.console.enabled=false` y `springdoc.swagger-ui.enabled=false` fuera de desarrollo. La
+  consola H2 rechaza las conexiones no locales, así que se puede usar con `bootRun` y no mediante
+  `docker run -p`.
+- **Enumeración de correos.** El 409 de un duplicado le dice a quien llama si una dirección está
+  registrada. El enunciado exige esa respuesta.
+- **Formato de correo pragmático.** El patrón por defecto no es RFC 5322: acepta direcciones comunes y
+  rechaza valores como `juan@dominio`, que no tienen etiqueta de nivel superior. No se envía ningún
+  correo de confirmación.
+- **Las fallas inesperadas se registran sin sus mensajes.** El manejador del 500 registra solo clases y
+  frames de la traza (ADR-009), de modo que un mensaje de base de datos no puede poner datos de la
+  solicitud en el log. El costo es que el log no dice por qué falló una sentencia (qué restricción, qué
+  columna): lo que tiene quien mantiene son los frames y la clase de la causa raíz. El propio reporte de
+  Hibernate de una sentencia fallida está desactivado por la misma razón
+  (`logging.level.org.hibernate.orm.jdbc.error=OFF`): cita el mensaje de la base de datos y, en un
+  duplicado, registraría la dirección en claro en WARN. La falla en sí se sigue lanzando, traduciendo o
+  registrando por el manejador de excepciones.
+- **`validate` de Hibernate y zonas horarias.** No distingue `TIMESTAMP` de `TIMESTAMP WITH TIME ZONE`;
+  esa parte del esquema se demuestra con pruebas de ida y vuelta (ADR-013).
+- **Hash dentro de la transacción.** BCrypt con costo 12 retiene una conexión de base de datos mientras
+  dura. Irrelevante a esta escala (ADR-004).
+- **Sin autenticación, límite de tasa ni TLS.** El registro está abierto a cualquier llamador.
