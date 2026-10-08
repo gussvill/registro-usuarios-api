@@ -5,10 +5,11 @@
     "title": "Flujo de registro de un usuario",
     "quality_profile": "showcase",
     "viewBox": [
-      1085,
-      690
+      1040,
+      668
     ],
     "column_fit": "spread",
+    "animation": "trace",
     "legend": {
       "entries": {
         "emphasis": {
@@ -69,18 +70,18 @@
   ],
   "segments": [
     {
-      "from": 201,
-      "to": 578,
+      "from": 200,
+      "to": 564,
       "label": "Transacción (@Transactional)"
     },
     {
-      "from": 380,
-      "to": 431,
+      "from": 372,
+      "to": 422,
       "label": "El reloj se lee una sola vez (now)"
     },
     {
-      "from": 496,
-      "to": 547,
+      "from": 484,
+      "to": 534,
       "label": "save: violación de unicidad → 409"
     }
   ],
@@ -90,121 +91,121 @@
       "from": "client",
       "to": "controller",
       "y": 160,
-      "label": "POST /api/v1/users",
+      "label": "1 · POST /api/v1/users",
       "variant": "emphasis"
     },
     {
       "id": "register",
       "from": "controller",
       "to": "usecase",
-      "y": 189,
-      "label": "register(command)",
+      "y": 188,
+      "label": "2 · register(command)",
       "variant": "emphasis"
     },
     {
       "id": "validate",
       "from": "usecase",
       "to": "domain",
-      "y": 218,
-      "label": "valida todos los campos"
+      "y": 216,
+      "label": "3 · valida todos los campos"
     },
     {
       "id": "valid",
       "from": "domain",
       "to": "usecase",
-      "y": 247,
-      "label": "sin violaciones",
+      "y": 244,
+      "label": "4 · sin violaciones",
       "variant": "return"
     },
     {
       "id": "exists",
       "from": "usecase",
       "to": "repo",
-      "y": 276,
-      "label": "existsByEmail(email)"
+      "y": 272,
+      "label": "5 · existsByEmail(email)"
     },
     {
       "id": "not-exists",
       "from": "repo",
       "to": "usecase",
-      "y": 305,
-      "label": "false",
+      "y": 300,
+      "label": "6 · false",
       "variant": "return"
     },
     {
       "id": "hash",
       "from": "usecase",
       "to": "hasher",
-      "y": 334,
-      "label": "hash(password)"
+      "y": 328,
+      "label": "7 · hash(password)"
     },
     {
       "id": "hashed",
       "from": "hasher",
       "to": "usecase",
-      "y": 363,
-      "label": "hash BCrypt",
+      "y": 356,
+      "label": "8 · hash BCrypt",
       "variant": "return"
     },
     {
       "id": "issue",
       "from": "usecase",
       "to": "tokens",
-      "y": 392,
-      "label": "issue(id, email, now)"
+      "y": 384,
+      "label": "9 · issue(id, email, now)"
     },
     {
       "id": "issued",
       "from": "tokens",
       "to": "usecase",
-      "y": 421,
-      "label": "JWT firmado",
+      "y": 412,
+      "label": "10 · JWT firmado",
       "variant": "return"
     },
     {
       "id": "build",
       "from": "usecase",
       "to": "domain",
-      "y": 450,
-      "label": "User.registration()"
+      "y": 440,
+      "label": "11 · User.registration()"
     },
     {
       "id": "built",
       "from": "domain",
       "to": "usecase",
-      "y": 479,
-      "label": "User",
+      "y": 468,
+      "label": "12 · User",
       "variant": "return"
     },
     {
       "id": "save",
       "from": "usecase",
       "to": "repo",
-      "y": 508,
-      "label": "save(user)"
+      "y": 496,
+      "label": "13 · save(user)"
     },
     {
       "id": "saved",
       "from": "repo",
       "to": "usecase",
-      "y": 537,
-      "label": "guardado",
+      "y": 524,
+      "label": "14 · guardado",
       "variant": "return"
     },
     {
       "id": "user",
       "from": "usecase",
       "to": "controller",
-      "y": 566,
-      "label": "User",
+      "y": 552,
+      "label": "15 · User",
       "variant": "return"
     },
     {
       "id": "created",
       "from": "controller",
       "to": "client",
-      "y": 595,
-      "label": "201 UserResponse",
+      "y": 580,
+      "label": "16 · 201 · no-store",
       "variant": "return"
     }
   ],
@@ -212,39 +213,97 @@
     {
       "participant": "controller",
       "from": 160,
-      "to": 595,
+      "to": 580,
       "type": "frontend"
     },
     {
       "participant": "usecase",
-      "from": 189,
-      "to": 566,
+      "from": 188,
+      "to": 552,
       "type": "backend"
     }
   ],
   "cards": [
     {
-      "dot": "emerald",
-      "title": "Orden del caso de uso",
+      "dot": "slate",
+      "title": "Cómo leer este diagrama",
       "items": [
-        "Valida todos los campos antes de consultar",
-        "Duplicado, hash, reloj, token, User, save"
+        "El tiempo corre de arriba abajo. Cada columna es un participante y cada flecha numerada es una llamada o su respuesta.",
+        "Al abrir la página las flechas se dibujan una tras otra, en orden; el botón Live / Still repite o detiene ese trazado.",
+        "Haga clic en un participante para ver todo lo que envía y recibe, o en una flecha para fijarla.",
+        "Las tarjetas siguientes explican cada paso con su clase y su método. Las rutas de archivo son relativas a src/main/java/com/registro/usuarios/.",
+        "Qué es cada componente y de quién depende: components.html. Qué ocurre cuando el registro se rechaza: registration-sequence-errors.html."
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Participantes",
+      "items": [
+        "Cliente — Quien llama a la API con JSON.",
+        "Controlador — UserController, el adaptador de entrada HTTP. Archivo: UserController.java en infrastructure/web/",
+        "Caso de uso — RegisterUserUseCase, visto por el controlador a través del puerto RegisterUser. Archivo: RegisterUserUseCase.java en application/",
+        "Dominio — Las reglas de domain.model (User, Email, Phone) y domain.policy (Password, PasswordPolicy).",
+        "Repositorio — El puerto UserRepository; detrás está UserPersistenceAdapter con Spring Data JPA y H2.",
+        "Hash — El puerto PasswordHasher; detrás está BCryptPasswordHasher.",
+        "Token — El puerto TokenIssuer; detrás está JjwtTokenIssuer."
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Pasos 1 y 2 · entrada",
+      "items": [
+        "1 — La petición llega a UserController.register(request); la ruta POST /api/v1/users está declarada en UserApi. Spring ya convirtió el JSON en un RegisterUserRequest: un cuerpo ilegible no llega hasta aquí y recibe 400.",
+        "2 — UserWebMapper.toCommand(request) arma el RegisterUserCommand sin validar nada y el controlador llama a RegisterUser.register(command). Al entrar en el método, el proxy de @Transactional abre la transacción."
+      ]
+    },
+    {
+      "dot": "orange",
+      "title": "Pasos 3 a 6 · validación y duplicado",
+      "items": [
+        "3 — RegisterUserUseCase.violationsOf reúne lo que dice cada regla: User.nameViolation, Email.violation, Password.violation y User.phoneListViolations.",
+        "4 — Ninguna violación. El caso de uso crea entonces el Email normalizado con Email.of y los Phone.",
+        "5 — UserRepository.existsByEmail(email); el adaptador consulta con UserJpaRepository.existsByEmail.",
+        "6 — false: el correo está libre. Es una comprobación previa; la garantía real es la restricción única del paso 13."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Pasos 7 a 12 · hash, reloj, token y agregado",
+      "items": [
+        "7 — PasswordHasher.hash con la contraseña recibida; lo implementa BCryptPasswordHasher.",
+        "8 — Vuelve el hash BCrypt con su sal. La contraseña en claro no se guarda ni se devuelve.",
+        "9 — Justo antes, clock.instant() lee el reloj una sola vez, truncado a microsegundos, y UserId.generate() crea el id. Con ambos se llama a TokenIssuer.issue(id, email, now), implementado por JjwtTokenIssuer.",
+        "10 — Vuelve un JWT HS256 firmado, con la emisión y la expiración calculadas desde ese mismo instante.",
+        "11 — User.registration() abre el Builder y build() comprueba las invariantes: created, modified y lastLogin reciben el mismo now y el usuario queda activo.",
+        "12 — Vuelve el User, inmutable."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Pasos 13 a 16 · guardar y responder",
+      "items": [
+        "13 — UserRepository.save(user). UserPersistenceAdapter.save usa saveAndFlush, de modo que el INSERT ocurre aquí; si la restricción uk_users_email lo rechaza, lanza EmailAlreadyRegisteredException y la respuesta es 409.",
+        "14 — Guardado; save no devuelve ningún valor.",
+        "15 — register devuelve el User y, al retornar, la transacción se confirma.",
+        "16 — UserController escribe una línea de log con el id y el correo enmascarado y responde 201 con UserWebMapper.toResponse(user) y el encabezado Cache-Control: no-store, porque el cuerpo lleva un token. UserResponse no tiene campo para la contraseña."
       ]
     },
     {
       "dot": "slate",
       "title": "Transacción",
       "items": [
-        "Empieza al entrar en register()",
-        "Se confirma al retornar el User"
+        "El límite es RegisterUserUseCase.register, anotado con @Transactional: empieza en el paso 2 y se confirma en el paso 15.",
+        "Una excepción la revierte, así que nunca queda un usuario a medio guardar.",
+        "El controlador y la respuesta HTTP quedan fuera de ella."
       ]
     },
     {
-      "dot": "cyan",
-      "title": "Respuesta",
+      "dot": "amber",
+      "title": "Un solo instante",
       "items": [
-        "201 con UserResponse",
-        "La contraseña nunca se devuelve"
+        "now se lee una vez y se trunca a microsegundos, la precisión de las columnas de la tabla.",
+        "El token, la fila guardada y la respuesta muestran el mismo instante.",
+        "El reloj es un bean Clock creado en ApplicationConfig, lo que permite fijarlo en las pruebas."
       ]
     }
   ]
