@@ -365,8 +365,12 @@ OpenAPI.
   encabezados demasiado grandes) se responde con la página de error propia del contenedor, normalmente
   HTML, y queda fuera del contrato `mensaje`. Está registrado en las limitaciones conocidas y en el
   README.
-- Los casos de error reenviado se prueban por un socket crudo, porque MockMvc no realiza el despacho de
-  errores del contenedor.
+- El reenvío se prueba por HTTP real, porque MockMvc no realiza el despacho de errores del contenedor:
+  `ErrorPathTest` registra un filtro que existe solo en esa prueba, llama a `sendError` para una ruta
+  marcadora (503, 500, 400, 401, 404 y 409; el 503 también con `Accept: text/html` y con `POST`) y
+  comprueba el estado, el tipo de contenido JSON y el cuerpo `mensaje` de la respuesta. La rama de un atributo de
+  estado que no es un entero, que el contenedor nunca produce, se prueba con una prueba unitaria
+  (`ApiErrorControllerTest`).
 
 ## ADR-011: Spring Boot 4.1.1 y Java 17 frente al "Java 8+" del enunciado
 

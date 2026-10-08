@@ -3,6 +3,10 @@ package com.registro.usuarios.infrastructure.web;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.registro.usuarios.support.FullContextTest;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -17,8 +21,12 @@ import java.util.Locale;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.web.filter.OncePerRequestFilter;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -34,10 +42,38 @@ import tools.jackson.databind.json.JsonMapper;
 class ErrorPathTest {
 
   private static final int TIMEOUT_MILLIS = 5_000;
+  private static final String SEND_ERROR_PREFIX = "/test-only/send-error/";
   private static final JsonMapper JSON = new JsonMapper();
 
   @Value("${local.server.port}")
   private int port;
+
+  /**
+   * Un filtro solo de prueba que responde {@code sendError} para las rutas marcadoras. Es lo que
+   * reenvía el contenedor a la ruta de error sin pasar por ningún manejador de Spring MVC: el
+   * camino que {@link ApiErrorController} existe para atender. Solo se registra en este contexto de
+   * prueba.
+   */
+  @TestConfiguration(proxyBeanMethods = false)
+  static class SendErrorFilterConfiguration {
+
+    @Bean
+    OncePerRequestFilter sendErrorFilter() {
+      return new OncePerRequestFilter() {
+        @Override
+        protected void doFilterInternal(
+            HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+            throws ServletException, IOException {
+          String path = request.getRequestURI();
+          if (path.startsWith(SEND_ERROR_PREFIX)) {
+            response.sendError(Integer.parseInt(path.substring(SEND_ERROR_PREFIX.length())));
+            return;
+          }
+          chain.doFilter(request, response);
+        }
+      };
+    }
+  }
 
   /**
    * Lo que volvió por el cable: estado, encabezados por nombre en minúsculas y el cuerpo
@@ -153,9 +189,7 @@ class ErrorPathTest {
   void everyMethodOnTheErrorPathIsAJsonContractBody(String method) throws IOException {
     Wire wire = request(method, "/error", Map.of());
 
-    assertThat(wire.contentType()).startsWith("application/json");
-    JsonNode body = JSON.readTree(wire.text());
-    assertThat(new ArrayList<>(body.propertyNames())).containsExactly("mensaje");
+    assertContractShape(wire, 404, "Recurso no encontrado");
   }
 
   @Test
@@ -227,5 +261,38 @@ class ErrorPathTest {
     Wire wire = request(method, "/api/v1/does-not-exist", Map.of());
 
     assertContractShape(wire, 404, "Recurso no encontrado");
+  }
+
+  // --- errores reenviados por el contenedor a la ruta de error ---
+
+  @ParameterizedTest(name = "sendError({0}) is answered as {1}")
+  @CsvSource({
+    "503, Error interno del servidor",
+    "500, Error interno del servidor",
+    "400, La solicitud no es válida",
+    "401, La solicitud no es válida",
+    "404, Recurso no encontrado",
+    "409, La solicitud entra en conflicto con el estado actual del recurso"
+  })
+  void anErrorSentByAFilterIsForwardedToTheErrorPathAndAnsweredWithTheContractBody(
+      int status, String mensaje) throws IOException {
+    Wire wire = get(SEND_ERROR_PREFIX + status);
+
+    assertContractShape(wire, status, mensaje);
+  }
+
+  @Test
+  void anErrorSentByAFilterIsJsonEvenForABrowser() throws IOException {
+    Wire wire = request("GET", SEND_ERROR_PREFIX + 503, Map.of("Accept", "text/html"));
+
+    assertContractShape(wire, 503, "Error interno del servidor");
+    assertThat(wire.text()).doesNotContainIgnoringCase("whitelabel").doesNotContain("<");
+  }
+
+  @Test
+  void anErrorSentByAFilterOnAWriteMethodIsTheSameContractBody() throws IOException {
+    Wire wire = request("POST", SEND_ERROR_PREFIX + 503, Map.of());
+
+    assertContractShape(wire, 503, "Error interno del servidor");
   }
 }
