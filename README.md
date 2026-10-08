@@ -196,8 +196,11 @@ npx -y newman run postman/registro-usuarios-api.postman_collection.json --env-va
 
 ![Arquitectura hexagonal del servicio](docs/diagrams/components.png)
 
-Las líneas continuas son "usa" y las discontinuas "implementa"; todas apuntan hacia el núcleo
-(`application` y `domain`).
+Las líneas continuas son "usa" y las discontinuas "implementa". Toda dependencia que cruza la frontera
+del núcleo (`application` y `domain`) apunta hacia adentro. Las dos flechas que quedan fuera del núcleo
+son `lee` (de `ApplicationConfig` a `RegistrationProperties`) y `JPA` (de `UserPersistenceAdapter` a H2).
+El diagrama omite que el adaptador web también usa tipos del dominio (`UserWebMapper`,
+`GlobalExceptionHandler` y `ErrorMessages`).
 
 ![Flujo de registro de un usuario](docs/diagrams/registration-sequence.png)
 
