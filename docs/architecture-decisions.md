@@ -397,7 +397,9 @@ mínimo.
 
 ## ADR-012: Gradle como herramienta de build
 
-**Contexto.** El enunciado no nombra una herramienta de build.
+**Contexto.** El enunciado admite Gradle o Maven ("Proceso de build vía Gradle o Maven"). Cualquiera de
+las dos cumple el requisito; Gradle se eligió por preferencia y no por una necesidad técnica (véanse las
+alternativas descartadas).
 
 **Decisión.** Gradle con DSL Groovy, mediante el wrapper versionado (9.7.1). Un solo
 `./gradlew build` compila con Error Prone, verifica el formato, ejecuta todas las pruebas y aplica el
