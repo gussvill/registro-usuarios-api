@@ -1,0 +1,2358 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arquitectura · API de registro de usuarios</title>
+<!--
+  Página única y autocontenida: tres vistas (componentes, registro exitoso y registro rechazado)
+  con modo presentación. No carga nada externo y se abre directamente desde el disco.
+
+  Estructura del archivo:
+    1. Estilos.
+    2. Marcado fijo de la página (cabecera, escenario, reproductor, tarjeta y lista de pasos).
+    3. Datos de los diagramas: un único objeto DIAGRAM.
+    4. Lógica: dibuja el SVG a partir de los datos y gobierna la presentación.
+-->
+<style>
+/* ---------- Variables ---------- */
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --ink: #0f172a;
+  --text: #334155;
+  --muted: #526277;
+  --faint: #94a3b8; /* solo para bordes y controles desactivados: no cumple el contraste de un texto */
+  --line: #e2e8f0;
+  --accent: #1d4ed8;
+  --accent-soft: #eff4ff;
+  --danger: #be123c;
+  --danger-soft: #fff1f2;
+  --ok: #047857;
+  --ok-soft: #ecfdf5;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --radius: 14px;
+  /* Tamaño base del texto de la interfaz: 14px hasta 1440 de ancho y hasta 17px a partir de 2300.
+     Los demás tamaños son múltiplos suyos, de modo que toda la columna lateral crece a la vez. */
+  --fs: clamp(14px, calc(0.4vw + 8.3px), 17px);
+  --side: clamp(420px, calc(20vw + 132px), 680px);
+}
+
+/* Un color por capa: --c es el trazo, --tint el relleno y --ct el texto (más oscuro que el trazo
+   para llegar a 4,5:1 sobre blanco y sobre su propio relleno). */
+.layer-external    { --c: #64748b; --tint: #f8fafc; --ct: #475569; }
+.layer-web         { --c: #0891b2; --tint: #ecfeff; --ct: #0e7490; }
+.layer-application { --c: #059669; --tint: #ecfdf5; --ct: #047857; }
+.layer-domain      { --c: #ea580c; --tint: #fff7ed; --ct: #c2410c; }
+.layer-security    { --c: #e11d48; --tint: #fff1f2; --ct: #be123c; }
+.layer-persistence { --c: #7c3aed; --tint: #f5f3ff; --ct: #6d28d9; }
+.layer-config      { --c: #d97706; --tint: #fffbeb; --ct: #b45309; }
+.layer-framework   { --c: #475569; --tint: #f1f5f9; --ct: #475569; }
+
+/* ---------- Base ---------- */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: calc(var(--fs) * 1.0714);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+button, select { font: inherit; color: inherit; }
+code {
+  font: 0.88em/1.4 var(--mono);
+  background: #f1f5f9;
+  border-radius: 4px;
+  padding: 1px 4px;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+
+/* ---------- Estructura general ---------- */
+.app {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100vh;
+  min-height: 660px;
+}
+/* El panel de la pestaña activa: la barra de escenarios y el contenido. */
+.panel { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 20px 8px;
+}
+.brand { min-width: 0; }
+.brand h1 { margin: 0; font-size: calc(var(--fs) * 1.2143); line-height: 1.25; color: var(--ink); letter-spacing: -0.01em; }
+.brand p { margin: 0; font-size: calc(var(--fs) * 0.8929); color: var(--muted); }
+
+.views {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: #e9edf2;
+  border-radius: 12px;
+  overflow-x: auto;
+  max-width: 100%;
+  /* Sombras de desplazamiento: solo se ven cuando hay contenido oculto hacia ese lado. */
+  background-image:
+    linear-gradient(to right, #e9edf2 30%, rgba(233, 237, 242, 0)),
+    linear-gradient(to left, #e9edf2 30%, rgba(233, 237, 242, 0)),
+    linear-gradient(to right, rgba(15, 23, 42, 0.22), rgba(15, 23, 42, 0)),
+    linear-gradient(to left, rgba(15, 23, 42, 0.22), rgba(15, 23, 42, 0));
+  background-position: left center, right center, left center, right center;
+  background-size: 28px 100%, 28px 100%, 12px 100%, 12px 100%;
+  background-repeat: no-repeat;
+  background-attachment: local, local, scroll, scroll;
+}
+.views button {
+  border: 0;
+  background: transparent;
+  padding: 7px 14px;
+  border-radius: 9px;
+  font-weight: 600;
+  font-size: calc(var(--fs) * 0.9643);
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.views button:hover { color: var(--ink); }
+.views button[aria-selected="true"] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 20px 10px;
+  min-width: 0;
+}
+.bar .summary { margin: 0; font-size: calc(var(--fs) * 0.9643); color: var(--muted); }
+.bar .bar-label { flex: none; font-size: calc(var(--fs) * 0.8571); font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.scenarios {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px;
+  min-width: 0;
+  /* Mismo indicador de desplazamiento que las pestañas. */
+  background-image:
+    linear-gradient(to right, var(--bg) 30%, rgba(245, 246, 248, 0)),
+    linear-gradient(to left, var(--bg) 30%, rgba(245, 246, 248, 0)),
+    linear-gradient(to right, rgba(15, 23, 42, 0.22), rgba(15, 23, 42, 0)),
+    linear-gradient(to left, rgba(15, 23, 42, 0.22), rgba(15, 23, 42, 0));
+  background-position: left center, right center, left center, right center;
+  background-size: 28px 100%, 28px 100%, 12px 100%, 12px 100%;
+  background-repeat: no-repeat;
+  background-attachment: local, local, scroll, scroll;
+}
+.scenarios button {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  padding: 5px 11px 5px 6px;
+  border-radius: 999px;
+  font-size: calc(var(--fs) * 0.9286);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.scenarios button:hover { border-color: var(--faint); }
+.scenarios button[aria-pressed="true"] { border-color: var(--ink); color: var(--ink); font-weight: 600; box-shadow: inset 0 0 0 1px var(--ink); }
+
+.status {
+  display: inline-block;
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: calc(var(--fs) * 0.8214);
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  white-space: nowrap;
+}
+.status.is-ok { background: var(--ok-soft); color: var(--ok); }
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--side);
+  gap: 16px;
+  padding: 0 20px 16px;
+  min-height: 0;
+}
+
+/* ---------- Escenario: diagrama, leyenda y reproductor ---------- */
+.stage {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  min-height: 0;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.canvas { min-height: 0; overflow: auto; padding: 10px 14px 4px; }
+/* El diagrama no se amplía sin límite: con 92 (secuencias) o 97 (componentes) veces el tamaño base
+   del texto, la letra más grande del SVG queda en torno a 1,15 veces el texto de la tarjeta. */
+.canvas svg { display: block; width: 100%; height: 100%; max-width: calc(var(--fs) * 92); margin: 0 auto; }
+.canvas.is-components svg { max-width: calc(var(--fs) * 97); }
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding: 4px 16px 8px;
+  font-size: calc(var(--fs) * 0.8571);
+  color: var(--muted);
+}
+.legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.legend svg { flex: none; }
+.legend i { width: 10px; height: 10px; border-radius: 3px; background: var(--tint); border: 1.5px solid var(--c); }
+
+.player {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+  background: #fbfcfd;
+  position: relative;
+}
+.controls { display: flex; align-items: center; gap: 4px; }
+.controls button {
+  display: inline-grid;
+  place-items: center;
+  width: calc(var(--fs) * 2.5714);
+  height: calc(var(--fs) * 2.5714);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--ink);
+}
+.controls button:hover:not(:disabled) { background: #eef1f5; }
+.controls button:disabled { color: var(--faint); cursor: not-allowed; }
+.controls .play { width: calc(var(--fs) * 3.1429); height: calc(var(--fs) * 3.1429); border-radius: 50%; background: var(--ink); color: #fff; }
+.controls .play:hover:not(:disabled) { background: #1e293b; }
+.controls .play:disabled { background: #cbd5e1; color: #fff; }
+.controls svg { width: calc(var(--fs) * 1.2857); height: calc(var(--fs) * 1.2857); fill: currentColor; }
+
+.counter { flex: none; min-width: calc(var(--fs) * 7.4286); font-weight: 600; font-size: calc(var(--fs) * 0.9643); color: var(--ink); font-variant-numeric: tabular-nums; }
+.counter small { display: block; font-weight: 400; font-size: calc(var(--fs) * 0.8214); color: var(--muted); min-height: calc(var(--fs) * 1.2143); }
+
+.track { flex: 1; display: flex; gap: 3px; min-width: 60px; align-items: center; }
+.track button {
+  flex: 1;
+  height: 22px;
+  min-width: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+}
+.track button::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: 8px;
+  height: 6px;
+  border-radius: 3px;
+  background: #dde3ea;
+  transition: background 0.2s;
+}
+.track button.is-done::before { background: #94a3b8; }
+.track button.is-current::before { background: var(--accent); }
+.track button:hover::before { background: var(--ink); }
+
+.speed { display: inline-flex; align-items: center; gap: 6px; font-size: calc(var(--fs) * 0.8929); color: var(--muted); }
+.speed select { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 5px 6px; font-size: calc(var(--fs) * 0.9286); }
+.keys { font-size: calc(var(--fs) * 0.8214); color: var(--muted); white-space: nowrap; }
+.keys kbd { font-family: var(--mono); font-size: calc(var(--fs) * 0.7857); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--surface); color: var(--muted); }
+
+/* Tiempo de lectura restante del paso mientras se reproduce. */
+.timer { position: absolute; left: 0; top: -1px; height: 2px; width: 0; background: var(--accent); }
+
+/* ---------- Columna lateral: tarjeta y lista de pasos ---------- */
+.side { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 12px; min-height: 0; min-width: 0; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px 18px 14px;
+  min-height: 300px;
+  border-top: 3px solid var(--card-accent, var(--ink));
+}
+.card .eyebrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: calc(var(--fs) * 0.8571); font-weight: 600; color: var(--muted); letter-spacing: 0.02em; }
+.card .kind { padding: 2px 8px; border-radius: 999px; background: #f1f5f9; color: var(--text); font-weight: 600; }
+.card .kind.is-error { background: var(--danger-soft); color: var(--danger); }
+.card .kind.layer { background: var(--tint); color: var(--ct); }
+.card h2 { margin: 6px 0 2px; font-size: calc(var(--fs) * 1.3571); line-height: 1.25; color: var(--ink); letter-spacing: -0.01em; }
+.card .route { margin: 0 0 8px; font-size: calc(var(--fs) * 0.8929); color: var(--muted); }
+.card p { margin: 8px 0 0; font-size: calc(var(--fs) * 1); }
+.card h3 { margin: 12px 0 4px; font-size: calc(var(--fs) * 0.7857); font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); }
+.card .why { border-left: 3px solid var(--line); padding-left: 10px; color: var(--text); }
+.card .refs { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.card .refs li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: calc(var(--fs) * 0.8571); }
+.card .refs code { font-size: calc(var(--fs) * 0.8571); font-weight: 600; background: var(--accent-soft); color: #1e3a8a; }
+.card .refs span { font-family: var(--mono); font-size: calc(var(--fs) * 0.8214); color: var(--muted); overflow-wrap: anywhere; }
+.card .links { display: flex; flex-wrap: wrap; gap: 5px; }
+.card .links button {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 3px 8px;
+  font-size: calc(var(--fs) * 0.8929);
+  cursor: pointer;
+  text-align: left;
+}
+.card .links button:hover { border-color: var(--ink); }
+.card .links b { color: var(--muted); font-weight: 500; }
+.card ul.plain { margin: 6px 0 0; padding-left: 18px; font-size: calc(var(--fs) * 0.9643); }
+.card ul.plain li { margin: 2px 0; }
+
+.steps {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: auto;
+  min-height: 0;
+}
+.steps ol { list-style: none; margin: 0; padding: 6px; }
+.steps button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: calc(var(--fs) * 0.9286);
+  text-align: left;
+  cursor: pointer;
+}
+.steps button:hover { background: #f1f5f9; }
+.steps .n {
+  flex: none;
+  width: calc(var(--fs) * 1.5714); height: calc(var(--fs) * 1.5714);
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: #eef1f5;
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: calc(var(--fs) * 0.7857);
+  color: var(--muted);
+}
+.steps .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.steps button[aria-current="step"] { background: var(--accent-soft); color: var(--ink); font-weight: 600; }
+.steps button[aria-current="step"] .n { background: var(--accent); color: #fff; }
+.steps button.is-error .n { background: var(--danger-soft); color: var(--danger); }
+.steps button.is-error[aria-current="step"] .n { background: var(--danger); color: #fff; }
+
+/* ---------- SVG: elementos comunes ---------- */
+svg text { font-family: var(--sans); fill: var(--ink); }
+svg .halo { paint-order: stroke; stroke: #fff; stroke-width: 4px; stroke-linejoin: round; }
+svg [data-pick] { cursor: pointer; }
+svg [data-pick]:focus { outline: none; }
+svg [data-pick]:focus-visible .box,
+svg [data-pick]:focus-visible .shaft line,
+svg [data-pick]:focus-visible .shaft polyline { stroke: var(--accent); stroke-width: 3; }
+svg .dimmable { transition: opacity 0.3s ease; }
+svg .is-dim { opacity: 0.2; }
+svg .is-past { opacity: 0.68; }
+/* Lo ya recorrido se atenúa en trazos y rellenos, no en el texto: así conserva su contraste. */
+svg .group.is-past, svg .msg.is-past, svg .actor.is-past { opacity: 1; }
+svg .group.is-past .group-frame { opacity: 0.35; }
+svg .msg .shaft, svg .actor .box, svg .actor .lifeline { transition: opacity 0.3s ease; }
+svg .msg.is-past .shaft { opacity: 0.45; }
+svg .actor.is-past .box, svg .actor.is-past .lifeline { opacity: 0.5; }
+
+/* ---------- SVG: componentes ---------- */
+.group-frame { fill: none; stroke: var(--c); stroke-width: 1.2; stroke-dasharray: 5 4; opacity: 0.6; transition: opacity 0.3s, fill 0.3s; }
+.group-label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; fill: var(--ct); }
+.group.is-active .group-frame { fill: var(--tint); opacity: 1; stroke-width: 2; stroke-dasharray: none; }
+.node .box { fill: var(--tint); stroke: var(--c); stroke-width: 1.4; transition: stroke-width 0.2s; }
+.node .name { font-size: 13px; font-weight: 650; }
+.node .sub { font-size: 10.5px; fill: var(--muted); }
+.node:hover .box { stroke-width: 2.2; }
+.node.is-active .box { stroke-width: 3; filter: drop-shadow(0 3px 6px rgba(15, 23, 42, 0.18)); }
+.edge { color: #64748b; }
+.edge .shaft polyline { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; }
+.edge .shaft polygon { fill: currentColor; }
+.edge.is-implements .shaft polyline { stroke-dasharray: 6 4; }
+.edge.is-request { color: #059669; }
+.edge .lbl { font-size: 10.5px; fill: var(--muted); }
+.edge .hit { fill: none; stroke: transparent; stroke-width: 14; }
+.edge:hover .shaft polyline { stroke-width: 2.4; }
+.edge.is-active { color: var(--accent); }
+.edge.is-active .shaft polyline { stroke-width: 2.6; }
+.edge.is-active .lbl { fill: var(--accent); } /* sin negrita: el rótulo más ancho no cabe junto al bus */
+
+/* ---------- SVG: secuencias ---------- */
+.lifeline { stroke: #cbd5e1; stroke-width: 1.2; stroke-dasharray: 3 4; }
+.actor .box { fill: var(--tint); stroke: var(--c); stroke-width: 1.4; }
+.actor .name { font-size: 12.5px; font-weight: 650; }
+.actor .sub { font-size: 9.5px; fill: var(--muted); }
+.actor:hover .box { stroke-width: 2.2; }
+.actor.is-active .box { stroke-width: 3; filter: drop-shadow(0 3px 6px rgba(15, 23, 42, 0.18)); }
+.actor.is-unreached .box { fill: #f8fafc; stroke: #cbd5e1; stroke-dasharray: 4 3; }
+.actor.is-unreached .name, .actor.is-unreached .sub { fill: var(--muted); }
+.activation { fill: var(--tint); stroke: var(--c); stroke-width: 1; }
+.band { fill: #ecfdf5; stroke: #6ee7b7; stroke-width: 1; stroke-dasharray: 4 4; opacity: 0.55; }
+.band-label { font-size: 10.5px; font-weight: 600; fill: #047857; letter-spacing: 0.04em; }
+.msg { color: #334155; }
+.msg .shaft line { stroke: currentColor; stroke-width: 1.5; }
+.msg .shaft polygon { fill: currentColor; }
+.msg .lbl { font-size: 12px; fill: currentColor; }
+.msg .lbl .num { font-weight: 700; }
+.msg .hit { fill: transparent; }
+.msg.is-return { color: var(--muted); }
+.msg.is-return .shaft line { stroke-dasharray: 5 4; }
+.msg.is-error { color: var(--danger); }
+.msg:hover .shaft line { stroke-width: 2.4; }
+.msg.is-active { color: var(--accent); }
+.msg.is-active.is-error { color: var(--danger); }
+.msg.is-active .shaft line { stroke-width: 2.8; }
+.msg.is-active .lbl { font-weight: 700; }
+.cut-line { stroke: #fb7185; stroke-width: 1.4; stroke-dasharray: 7 5; }
+.cut-text { font-size: 11.5px; font-weight: 600; fill: var(--danger); }
+
+/* La flecha del paso activo se dibuja desde su origen. */
+.is-drawing .shaft { transform-box: fill-box; animation: draw 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.is-drawing.to-right .shaft { transform-origin: left center; }
+.is-drawing.to-left .shaft { transform-origin: right center; }
+@keyframes draw { from { transform: scaleX(0.02); opacity: 0.2; } to { transform: scaleX(1); opacity: 1; } }
+.card.is-fresh > * { animation: rise 0.28s ease both; }
+@keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* ---------- Pantallas estrechas: una sola columna ---------- */
+@media (max-width: 1000px) {
+  html, body { height: auto; }
+  .app { display: block; height: auto; min-height: 0; }
+  .top { flex-direction: column; align-items: stretch; padding: 12px 16px 8px; }
+  .bar { padding: 0 16px 10px; flex-wrap: wrap; }
+  .layout { grid-template-columns: minmax(0, 1fr); padding: 0 16px 16px; }
+  .canvas { padding: 8px; }
+  .canvas svg { height: auto; min-width: 700px; }
+  .canvas.is-components svg { min-width: 880px; }
+  .player { flex-wrap: wrap; gap: 8px 10px; }
+  .track { order: 5; flex-basis: 100%; }
+  .keys { display: none; }
+  .panel { display: block; }
+  .side { display: block; }
+  .card { min-height: 0; margin-bottom: 12px; }
+  .steps { overflow: visible; }
+}
+
+/* ---------- Teléfono: las tres pestañas caben en una fila, con el texto en dos líneas ---------- */
+@media (max-width: 520px) {
+  .views button { flex: 1 1 0; min-width: 0; padding: 7px 6px; font-size: calc(var(--fs) * 0.9286); line-height: 1.2; white-space: normal; text-align: center; }
+}
+
+/* ---------- Menos movimiento: sin animaciones ni transiciones ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* ---------- Impresión: todo visible y estático ---------- */
+@media print {
+  html, body { height: auto; background: #fff; }
+  .app, .panel { display: block; height: auto; }
+  .layout { display: block; }
+  .side { display: block; }
+  .controls, .speed, .keys, .track, .timer { display: none; }
+  .views, .scenarios { flex-wrap: wrap; overflow: visible; max-width: none; background-image: none; }
+  .bar { flex-wrap: wrap; }
+  .stage { break-inside: avoid; page-break-inside: avoid; margin-bottom: 12px; overflow: visible; }
+  .card { display: block; min-height: 0; break-inside: avoid; page-break-inside: avoid; margin-bottom: 12px; }
+  .card > * { break-inside: avoid; page-break-inside: avoid; }
+  .steps { margin-bottom: 12px; }
+  .steps li { break-inside: avoid; page-break-inside: avoid; }
+  .canvas { overflow: visible; }
+  .canvas svg { height: auto; min-width: 0; max-width: none; }
+  .steps { overflow: visible; }
+  svg .is-dim, svg .is-past,
+  svg .msg.is-past .shaft, svg .actor.is-past .box, svg .actor.is-past .lifeline { opacity: 1; }
+  svg .group.is-past .group-frame { opacity: 0.6; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <h1>Arquitectura · API de registro de usuarios</h1>
+      <p>Arquitectura hexagonal ligera · <code>com.registro.usuarios</code></p>
+    </div>
+    <div class="views" id="views" role="tablist" aria-label="Vistas del diagrama"></div>
+  </header>
+
+  <div class="panel" id="panel" role="tabpanel">
+    <div class="bar" id="bar"></div>
+
+    <main class="layout">
+      <section class="stage" aria-label="Diagrama">
+        <div class="canvas" id="canvas"></div>
+        <div class="legend" id="legend" role="group" aria-label="Leyenda"></div>
+        <div class="player" role="group" aria-label="Presentación paso a paso">
+          <div class="timer" id="timer"></div>
+          <div class="controls">
+            <button type="button" id="btnRestart" aria-label="Reiniciar: volver al paso 1" title="Reiniciar (Inicio)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>
+            </button>
+            <button type="button" id="btnPrev" aria-label="Paso anterior" title="Anterior (←)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 5.5 9 12l6.5 6.5-1.6 1.6L5.8 12l8.1-8.1z"/></svg>
+            </button>
+            <button type="button" id="btnPlay" class="play" aria-label="Reproducir" title="Reproducir o pausar (Espacio)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path id="playIcon" d="M8 5v14l11-7z"/></svg>
+            </button>
+            <button type="button" id="btnNext" aria-label="Paso siguiente" title="Siguiente (→)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8.5 5.5 6.5 6.5-6.5 6.5 1.6 1.6 8.1-8.1-8.1-8.1z"/></svg>
+            </button>
+          </div>
+          <div class="counter"><span id="counter">Vista general</span><small id="hint"></small></div>
+          <div class="track" id="track" role="group" aria-label="Ir a un paso"></div>
+          <label class="speed">Velocidad
+            <select id="speed" aria-label="Velocidad de la presentación">
+              <option value="0.75">0,75×</option>
+              <option value="1" selected>1×</option>
+              <option value="1.5">1,5×</option>
+              <option value="2">2×</option>
+              <option value="3">3×</option>
+            </select>
+          </label>
+          <span class="keys" aria-hidden="true"><kbd>Espacio</kbd> <kbd>←</kbd> <kbd>→</kbd> <kbd>Inicio</kbd> <kbd>Fin</kbd> <kbd>Esc</kbd></span>
+        </div>
+      </section>
+
+      <aside class="side">
+        <article class="card" id="card" tabindex="0" aria-live="polite" aria-atomic="true" aria-label="Explicación del elemento resaltado"></article>
+        <nav class="steps" aria-label="Lista de pasos"><ol id="steps"></ol></nav>
+      </aside>
+    </main>
+  </div>
+</div>
+
+<script>
+/* Todo el código va dentro de una función anónima: la página no deja nada en el ámbito global. */
+(() => {
+'use strict';
+
+/* =====================================================================================
+   DATOS DE LOS DIAGRAMAS
+   Todo lo que la página muestra sale de aquí. En los textos, `así` marca código.
+   Cada referencia de `code` es { ref: 'Clase.metodo', file: ruta relativa a DIAGRAM.basePath };
+   `repoFile` se usa en su lugar cuando el archivo está fuera de ese paquete.
+   ===================================================================================== */
+
+/* Los 16 pasos del registro exitoso. Los escenarios de error reutilizan los primeros. */
+const REGISTRATION_STEPS = [
+  {
+    from: 'client', to: 'controller', kind: 'call', label: 'POST /api/v1/users',
+    title: 'Llega la petición',
+    what: 'La petición llega a `UserController.register`; la ruta `POST /api/v1/users` está declarada en `UserApi`. Spring ya convirtió el JSON en un `RegisterUserRequest`.',
+    why: 'El record no lleva anotaciones de validación: todas las reglas viven en el dominio, así que son las mismas para cualquier punto de entrada.',
+    code: [
+      { ref: 'UserController.register', file: 'infrastructure/web/UserController.java' },
+      { ref: 'UserApi.register', file: 'infrastructure/web/UserApi.java' }
+    ]
+  },
+  {
+    from: 'controller', to: 'usecase', kind: 'call', label: 'register(command)',
+    title: 'El controlador llama al puerto de entrada',
+    what: '`UserWebMapper.toCommand` arma el `RegisterUserCommand` sin validar nada y el controlador llama a `RegisterUser.register`. Al entrar en el método, el proxy de `@Transactional` abre la transacción.',
+    why: 'El controlador depende del puerto y no de `RegisterUserUseCase`: la web no conoce la implementación.',
+    code: [
+      { ref: 'UserWebMapper.toCommand', file: 'infrastructure/web/UserWebMapper.java' },
+      { ref: 'RegisterUser.register', file: 'application/port/RegisterUser.java' },
+      { ref: 'RegisterUserUseCase.register', file: 'application/RegisterUserUseCase.java' }
+    ]
+  },
+  {
+    from: 'usecase', to: 'domain', kind: 'call', label: 'valida los campos',
+    title: 'Se validan todos los campos',
+    what: '`RegisterUserUseCase.violationsOf` reúne lo que dice cada regla del dominio: `User.nameViolation`, `Email.violation`, `Password.violation` y `User.phoneListViolations`.',
+    why: 'Se consultan todas las reglas, no solo la primera que falla, para informar de una vez todos los campos incorrectos.',
+    code: [
+      { ref: 'RegisterUserUseCase.violationsOf', file: 'application/RegisterUserUseCase.java' },
+      { ref: 'User.nameViolation', file: 'domain/model/User.java' },
+      { ref: 'Email.violation', file: 'domain/model/Email.java' },
+      { ref: 'Password.violation', file: 'domain/policy/Password.java' },
+      { ref: 'User.phoneListViolations', file: 'domain/model/User.java' }
+    ]
+  },
+  {
+    from: 'domain', to: 'usecase', kind: 'return', label: 'sin violaciones',
+    title: 'Ninguna violación',
+    what: 'El conjunto de motivos (`Reason`) vuelve vacío. El caso de uso crea entonces el `Email`, normalizado en minúsculas, con `Email.of`, y los `Phone`.',
+    code: [
+      { ref: 'Email.of', file: 'domain/model/Email.java' },
+      { ref: 'RegisterUserUseCase.phonesOf', file: 'application/RegisterUserUseCase.java' },
+      { ref: 'Phone', file: 'domain/model/Phone.java' }
+    ]
+  },
+  {
+    from: 'usecase', to: 'repo', kind: 'call', label: 'existsByEmail(email)',
+    title: '¿Existe ya el correo?',
+    what: 'El caso de uso llama a `UserRepository.existsByEmail`. Detrás del puerto, `UserPersistenceAdapter.existsByEmail` consulta con `UserJpaRepository.existsByEmail`.',
+    code: [
+      { ref: 'UserRepository.existsByEmail', file: 'domain/port/UserRepository.java' },
+      { ref: 'UserPersistenceAdapter.existsByEmail', file: 'infrastructure/persistence/UserPersistenceAdapter.java' },
+      { ref: 'UserJpaRepository.existsByEmail', file: 'infrastructure/persistence/UserJpaRepository.java' }
+    ]
+  },
+  {
+    from: 'repo', to: 'usecase', kind: 'return', label: 'false',
+    title: 'El correo está libre',
+    what: 'Vuelve `false`: no hay ningún usuario con ese correo.',
+    why: 'Es una comprobación previa: dos peticiones simultáneas pueden recibir `false` a la vez. La garantía real es la restricción única `uk_users_email`, que actúa en el paso 13.',
+    code: [{ ref: 'schema.sql', repoFile: 'src/main/resources/schema.sql' }]
+  },
+  {
+    from: 'usecase', to: 'hasher', kind: 'call', label: 'hash(password)',
+    title: 'Se calcula el hash de la contraseña',
+    what: '`PasswordHasher.hash` recibe la contraseña tal como llegó. Lo implementa `BCryptPasswordHasher` con BCrypt de costo 12 y una sal por hash.',
+    why: 'El límite de 72 bytes de BCrypt ya lo impuso el dominio en el paso 3 (`Password.MAX_BYTES`), así que el adaptador no lo comprueba de nuevo.',
+    code: [
+      { ref: 'PasswordHasher.hash', file: 'domain/port/PasswordHasher.java' },
+      { ref: 'BCryptPasswordHasher.hash', file: 'infrastructure/security/BCryptPasswordHasher.java' }
+    ]
+  },
+  {
+    from: 'hasher', to: 'usecase', kind: 'return', label: 'hash BCrypt',
+    title: 'Vuelve el hash',
+    what: 'Vuelve el hash BCrypt con su sal incluida. La contraseña en claro no se guarda ni se devuelve.',
+    why: '`UserResponse` no tiene campo para la contraseña y `UserWebMapper.toResponse` nunca lee el hash.',
+    code: [{ ref: 'UserWebMapper.toResponse', file: 'infrastructure/web/UserWebMapper.java' }]
+  },
+  {
+    from: 'usecase', to: 'tokens', kind: 'call', label: 'issue(id, email, now)',
+    title: 'Un solo instante y el token',
+    what: 'Justo antes, `clock.instant()` lee el reloj una sola vez, truncado a microsegundos, y `UserId.generate` crea el id. Con ambos se llama a `TokenIssuer.issue`, implementado por `JjwtTokenIssuer`.',
+    why: 'El token, la fila guardada y la respuesta deben mostrar el mismo instante; los microsegundos son la precisión de las columnas. El `Clock` es un bean de `ApplicationConfig`, lo que permite fijarlo en las pruebas.',
+    code: [
+      { ref: 'UserId.generate', file: 'domain/model/UserId.java' },
+      { ref: 'TokenIssuer.issue', file: 'domain/port/TokenIssuer.java' },
+      { ref: 'JjwtTokenIssuer.issue', file: 'infrastructure/security/JjwtTokenIssuer.java' },
+      { ref: 'ApplicationConfig.clock', file: 'infrastructure/config/ApplicationConfig.java' }
+    ]
+  },
+  {
+    from: 'tokens', to: 'usecase', kind: 'return', label: 'JWT firmado',
+    title: 'Vuelve el JWT',
+    what: 'Un JWT HS256 firmado: el `subject` es el id, lleva el claim `email` y su emisión y su expiración se calculan desde ese mismo instante, truncado a segundos.',
+    why: 'La vigencia es configuración (`app.token.expiration`, 15 minutos por defecto y 24 horas como máximo).',
+    code: [{ ref: 'TokenProperties', file: 'infrastructure/security/TokenProperties.java' }]
+  },
+  {
+    from: 'usecase', to: 'domain', kind: 'call', label: 'User.registration()',
+    title: 'Se construye el agregado',
+    what: '`User.registration` abre el `Builder` y `build` comprueba las invariantes: `created`, `modified` y `lastLogin` reciben el mismo `now` y el usuario queda activo.',
+    why: 'Un builder con nombres evita intercambiar cadenas contiguas, y los campos que pertenecen al servidor no se pueden asignar desde fuera.',
+    code: [
+      { ref: 'User.registration', file: 'domain/model/User.java' },
+      { ref: 'User.Builder.build', file: 'domain/model/User.java' }
+    ]
+  },
+  {
+    from: 'domain', to: 'usecase', kind: 'return', label: 'User',
+    title: 'Vuelve el User',
+    what: 'Vuelve el `User`, inmutable.',
+    why: 'Su `toString` imprime solo el identificador, de modo que ni el hash ni el token ni el correo pueden llegar a un log a través de este tipo.',
+    code: [{ ref: 'User.toString', file: 'domain/model/User.java' }]
+  },
+  {
+    from: 'usecase', to: 'repo', kind: 'call', label: 'save(user)',
+    title: 'Se guarda el usuario',
+    what: '`UserRepository.save`. El adaptador convierte el agregado con `UserJpaEntity.from` y usa `saveAndFlush`, de modo que el `INSERT` ocurre aquí.',
+    why: 'Con el flush dentro del adaptador, una violación de `uk_users_email` falla en este punto y se informa como `EmailAlreadyRegisteredException` (409).',
+    code: [
+      { ref: 'UserRepository.save', file: 'domain/port/UserRepository.java' },
+      { ref: 'UserPersistenceAdapter.save', file: 'infrastructure/persistence/UserPersistenceAdapter.java' },
+      { ref: 'UserJpaEntity.from', file: 'infrastructure/persistence/UserJpaEntity.java' }
+    ]
+  },
+  {
+    from: 'repo', to: 'usecase', kind: 'return', label: 'guardado',
+    title: 'Guardado',
+    what: '`save` no devuelve ningún valor: si retorna, la fila de `users` y las de `phones` ya se escribieron dentro de la transacción.',
+    code: [{ ref: 'PhoneJpaEntity', file: 'infrastructure/persistence/PhoneJpaEntity.java' }]
+  },
+  {
+    from: 'usecase', to: 'controller', kind: 'return', label: 'User',
+    title: 'El caso de uso devuelve el User',
+    what: '`register` devuelve el `User` y, al retornar, el proxy de `@Transactional` confirma la transacción.',
+    why: 'Una excepción la habría revertido: nunca queda un usuario a medio guardar. El controlador y la respuesta HTTP quedan fuera de la transacción.',
+    code: [{ ref: 'RegisterUserUseCase.register', file: 'application/RegisterUserUseCase.java' }]
+  },
+  {
+    from: 'controller', to: 'client', kind: 'return', label: '201 · no-store', status: '201',
+    title: 'Respuesta 201 Created',
+    what: '`UserController` escribe una línea de log con el id y el correo enmascarado y responde 201 con `UserWebMapper.toResponse` y el encabezado `Cache-Control: no-store`.',
+    why: 'El cuerpo lleva un token al portador: ninguna caché, compartida o privada, debe guardarlo.',
+    code: [
+      { ref: 'UserController.register', file: 'infrastructure/web/UserController.java' },
+      { ref: 'UserWebMapper.toResponse', file: 'infrastructure/web/UserWebMapper.java' },
+      { ref: 'Email.masked', file: 'domain/model/Email.java' }
+    ]
+  }
+];
+
+/* Pasos finales comunes a varios escenarios de error. */
+const ERROR_STEPS = {
+  duplicateThrown: {
+    from: 'usecase', to: 'errors', kind: 'error', label: 'EmailAlreadyRegisteredException',
+    title: 'La excepción sale del caso de uso',
+    what: '`EmailAlreadyRegisteredException` no lleva la dirección ni ningún otro dato. Al salir de `register`, el proxy de `@Transactional` revierte la transacción y no queda ninguna fila.',
+    why: '`UserController` no tiene `try/catch`: la excepción lo cruza y Spring MVC la entrega al `@ExceptionHandler` de `GlobalExceptionHandler`, que es un `@RestControllerAdvice`.',
+    code: [
+      { ref: 'EmailAlreadyRegisteredException', file: 'domain/exception/EmailAlreadyRegisteredException.java' },
+      { ref: 'GlobalExceptionHandler.emailAlreadyRegistered', file: 'infrastructure/web/GlobalExceptionHandler.java' }
+    ]
+  },
+  conflictAnswered: {
+    from: 'errors', to: 'client', kind: 'return', label: '409 · El correo ya registrado', status: '409',
+    title: 'Respuesta 409 Conflict',
+    what: '`GlobalExceptionHandler.emailAlreadyRegistered` responde 409 con el texto fijo de `ErrorMessages.EMAIL_ALREADY_REGISTERED` en el campo `mensaje`.',
+    why: 'Todo error sale con la misma forma, `{"mensaje": ...}`, construida en un solo lugar: `GlobalExceptionHandler.answer`.',
+    code: [
+      { ref: 'GlobalExceptionHandler.answer', file: 'infrastructure/web/GlobalExceptionHandler.java' },
+      { ref: 'ErrorMessages.EMAIL_ALREADY_REGISTERED', file: 'infrastructure/web/ErrorMessages.java' },
+      { ref: 'ErrorResponse', file: 'infrastructure/web/ErrorResponse.java' }
+    ]
+  }
+};
+
+const DIAGRAM = {
+  basePath: 'src/main/java/com/registro/usuarios/',
+
+  /* Capas: el color de cada una está en la hoja de estilos (.layer-<id>). */
+  layers: {
+    external: 'Cliente',
+    web: 'Adaptador web',
+    application: 'Aplicación',
+    domain: 'Dominio',
+    security: 'Adaptador de seguridad',
+    persistence: 'Persistencia',
+    config: 'Configuración',
+    framework: 'Framework'
+  },
+
+  /* Las tres vistas, en el orden de las pestañas. `id` es también el ancla del enlace. */
+  views: [
+    {
+      id: 'componentes', label: 'Componentes', kind: 'components',
+      summary: 'Qué es cada pieza, en qué capa vive y de quién depende.',
+      intro: {
+        title: 'Arquitectura hexagonal del servicio',
+        text: [
+          'Cada caja es una clase o un paquete de `com.registro.usuarios`; cada marco punteado, el paquete que las contiene. La línea continua es «usa», la discontinua «implementa» y la verde, el camino de la petición HTTP.',
+          'Pulse Reproducir para recorrer los componentes uno a uno, o haga clic en una caja o en una flecha para ver su ficha.'
+        ],
+        notes: [
+          'No se dibuja cada uso de un tipo del dominio: los puertos y sus adaptadores reciben `User`, `Email` y `UserId`, y el adaptador web lee `User` y las constantes de longitud.',
+          'El orden en el tiempo está en las vistas «Registro exitoso» y «Registro rechazado».'
+        ]
+      }
+    },
+    {
+      id: 'registro', label: 'Registro exitoso', kind: 'sequence', sequence: 'registro',
+      summary: 'Los 16 pasos de un POST /api/v1/users que termina en 201.'
+    },
+    {
+      id: 'errores', label: 'Registro rechazado', kind: 'sequence',
+      scenarios: ['invalidos', 'duplicado', 'carrera', 'cuerpo', 'contenido', 'inesperado', 'contenedor']
+    }
+  ],
+
+  /* Participantes de las secuencias. Cada secuencia elige los suyos y su orden. */
+  participants: {
+    client: {
+      label: 'Cliente', sub: 'HTTP · JSON', layer: 'external', role: 'Actor externo',
+      what: 'Quien consume la API: envía `POST /api/v1/users` con JSON y recibe JSON. No forma parte del servicio.'
+    },
+    controller: {
+      label: 'Controlador', sub: 'UserController', layer: 'web', role: 'Adaptador de entrada HTTP',
+      what: 'Implementa `UserApi`, que declara la ruta y la documentación OpenAPI. Traduce con `UserWebMapper`, llama al puerto `RegisterUser` y responde. No decide ninguna regla ni conoce `RegisterUserUseCase`.',
+      code: [{ ref: 'UserController.register', file: 'infrastructure/web/UserController.java' }]
+    },
+    usecase: {
+      label: 'Caso de uso', sub: 'RegisterUser', layer: 'application', role: 'Puerto de entrada y su implementación',
+      what: 'El controlador ve el puerto `RegisterUser`; lo implementa `RegisterUserUseCase`, que orquesta el registro sin decidir reglas y es el límite de la transacción.',
+      code: [
+        { ref: 'RegisterUser.register', file: 'application/port/RegisterUser.java' },
+        { ref: 'RegisterUserUseCase.register', file: 'application/RegisterUserUseCase.java' }
+      ]
+    },
+    domain: {
+      label: 'Dominio', sub: 'modelo y política', layer: 'domain', role: 'Núcleo sin framework',
+      what: 'Las reglas de `domain.model` (`User`, `Email`, `Phone`) y `domain.policy` (`Password`, `PasswordPolicy`). Cada tipo conoce sus reglas y las expone como funciones que devuelven motivos (`Reason`).',
+      code: [
+        { ref: 'User.registration', file: 'domain/model/User.java' },
+        { ref: 'Email.of', file: 'domain/model/Email.java' },
+        { ref: 'Phone.violations', file: 'domain/model/Phone.java' },
+        { ref: 'Password.violation', file: 'domain/policy/Password.java' }
+      ]
+    },
+    repo: {
+      label: 'Repositorio', sub: 'UserRepository', layer: 'persistence', role: 'Puerto de salida y su adaptador JPA',
+      what: 'El puerto `UserRepository`, que pertenece al dominio. Detrás está `UserPersistenceAdapter`, con Spring Data JPA y H2 en memoria.',
+      code: [
+        { ref: 'UserRepository.save', file: 'domain/port/UserRepository.java' },
+        { ref: 'UserPersistenceAdapter.save', file: 'infrastructure/persistence/UserPersistenceAdapter.java' }
+      ]
+    },
+    hasher: {
+      label: 'Hash', sub: 'PasswordHasher', layer: 'security', role: 'Puerto de salida y su adaptador BCrypt',
+      what: 'El puerto `PasswordHasher`, que oculta el algoritmo de hash al caso de uso. Detrás está `BCryptPasswordHasher`.',
+      code: [
+        { ref: 'PasswordHasher.hash', file: 'domain/port/PasswordHasher.java' },
+        { ref: 'BCryptPasswordHasher.hash', file: 'infrastructure/security/BCryptPasswordHasher.java' }
+      ]
+    },
+    tokens: {
+      label: 'Token', sub: 'TokenIssuer', layer: 'security', role: 'Puerto de salida y su adaptador JWT',
+      what: 'El puerto `TokenIssuer`, que oculta el formato y la firma del token. Detrás está `JjwtTokenIssuer`.',
+      code: [
+        { ref: 'TokenIssuer.issue', file: 'domain/port/TokenIssuer.java' },
+        { ref: 'JjwtTokenIssuer.issue', file: 'infrastructure/security/JjwtTokenIssuer.java' }
+      ]
+    },
+    errors: {
+      label: 'Errores', sub: 'GlobalExceptionHandler', layer: 'web', role: 'Traductor de excepciones (@RestControllerAdvice)',
+      what: 'El único punto que convierte una excepción en `{"mensaje": ...}`. Toma los textos de `ErrorMessages` y construye toda respuesta de error en `answer`.',
+      code: [
+        { ref: 'GlobalExceptionHandler.answer', file: 'infrastructure/web/GlobalExceptionHandler.java' },
+        { ref: 'ErrorMessages.forStatus', file: 'infrastructure/web/ErrorMessages.java' }
+      ]
+    },
+    mvc: {
+      label: 'Spring MVC', sub: 'DispatcherServlet', layer: 'framework', role: 'Framework: no es código de este repositorio',
+      what: 'Recibe la petición, elige el método del controlador y convierte el cuerpo JSON. Si no puede hacerlo, lanza una excepción estándar antes de invocar al controlador.'
+    },
+    container: {
+      label: 'Contenedor', sub: 'servlets', layer: 'framework', role: 'Framework: no es código de este repositorio',
+      what: 'El contenedor de servlets. Reenvía a la ruta de error los fallos que nunca llegaron a un manejador de Spring MVC.'
+    },
+    errorController: {
+      label: 'Ruta de error', sub: 'ApiErrorController', layer: 'web', role: 'Reemplaza el controlador de errores de Spring Boot',
+      what: 'Atiende `/error` y responde el mismo cuerpo `{"mensaje": ...}` que el resto de la API, siempre en JSON. No usa directamente ningún tipo del núcleo: solo `ErrorMessages` y `ErrorResponse`.',
+      code: [{ ref: 'ApiErrorController.error', file: 'infrastructure/web/ApiErrorController.java' }]
+    }
+  },
+
+  /* Secuencias: el registro exitoso y los escenarios de rechazo. */
+  sequences: {
+    registro: {
+      title: 'Flujo de registro de un usuario',
+      summary: 'Un registro válido de extremo a extremo: validación, comprobación del duplicado, hash, token, agregado, guardado y respuesta 201.',
+      result: '201',
+      participants: ['client', 'controller', 'usecase', 'domain', 'repo', 'hasher', 'tokens'],
+      band: { from: 2, to: 15, start: 'usecase', label: 'TRANSACCIÓN · @Transactional' },
+      steps: REGISTRATION_STEPS
+    },
+
+    invalidos: {
+      chip: 'Datos inválidos', result: '400',
+      title: 'Datos inválidos → 400',
+      summary: 'Uno o más campos incumplen una regla del dominio. Se informan todos a la vez y no se toca la base de datos.',
+      participants: ['client', 'errors', 'controller', 'usecase', 'domain', 'repo', 'hasher', 'tokens'],
+      cut: 'El camino feliz se corta en el paso 5: no hay consulta, hash, token ni INSERT',
+      steps: [
+        ...REGISTRATION_STEPS.slice(0, 3),
+        {
+          from: 'domain', to: 'usecase', kind: 'return', label: 'motivos (Reason)',
+          title: 'El dominio devuelve los motivos',
+          what: 'El dominio devuelve uno o más `Reason`, un enum de `domain.exception`. Hay como máximo uno por campo: la primera regla incumplida entre obligatorio, longitud y formato.',
+          why: 'Un motivo es un hecho tipado sobre la entrada: no lleva ni el valor rechazado ni texto destinado al cliente.',
+          code: [{ ref: 'Reason', file: 'domain/exception/Reason.java' }]
+        },
+        {
+          from: 'usecase', to: 'errors', kind: 'error', label: 'InvalidUserDataException',
+          title: 'El caso de uso rechaza el registro',
+          what: 'El caso de uso lanza `InvalidUserDataException` con esos motivos, antes de consultar la base de datos. Al salir de `register`, el proxy de `@Transactional` revierte la transacción.',
+          why: '`UserController` no tiene `try/catch`: la excepción lo cruza y Spring MVC la entrega al `@ExceptionHandler` de `GlobalExceptionHandler`, que es un `@RestControllerAdvice`.',
+          code: [
+            { ref: 'InvalidUserDataException.reasons', file: 'domain/exception/InvalidUserDataException.java' },
+            { ref: 'GlobalExceptionHandler.invalidUserData', file: 'infrastructure/web/GlobalExceptionHandler.java' }
+          ]
+        },
+        {
+          from: 'errors', to: 'client', kind: 'return', label: '400 · mensajes unidos', status: '400',
+          title: 'Respuesta 400 Bad Request',
+          what: '`GlobalExceptionHandler.invalidUserData` responde 400: `ErrorMessages.joined` traduce cada `Reason` a su texto, ordena los textos y los une con `"; "` en el campo `mensaje`.',
+          why: 'El dominio solo conoce motivos tipados; el texto para el cliente es presentación. Toda respuesta de error se construye en un solo lugar, `GlobalExceptionHandler.answer`.',
+          code: [
+            { ref: 'ErrorMessages.joined', file: 'infrastructure/web/ErrorMessages.java' },
+            { ref: 'ErrorMessages.of', file: 'infrastructure/web/ErrorMessages.java' },
+            { ref: 'GlobalExceptionHandler.answer', file: 'infrastructure/web/GlobalExceptionHandler.java' }
+          ]
+        }
+      ]
+    },
+
+    duplicado: {
+      chip: 'Correo duplicado', result: '409',
+      title: 'Correo duplicado, detectado antes de guardar → 409',
+      summary: 'Los datos son válidos, pero la comprobación previa encuentra un usuario con el mismo correo.',
+      participants: ['client', 'errors', 'controller', 'usecase', 'domain', 'repo', 'hasher', 'tokens'],
+      cut: 'El camino feliz se corta en el paso 7: no hay hash, token ni INSERT',
+      steps: [
+        ...REGISTRATION_STEPS.slice(0, 5),
+        {
+          from: 'repo', to: 'usecase', kind: 'return', label: 'true',
+          title: 'El correo ya existe',
+          what: 'Vuelve `true`: ya hay un usuario con ese correo. La consulta usa el correo ya normalizado en minúsculas, así que `Juan@…` y `juan@…` son el mismo.',
+          code: [{ ref: 'UserPersistenceAdapter.existsByEmail', file: 'infrastructure/persistence/UserPersistenceAdapter.java' }]
+        },
+        ERROR_STEPS.duplicateThrown,
+        ERROR_STEPS.conflictAnswered
+      ]
+    },
+
+    carrera: {
+      chip: 'Duplicado en carrera', result: '409',
+      title: 'Duplicado en carrera, detectado por la restricción única → 409',
+      summary: 'Dos peticiones simultáneas con el mismo correo pasan la comprobación previa. La segunda falla al guardar y recibe el mismo 409.',
+      participants: ['client', 'errors', 'controller', 'usecase', 'domain', 'repo', 'hasher', 'tokens'],
+      cut: 'El camino feliz se corta en el paso 14: el INSERT falla y la transacción se revierte',
+      steps: [
+        ...REGISTRATION_STEPS.slice(0, 5),
+        {
+          ...REGISTRATION_STEPS[5],
+          title: 'El correo parece libre',
+          what: 'Vuelve `false`: otra petición con el mismo correo está en curso, pero todavía no confirmó su transacción.',
+          why: 'La comprobación previa no puede detener dos peticiones concurrentes que encuentran libre la misma dirección. Por eso la garantía real es la restricción única `uk_users_email`.'
+        },
+        ...REGISTRATION_STEPS.slice(6, 13),
+        {
+          from: 'repo', to: 'usecase', kind: 'error', label: 'EmailAlreadyRegisteredException',
+          title: 'La restricción única rechaza el INSERT',
+          what: '`saveAndFlush` lanza `DataIntegrityViolationException` por la restricción `uk_users_email`. `UserPersistenceAdapter.isUniqueViolation` reconoce `ConstraintKind.UNIQUE` y el adaptador lanza `EmailAlreadyRegisteredException`.',
+          why: 'Se comprueba el tipo de la restricción y no su nombre. Cualquier otro fallo de almacenamiento no es un duplicado y se relanza sin tocarlo.',
+          code: [
+            { ref: 'UserPersistenceAdapter.save', file: 'infrastructure/persistence/UserPersistenceAdapter.java' },
+            { ref: 'UserPersistenceAdapter.isUniqueViolation', file: 'infrastructure/persistence/UserPersistenceAdapter.java' },
+            { ref: 'schema.sql', repoFile: 'src/main/resources/schema.sql' }
+          ]
+        },
+        ERROR_STEPS.duplicateThrown,
+        {
+          ...ERROR_STEPS.conflictAnswered,
+          why: 'El cliente recibe exactamente el mismo 409 que cuando el duplicado se detecta en la comprobación previa.'
+        }
+      ]
+    },
+
+    cuerpo: {
+      chip: 'Cuerpo ilegible', result: '400',
+      title: 'Cuerpo ilegible o con un tipo incorrecto → 400',
+      summary: 'El cuerpo no es JSON válido, está vacío o un campo trae el tipo equivocado. El controlador nunca se invoca.',
+      participants: ['client', 'mvc', 'errors', 'controller', 'usecase', 'domain', 'repo'],
+      cut: 'No se alcanza el controlador: ningún paso del camino feliz ocurre',
+      steps: [
+        {
+          from: 'client', to: 'mvc', kind: 'call', label: 'POST /api/v1/users',
+          title: 'Llega un cuerpo que no se puede leer',
+          what: 'El cuerpo no es JSON válido, está vacío o un campo tiene el tipo equivocado, por ejemplo `"name": 123`.',
+          why: 'Por defecto Jackson convertiría ese número en la cadena `"123"`. `JacksonConfig.strictStringTyping` desactiva la coerción de números y booleanos a texto.',
+          code: [{ ref: 'JacksonConfig.strictStringTyping', file: 'infrastructure/web/JacksonConfig.java' }]
+        },
+        {
+          from: 'mvc', to: 'errors', kind: 'error', label: 'HttpMessageNotReadableException',
+          title: 'Spring MVC no puede convertir el cuerpo',
+          what: 'No logra construir el `RegisterUserRequest`, así que `UserController.register` nunca se invoca. La excepción llega a `GlobalExceptionHandler.handleHttpMessageNotReadable`.',
+          code: [
+            { ref: 'GlobalExceptionHandler.handleHttpMessageNotReadable', file: 'infrastructure/web/GlobalExceptionHandler.java' },
+            { ref: 'RegisterUserRequest', file: 'infrastructure/web/RegisterUserRequest.java' }
+          ]
+        },
+        {
+          from: 'errors', to: 'client', kind: 'return', label: '400 · El cuerpo de la solicitud no es válido', status: '400',
+          title: 'Respuesta 400 Bad Request',
+          what: 'Responde 400 con el texto fijo de `ErrorMessages.INVALID_BODY`.',
+          why: 'El texto del parser puede citar el contenido enviado; por eso no se registra en el log ni se devuelve.',
+          code: [
+            { ref: 'ErrorMessages.INVALID_BODY', file: 'infrastructure/web/ErrorMessages.java' },
+            { ref: 'GlobalExceptionHandler.answer', file: 'infrastructure/web/GlobalExceptionHandler.java' }
+          ]
+        }
+      ]
+    },
+
+    contenido: {
+      chip: 'Tipo de contenido', result: '415',
+      title: 'Tipo de contenido, método o ruta no admitidos → 415, 405, 404 o 406',
+      summary: 'Spring MVC rechaza la petición antes de elegir un método del controlador y lanza una de sus excepciones estándar.',
+      participants: ['client', 'mvc', 'errors', 'controller', 'usecase', 'domain', 'repo'],
+      cut: 'No se alcanza el controlador: ningún paso del camino feliz ocurre',
+      steps: [
+        {
+          from: 'client', to: 'mvc', kind: 'call', label: 'POST · Content-Type: text/plain',
+          title: 'Llega una petición que no es JSON',
+          what: 'El cliente envía `POST /api/v1/users` con un `Content-Type` que no es `application/json`.',
+          why: '`UserApi.register` declara que solo consume y produce JSON.',
+          code: [{ ref: 'UserApi.register', file: 'infrastructure/web/UserApi.java' }]
+        },
+        {
+          from: 'mvc', to: 'errors', kind: 'error', label: 'HttpMediaTypeNotSupportedException',
+          title: 'Spring MVC lanza una excepción estándar',
+          what: 'Ningún método admite ese tipo de contenido. `GlobalExceptionHandler` extiende `ResponseEntityExceptionHandler`, así que toda excepción estándar de Spring MVC termina en `handleExceptionInternal`.',
+          why: 'Por el mismo camino pasan una ruta desconocida (404), un método no permitido (405, que conserva el encabezado `Allow`) y un `Accept` imposible de satisfacer (406).',
+          code: [{ ref: 'GlobalExceptionHandler.handleExceptionInternal', file: 'infrastructure/web/GlobalExceptionHandler.java' }]
+        },
+        {
+          from: 'errors', to: 'client', kind: 'return', label: '415 · Tipo de contenido no soportado', status: '415',
+          title: 'Respuesta 415 Unsupported Media Type',
+          what: '`handleExceptionInternal` descarta el `ProblemDetail` del framework y responde con la forma única; el texto sale de `ErrorMessages.forStatus`.',
+          why: 'Un 4xx es un error del cliente y no se registra en el log. Un 5xx sí, con clases y frames de pila y sin mensajes.',
+          code: [
+            { ref: 'ErrorMessages.forStatus', file: 'infrastructure/web/ErrorMessages.java' },
+            { ref: 'GlobalExceptionHandler.answer', file: 'infrastructure/web/GlobalExceptionHandler.java' }
+          ]
+        }
+      ]
+    },
+
+    inesperado: {
+      chip: 'Fallo inesperado', result: '500',
+      title: 'Fallo no previsto → 500',
+      summary: 'Algo falla sin ser un rechazo de negocio, por ejemplo el almacenamiento. El cliente recibe un texto fijo y el log, ningún mensaje.',
+      participants: ['client', 'errors', 'controller', 'usecase', 'domain', 'repo', 'hasher', 'tokens'],
+      cut: 'El camino feliz se corta en el paso 6: no hay hash, token ni INSERT',
+      steps: [
+        ...REGISTRATION_STEPS.slice(0, 5),
+        {
+          from: 'repo', to: 'usecase', kind: 'error', label: 'excepción no prevista',
+          title: 'El almacenamiento falla',
+          what: 'La consulta falla por una causa ajena al negocio; por ejemplo, la base de datos no responde. `UserPersistenceAdapter.existsByEmail` no captura nada: no es un rechazo que el dominio conozca.',
+          code: [{ ref: 'UserPersistenceAdapter.existsByEmail', file: 'infrastructure/persistence/UserPersistenceAdapter.java' }]
+        },
+        {
+          from: 'usecase', to: 'errors', kind: 'error', label: 'se propaga',
+          title: 'Nadie la captura',
+          what: 'La excepción sale de `register`, el proxy de `@Transactional` revierte la transacción y, tras cruzar el controlador, llega a `GlobalExceptionHandler.unexpected`, el manejador de `Exception`.',
+          code: [{ ref: 'GlobalExceptionHandler.unexpected', file: 'infrastructure/web/GlobalExceptionHandler.java' }]
+        },
+        {
+          from: 'errors', to: 'client', kind: 'return', label: '500 · Error interno del servidor', status: '500',
+          title: 'Respuesta 500 Internal Server Error',
+          what: 'Responde 500 con el texto fijo de `ErrorMessages.INTERNAL_ERROR`. El log recibe las clases y los frames de pila del fallo y de sus causas, armados por `withoutMessages`.',
+          why: 'Nunca se registra un mensaje de excepción, porque puede citar la petición: una base de datos informa el valor que rechazó.',
+          code: [
+            { ref: 'GlobalExceptionHandler.withoutMessages', file: 'infrastructure/web/GlobalExceptionHandler.java' },
+            { ref: 'ErrorMessages.INTERNAL_ERROR', file: 'infrastructure/web/ErrorMessages.java' }
+          ]
+        }
+      ]
+    },
+
+    contenedor: {
+      chip: 'Fuera de Spring MVC', result: '4xx · 5xx',
+      title: 'Error que nunca llega a un manejador → mismo JSON',
+      summary: 'Un error producido antes de los controladores no pasa por GlobalExceptionHandler. Lo responde ApiErrorController con la misma forma.',
+      participants: ['client', 'container', 'errorController', 'controller', 'usecase', 'domain', 'repo'],
+      cut: 'No se alcanza el controlador: ningún paso del camino feliz ocurre',
+      steps: [
+        {
+          from: 'client', to: 'container', kind: 'call', label: 'petición',
+          title: 'Un error anterior a los controladores',
+          what: 'Algo previo a Spring MVC marca la respuesta con un estado de error; por ejemplo, un filtro que llama a `sendError`.',
+          why: 'La aplicación no registra ningún filtro así; las pruebas añaden uno para comprobar que ni siquiera entonces sale una página HTML.'
+        },
+        {
+          from: 'container', to: 'errorController', kind: 'call', label: 'reenvío a /error',
+          title: 'El contenedor reenvía a la ruta de error',
+          what: 'El contenedor reenvía la petición a `/error` con el estado en el atributo `RequestDispatcher.ERROR_STATUS_CODE`. `ApiErrorController.statusOf` lo lee: sin atributo es un 404 (alguien pidió `/error` directamente) y, si no es un entero, un 500.',
+          code: [
+            { ref: 'ApiErrorController.error', file: 'infrastructure/web/ApiErrorController.java' },
+            { ref: 'ApiErrorController.statusOf', file: 'infrastructure/web/ApiErrorController.java' }
+          ]
+        },
+        {
+          from: 'errorController', to: 'client', kind: 'return', label: 'estado · {"mensaje": …}', status: '4xx · 5xx',
+          title: 'Respuesta con la forma única',
+          what: 'Responde con ese estado y el cuerpo `{"mensaje": ...}`; el texto sale de `ErrorMessages.forStatus`.',
+          why: 'El controlador de errores de Spring Boot negocia el contenido y puede devolver una página HTML o un cuerpo vacío. Aquí el tipo JSON se fija de forma explícita y el encabezado `Accept` no puede cambiarlo.',
+          code: [
+            { ref: 'ErrorMessages.forStatus', file: 'infrastructure/web/ErrorMessages.java' },
+            { ref: 'ErrorResponse', file: 'infrastructure/web/ErrorResponse.java' }
+          ]
+        }
+      ]
+    }
+  },
+
+  components: null /* la vista de componentes se define en el bloque siguiente */
+};
+
+/* Vista de componentes. Las coordenadas están en unidades del viewBox (1096 × 650). */
+DIAGRAM.components = {
+  size: [1096, 650],
+
+  /* Marcos punteados: un paquete cada uno. `labelAt: 'bottom'` pone el rótulo bajo el marco, para
+     que una flecha que lo cruza no pase por encima del texto. */
+  groups: [
+    { id: 'web', label: 'INFRASTRUCTURE.WEB', layer: 'web', box: [138, 50, 204, 584] },
+    { id: 'application', label: 'APPLICATION', layer: 'application', box: [380, 50, 194, 178] },
+    { id: 'config', label: 'INFRASTRUCTURE.CONFIG', layer: 'config', box: [380, 308, 194, 186], labelAt: 'bottom' },
+    { id: 'domain', label: 'DOMAIN', layer: 'domain', box: [648, 50, 190, 584] },
+    { id: 'security', label: 'INFRASTRUCTURE.SECURITY', layer: 'security', box: [884, 50, 208, 178] },
+    { id: 'persistence', label: 'INFRASTRUCTURE.PERSISTENCE', layer: 'persistence', box: [884, 258, 208, 82] }
+  ],
+
+  /* Cajas: una clase o un paquete. `at` es [x, y, ancho]; todas miden 54 de alto. */
+  nodes: [
+    {
+      id: 'client', label: 'Cliente', sub: 'HTTP · JSON', layer: 'external', at: [16, 72, 96],
+      role: 'Actor externo',
+      what: 'Quien consume la API: envía `POST /api/v1/users` con JSON y recibe JSON. No forma parte del servicio.'
+    },
+    {
+      id: 'controller', label: 'UserController', sub: 'UserApi · POST /api/v1/users', layer: 'web', at: [150, 72, 180],
+      role: 'Adaptador de entrada HTTP',
+      what: 'Implementa `UserApi`, que declara la ruta y la documentación OpenAPI. Traduce con `UserWebMapper`, llama al puerto `RegisterUser` y responde 201 con `Cache-Control: no-store`.',
+      why: 'No decide nada y no conoce `RegisterUserUseCase`: solo ve el puerto.',
+      code: [
+        { ref: 'UserController.register', file: 'infrastructure/web/UserController.java' },
+        { ref: 'UserApi.register', file: 'infrastructure/web/UserApi.java' }
+      ]
+    },
+    {
+      id: 'mapper', label: 'UserWebMapper', sub: 'records JSON ↔ comando', layer: 'web', at: [150, 160, 180],
+      role: 'Traductor entre JSON y tipos del núcleo',
+      what: 'Traduce a mano entre los records JSON (`RegisterUserRequest`, `UserResponse`) y los tipos del núcleo (`RegisterUserCommand`, `User`). No valida: pasa los valores tal como llegaron.',
+      why: 'Ambos lados son records, así que un campo olvidado es un error de compilación. La respuesta nunca lee el hash de la contraseña.',
+      code: [
+        { ref: 'UserWebMapper.toCommand', file: 'infrastructure/web/UserWebMapper.java' },
+        { ref: 'UserWebMapper.toResponse', file: 'infrastructure/web/UserWebMapper.java' }
+      ]
+    },
+    {
+      id: 'errorController', label: 'ApiErrorController', sub: 'errores fuera de Spring MVC', layer: 'web', at: [150, 400, 180],
+      role: 'Reemplaza el controlador de errores de Spring Boot',
+      what: 'Atiende los errores que nunca llegaron a un manejador y responde el mismo `{"mensaje": ...}`, siempre en JSON. No usa directamente ningún tipo del núcleo: solo `ErrorMessages` y `ErrorResponse`.',
+      why: 'El controlador de errores de Spring Boot negocia el contenido y puede responder una página HTML o un cuerpo vacío.',
+      code: [{ ref: 'ApiErrorController.error', file: 'infrastructure/web/ApiErrorController.java' }]
+    },
+    {
+      id: 'handler', label: 'GlobalExceptionHandler', sub: 'excepción → 400 · 409 · 500', layer: 'web', at: [150, 566, 180],
+      role: 'Único traductor de excepciones a JSON (@RestControllerAdvice)',
+      what: '`InvalidUserDataException` da 400, `EmailAlreadyRegisteredException` da 409 y lo no previsto da 500. Los errores estándar de Spring MVC pasan por `handleExceptionInternal`. Los textos salen de `ErrorMessages`.',
+      why: 'Toda respuesta de error se construye en un solo lugar, `answer`, con la forma `{"mensaje": ...}`.',
+      code: [
+        { ref: 'GlobalExceptionHandler.invalidUserData', file: 'infrastructure/web/GlobalExceptionHandler.java' },
+        { ref: 'GlobalExceptionHandler.emailAlreadyRegistered', file: 'infrastructure/web/GlobalExceptionHandler.java' },
+        { ref: 'GlobalExceptionHandler.answer', file: 'infrastructure/web/GlobalExceptionHandler.java' },
+        { ref: 'ErrorMessages.joined', file: 'infrastructure/web/ErrorMessages.java' }
+      ]
+    },
+    {
+      id: 'registerUser', label: 'RegisterUser', sub: 'puerto de entrada', layer: 'application', at: [392, 72, 170],
+      role: 'Puerto de entrada',
+      what: 'La interfaz que la aplicación ofrece a quien la dirige, con un solo método, `register(RegisterUserCommand)`. La usa `UserController` y la implementa `RegisterUserUseCase`.',
+      why: 'Existe para que el adaptador web dependa de una abstracción y no de la clase que la implementa.',
+      code: [
+        { ref: 'RegisterUser.register', file: 'application/port/RegisterUser.java' },
+        { ref: 'RegisterUserCommand', file: 'application/port/RegisterUserCommand.java' }
+      ]
+    },
+    {
+      id: 'useCase', label: 'RegisterUserUseCase', sub: '@Transactional', layer: 'application', at: [392, 160, 170],
+      role: 'Caso de uso: orquesta y delimita la transacción',
+      what: 'Implementa `RegisterUser` sin decidir reglas: pide las violaciones al dominio, consulta el duplicado, hashea, lee el reloj una vez, emite el token, construye el `User` y lo guarda.',
+      why: '`@Transactional` es su único tipo de framework. No lleva estereotipo: lo crea `ApplicationConfig`.',
+      code: [
+        { ref: 'RegisterUserUseCase.register', file: 'application/RegisterUserUseCase.java' },
+        { ref: 'RegisterUserUseCase.violationsOf', file: 'application/RegisterUserUseCase.java' }
+      ]
+    },
+    {
+      id: 'config', label: 'ApplicationConfig', sub: 'beans del núcleo · Clock', layer: 'config', at: [392, 330, 170],
+      role: 'Cableado: clase @Configuration',
+      what: 'Crea los beans que no llevan estereotipo: `RegisterUser` (un `RegisterUserUseCase`), `PasswordPolicy` (un `RegexPasswordPolicy`) y `Clock` (UTC).',
+      why: 'Compila los dos patrones y detiene el arranque si alguno no es una expresión regular válida. La configuración conoce al núcleo y nunca al revés.',
+      code: [
+        { ref: 'ApplicationConfig.registerUser', file: 'infrastructure/config/ApplicationConfig.java' },
+        { ref: 'ApplicationConfig.passwordPolicy', file: 'infrastructure/config/ApplicationConfig.java' },
+        { ref: 'ApplicationConfig.clock', file: 'infrastructure/config/ApplicationConfig.java' }
+      ]
+    },
+    {
+      id: 'properties', label: 'RegistrationProperties', sub: 'app.registration.*', layer: 'config', at: [392, 426, 170],
+      role: 'Configuración del operador',
+      what: 'Record enlazado a `app.registration.*`: `email-pattern` y `password-pattern`, dos expresiones regulares. Lo lee `ApplicationConfig`.',
+      why: 'Las longitudes se comprueban antes de ejecutar cualquiera de los patrones.',
+      code: [{ ref: 'RegistrationProperties', file: 'infrastructure/config/RegistrationProperties.java' }]
+    },
+    {
+      id: 'passwordHasher', label: 'PasswordHasher', sub: 'puerto de salida', layer: 'domain', at: [660, 72, 166],
+      role: 'Puerto de salida',
+      what: 'Interfaz con `hash(rawPassword)`. Oculta el algoritmo de hash al caso de uso. La llama `RegisterUserUseCase` y la implementa `BCryptPasswordHasher`.',
+      why: 'Pertenece al dominio: por eso quien la implementa depende del núcleo y no al revés.',
+      code: [{ ref: 'PasswordHasher.hash', file: 'domain/port/PasswordHasher.java' }]
+    },
+    {
+      id: 'tokenIssuer', label: 'TokenIssuer', sub: 'puerto de salida', layer: 'domain', at: [660, 160, 166],
+      role: 'Puerto de salida',
+      what: 'Interfaz con `issue(subject, email, issuedAt)`. Oculta el formato y la firma del token. La implementa `JjwtTokenIssuer`.',
+      why: 'Pertenece al dominio: por eso quien la implementa depende del núcleo y no al revés.',
+      code: [{ ref: 'TokenIssuer.issue', file: 'domain/port/TokenIssuer.java' }]
+    },
+    {
+      id: 'userRepository', label: 'UserRepository', sub: 'puerto de salida', layer: 'domain', at: [660, 272, 166],
+      role: 'Puerto de salida',
+      what: 'Interfaz con `existsByEmail(email)` y `save(user)`: solo lo que el registro necesita. Oculta la base de datos. La implementa `UserPersistenceAdapter`.',
+      why: 'Pertenece al dominio: por eso quien la implementa depende del núcleo y no al revés.',
+      code: [
+        { ref: 'UserRepository.existsByEmail', file: 'domain/port/UserRepository.java' },
+        { ref: 'UserRepository.save', file: 'domain/port/UserRepository.java' }
+      ]
+    },
+    {
+      id: 'model', label: 'domain.model', sub: 'User · Email · Phone · UserId', layer: 'domain', at: [660, 372, 166],
+      role: 'Agregado y objetos de valor',
+      what: '`User` (agregado inmutable que solo se crea con `User.registration`), `Email`, `Phone`, `UserId` y `PhoneInput`. Cada tipo conoce sus reglas y las expone como funciones que devuelven motivos (`Reason`).',
+      code: [
+        { ref: 'User.registration', file: 'domain/model/User.java' },
+        { ref: 'Email.of', file: 'domain/model/Email.java' },
+        { ref: 'Phone.violations', file: 'domain/model/Phone.java' },
+        { ref: 'UserId.generate', file: 'domain/model/UserId.java' },
+        { ref: 'PhoneInput', file: 'domain/model/PhoneInput.java' }
+      ]
+    },
+    {
+      id: 'policy', label: 'domain.policy', sub: 'Password · PasswordPolicy', layer: 'domain', at: [660, 460, 166],
+      role: 'Límites fijos y formato configurable',
+      what: '`Password` aplica los límites fijos de una contraseña (obligatoria, 72 bytes UTF-8 como máximo) y `PasswordPolicy` es la estrategia del formato; `RegexPasswordPolicy` la implementa con la expresión regular configurada.',
+      why: 'Los límites viven en una clase final para que ninguna implementación de la regla reemplazable pueda eludirlos.',
+      code: [
+        { ref: 'Password.violation', file: 'domain/policy/Password.java' },
+        { ref: 'PasswordPolicy.isSatisfiedBy', file: 'domain/policy/PasswordPolicy.java' },
+        { ref: 'RegexPasswordPolicy.isSatisfiedBy', file: 'domain/policy/RegexPasswordPolicy.java' }
+      ]
+    },
+    {
+      id: 'exceptions', label: 'domain.exception', sub: 'DomainException · Reason', layer: 'domain', at: [660, 566, 166],
+      role: 'Rechazos tipados, sin texto para el cliente',
+      what: '`DomainException` y sus dos subtipos, `InvalidUserDataException` (lleva los `Reason`) y `EmailAlreadyRegisteredException`, más el enum `Reason`. Los lanza el núcleo y los traduce `GlobalExceptionHandler`.',
+      why: 'Ninguno lleva el valor rechazado ni texto destinado al cliente: convertir un motivo en mensaje es presentación.',
+      code: [
+        { ref: 'DomainException', file: 'domain/exception/DomainException.java' },
+        { ref: 'InvalidUserDataException.reasons', file: 'domain/exception/InvalidUserDataException.java' },
+        { ref: 'EmailAlreadyRegisteredException', file: 'domain/exception/EmailAlreadyRegisteredException.java' },
+        { ref: 'Reason', file: 'domain/exception/Reason.java' }
+      ]
+    },
+    {
+      id: 'bcrypt', label: 'BCryptPasswordHasher', sub: 'hash BCrypt con sal', layer: 'security', at: [896, 72, 184],
+      role: 'Adaptador de salida',
+      what: 'Implementa `PasswordHasher` con `BCryptPasswordEncoder` de spring-security-crypto: costo 12 y una sal por hash.',
+      why: 'Es la única clase que conoce esa biblioteca. Solo se usa el módulo de criptografía, no la cadena de filtros de seguridad.',
+      code: [{ ref: 'BCryptPasswordHasher.hash', file: 'infrastructure/security/BCryptPasswordHasher.java' }]
+    },
+    {
+      id: 'jjwt', label: 'JjwtTokenIssuer', sub: 'JWT · TokenProperties', layer: 'security', at: [896, 160, 184],
+      role: 'Adaptador de salida',
+      what: 'Implementa `TokenIssuer` con JJWT: un JWT HS256 con el id como `subject` y el claim `email`. Lee `TokenProperties` (`app.token.*`).',
+      why: 'Al arrancar rechaza un secreto de menos de 32 bytes y una expiración que no sea positiva o supere 24 horas; sin secreto genera una clave efímera.',
+      code: [
+        { ref: 'JjwtTokenIssuer.issue', file: 'infrastructure/security/JjwtTokenIssuer.java' },
+        { ref: 'TokenProperties', file: 'infrastructure/security/TokenProperties.java' }
+      ]
+    },
+    {
+      id: 'persistence', label: 'UserPersistenceAdapter', sub: 'UserJpaRepository · entidades', layer: 'persistence', at: [896, 272, 184],
+      role: 'Adaptador de salida',
+      what: 'Implementa `UserRepository` con Spring Data JPA (`UserJpaRepository`, `UserJpaEntity` y `PhoneJpaEntity`, visibles solo en este paquete).',
+      why: '`save` usa `saveAndFlush` y convierte la violación de la restricción única en `EmailAlreadyRegisteredException`.',
+      code: [
+        { ref: 'UserPersistenceAdapter.save', file: 'infrastructure/persistence/UserPersistenceAdapter.java' },
+        { ref: 'UserPersistenceAdapter.existsByEmail', file: 'infrastructure/persistence/UserPersistenceAdapter.java' },
+        { ref: 'UserJpaEntity.from', file: 'infrastructure/persistence/UserJpaEntity.java' }
+      ]
+    },
+    {
+      id: 'h2', label: 'H2 en memoria', sub: 'schema.sql', layer: 'persistence', at: [896, 460, 184],
+      role: 'Base de datos del ejercicio',
+      what: 'Las tablas `users` y `phones` las crea `schema.sql`; Hibernate solo las valida.',
+      why: 'La restricción `uk_users_email` es la garantía real de que un correo no se repite.',
+      code: [{ ref: 'schema.sql', repoFile: 'src/main/resources/schema.sql' }]
+    }
+  ],
+
+  /* Flechas. `route` indica el trazado: 'h' horizontal, 'v' vertical, 'bus' sale por la derecha,
+     baja o sube por `busX` y entra por la izquierda, y 'side' rodea por la derecha en `sideX`. */
+  edges: [
+    { id: 'http', from: 'client', to: 'controller', label: 'HTTP', kind: 'request', route: 'h',
+      why: 'La petición y la respuesta, en JSON.' },
+    { id: 'controller-mapper', from: 'controller', to: 'mapper', label: 'traduce', kind: 'uses', route: 'v',
+      why: '`toCommand` a la entrada y `toResponse` a la salida.' },
+    { id: 'controller-port', from: 'controller', to: 'registerUser', label: 'usa', kind: 'request', route: 'h',
+      why: 'Llama a `register(command)`. Apunta al puerto y no a la implementación; así la web no conoce el caso de uso.' },
+    { id: 'usecase-implements', from: 'useCase', to: 'registerUser', label: 'implementa', kind: 'implements', route: 'v',
+      why: 'La clase está en `application` y la interfaz en `application.port`.' },
+    { id: 'usecase-hasher', from: 'useCase', to: 'passwordHasher', label: 'hashea', kind: 'uses', route: 'bus', busX: 594,
+      why: 'Llama a `hash`. La interfaz es del dominio, de modo que la flecha va hacia adentro.' },
+    { id: 'usecase-token', from: 'useCase', to: 'tokenIssuer', label: 'emite', kind: 'uses', route: 'bus', busX: 594,
+      why: 'Llama a `issue` con el id, el correo y el instante único del registro.' },
+    { id: 'usecase-repo', from: 'useCase', to: 'userRepository', label: 'guarda', kind: 'uses', route: 'bus', busX: 594,
+      why: 'Llama a `existsByEmail` y a `save`.' },
+    { id: 'usecase-model', from: 'useCase', to: 'model', label: 'construye', kind: 'uses', route: 'bus', busX: 594,
+      why: 'Pide las violaciones del nombre, el correo y los teléfonos, y construye el `User`.' },
+    { id: 'usecase-policy', from: 'useCase', to: 'policy', label: 'valida', kind: 'uses', route: 'bus', busX: 594,
+      why: 'Pide a `Password.violation` la regla de la contraseña con la `PasswordPolicy` configurada.' },
+    { id: 'usecase-exception', from: 'useCase', to: 'exceptions', label: 'lanza', kind: 'uses', route: 'bus', busX: 594, toDy: -12,
+      why: 'Lanza `InvalidUserDataException` o `EmailAlreadyRegisteredException`.' },
+    { id: 'model-exception', from: 'model', to: 'exceptions', label: 'usa Reason', kind: 'uses', route: 'side', sideX: 858, toDy: -8,
+      why: 'Las reglas devuelven motivos tipados. La dependencia va en un solo sentido.' },
+    { id: 'policy-exception', from: 'policy', to: 'exceptions', label: 'usa Reason', kind: 'uses', route: 'v',
+      why: 'Las reglas devuelven motivos tipados. La dependencia va en un solo sentido.' },
+    { id: 'bcrypt-implements', from: 'bcrypt', to: 'passwordHasher', label: 'implementa', kind: 'implements', route: 'h',
+      why: 'La infraestructura depende de una interfaz del dominio: es la inversión de dependencias, y permite probar el caso de uso sin bibliotecas.' },
+    { id: 'jjwt-implements', from: 'jjwt', to: 'tokenIssuer', label: 'implementa', kind: 'implements', route: 'h',
+      why: 'La infraestructura depende de una interfaz del dominio: es la inversión de dependencias.' },
+    { id: 'persistence-implements', from: 'persistence', to: 'userRepository', label: 'implementa', kind: 'implements', route: 'h',
+      why: 'La infraestructura depende de una interfaz del dominio: permite probar el caso de uso sin base de datos.' },
+    { id: 'persistence-h2', from: 'persistence', to: 'h2', label: 'JPA', kind: 'uses', route: 'v',
+      why: 'SQL a través de Hibernate, enteramente fuera del núcleo.' },
+    { id: 'handler-exception', from: 'handler', to: 'exceptions', label: 'traduce', kind: 'uses', route: 'h', dy: 12,
+      why: 'Lee los `Reason` de la excepción y elige el estado HTTP y el texto.' },
+    { id: 'config-usecase', from: 'config', to: 'useCase', label: 'instancia', kind: 'uses', route: 'v',
+      why: 'Crea el `RegisterUserUseCase` con sus puertos, la política, el patrón del correo y el reloj.' },
+    { id: 'config-properties', from: 'config', to: 'properties', label: 'lee', kind: 'uses', route: 'v',
+      why: 'Toma de ahí los dos patrones. Queda enteramente fuera del núcleo.' }
+  ],
+
+  /* Primera parada del recorrido: la regla que ordena todo el diagrama. */
+  rule: {
+    title: 'Regla de dependencia',
+    kind: 'Núcleo: application y domain',
+    groups: ['application', 'domain'],
+    what: 'Toda dependencia que cruza la frontera del núcleo (`application` y `domain`) apunta hacia adentro. `domain` solo usa el JDK; `application` solo usa `domain`, el JDK y la anotación `@Transactional`.',
+    why: 'Los adaptadores no dependen unos de otros y ningún paquete forma un ciclo con otro. Lo comprueba `ArchitectureTest` (ArchUnit) en cada build, con las reglas de `ArchitectureRules`.',
+    code: [
+      { ref: 'ArchitectureTest', repoFile: 'src/test/java/com/registro/usuarios/ArchitectureTest.java' },
+      { ref: 'ArchitectureRules', repoFile: 'src/test/java/com/registro/usuarios/ArchitectureRules.java' }
+    ]
+  },
+
+  /* Orden del recorrido: la regla y, después, las cajas siguiendo una petición de fuera adentro. */
+  tour: ['client', 'controller', 'mapper', 'registerUser', 'useCase', 'model', 'policy', 'exceptions',
+    'userRepository', 'passwordHasher', 'tokenIssuer', 'persistence', 'h2', 'bcrypt', 'jjwt',
+    'handler', 'errorController', 'config', 'properties']
+};
+
+/* =====================================================================================
+   DIBUJO: convierte los datos en SVG. Nada de este bloque guarda estado.
+   ===================================================================================== */
+const NODE_HEIGHT = 54;
+const SEQUENCE_WIDTH = 1000;
+
+const escapeHtml = (text) =>
+  String(text).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/* Texto de los datos a HTML: escapa y convierte `así` en <code>. Tras cada punto de un nombre
+   calificado se permite un salto de línea, para que no se parta en medio de una palabra. */
+const rich = (text) =>
+  escapeHtml(text).replace(/`([^`]+)`/g, (match, code) => `<code>${code.replace(/\.(?=\w)/g, '.<wbr>')}</code>`);
+
+/* Texto sin marcas, para etiquetas accesibles y para medir el tiempo de lectura. */
+const plain = (text) => String(text || '').replace(/`/g, '');
+
+/* Punta de flecha en `tip`, viniendo desde `from`. */
+function arrowHead(from, tip, size = 8) {
+  const angle = Math.atan2(tip[1] - from[1], tip[0] - from[0]);
+  const corner = (turn) => [
+    tip[0] - size * Math.cos(angle + turn),
+    tip[1] - size * Math.sin(angle + turn)
+  ];
+  const [a, b] = [corner(0.42), corner(-0.42)];
+  return `<polygon points="${tip[0]},${tip[1]} ${a[0].toFixed(1)},${a[1].toFixed(1)} ${b[0].toFixed(1)},${b[1].toFixed(1)}"/>`;
+}
+
+/* ---------- Componentes ---------- */
+
+function nodeBox(node) {
+  const [x, y, width] = node.at;
+  return { x, y, width, height: NODE_HEIGHT, cx: x + width / 2, cy: y + NODE_HEIGHT / 2 };
+}
+
+/* Puntos del trazado de una flecha y posición de su etiqueta, según su `route`. */
+function edgeGeometry(edge, nodesById) {
+  const a = nodeBox(nodesById[edge.from]);
+  const b = nodeBox(nodesById[edge.to]);
+  if (edge.route === 'h') {
+    const y = a.cy + (edge.dy || 0);
+    const leftToRight = a.x < b.x;
+    const points = leftToRight ? [[a.x + a.width, y], [b.x, y]] : [[a.x, y], [b.x + b.width, y]];
+    return { points, label: [(points[0][0] + points[1][0]) / 2, y - 6], anchor: 'middle' };
+  }
+  if (edge.route === 'v') {
+    const x = a.cx;
+    const points = a.y < b.y ? [[x, a.y + a.height], [x, b.y]] : [[x, a.y], [x, b.y + b.height]];
+    return { points, label: [x + 7, (points[0][1] + points[1][1]) / 2 + 4], anchor: 'start' };
+  }
+  if (edge.route === 'bus') {
+    const y = b.cy + (edge.toDy || 0);
+    const points = [[a.x + a.width, a.cy], [edge.busX, a.cy], [edge.busX, y], [b.x, y]];
+    return { points, label: [b.x - 9, y - 6], anchor: 'end' };
+  }
+  /* 'side': sale y vuelve a entrar por la derecha. */
+  const y = b.cy + (edge.toDy || 0);
+  const points = [[a.x + a.width, a.cy], [edge.sideX, a.cy], [edge.sideX, y], [b.x + b.width, y]];
+  return { points, label: null, anchor: 'start' };
+}
+
+function renderComponents(components, layers) {
+  const [width, height] = components.size;
+  const nodesById = Object.fromEntries(components.nodes.map((node) => [node.id, node]));
+
+  const groups = components.groups.map((group) => {
+    const [x, y, w, h] = group.box;
+    return `<g class="group dimmable layer-${group.layer}" data-group="${group.id}">
+      <rect class="group-frame" x="${x}" y="${y}" width="${w}" height="${h}" rx="12"/>
+      <text class="group-label halo" x="${x + 8}" y="${group.labelAt === 'bottom' ? y + h + 15 : y - 7}">${escapeHtml(group.label)}</text>
+    </g>`;
+  });
+
+  const edges = components.edges.map((edge) => {
+    const { points, label, anchor } = edgeGeometry(edge, nodesById);
+    const path = points.map((point) => point.join(',')).join(' ');
+    const head = arrowHead(points[points.length - 2], points[points.length - 1]);
+    const text = label
+      ? `<text class="lbl halo" x="${label[0]}" y="${label[1]}" text-anchor="${anchor}">${escapeHtml(edge.label)}</text>`
+      : '';
+    const name = `Flecha: ${nodesById[edge.from].label} ${edge.label} ${nodesById[edge.to].label}`;
+    return `<g class="edge dimmable is-${edge.kind}" data-pick="edge" data-id="${edge.id}" tabindex="0" role="button" aria-label="${escapeHtml(name)}">
+      <polyline class="hit" points="${path}"/>
+      <g class="shaft"><polyline points="${path}"/>${head}</g>
+      ${text}
+    </g>`;
+  });
+
+  const nodes = components.nodes.map((node) => {
+    const box = nodeBox(node);
+    const name = `${node.label}: ${layers[node.layer]}`;
+    return `<g class="node dimmable layer-${node.layer}" data-pick="node" data-id="${node.id}" tabindex="0" role="button" aria-label="${escapeHtml(name)}">
+      <rect class="box" x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}" rx="9"/>
+      <text class="name" x="${box.cx}" y="${box.y + 23}" text-anchor="middle">${escapeHtml(node.label)}</text>
+      <text class="sub" x="${box.cx}" y="${box.y + 40}" text-anchor="middle">${escapeHtml(node.sub)}</text>
+    </g>`;
+  });
+
+  return `<svg viewBox="0 0 ${width} ${height}" role="group" aria-label="Diagrama de componentes">
+    ${groups.join('')}${edges.join('')}${nodes.join('')}
+  </svg>`;
+}
+
+/* ---------- Secuencias ---------- */
+
+/* Posiciones de columnas y filas de una secuencia. */
+function sequenceLayout(sequence) {
+  const count = sequence.participants.length;
+  const left = 62;
+  const right = sequence.band ? 84 : 62;
+  const gap = (SEQUENCE_WIDTH - left - right) / (count - 1);
+  /* Cuantos menos pasos, más separadas las filas: así un escenario corto ocupa mejor el escenario. */
+  const stepCount = sequence.steps.length;
+  const rowHeight = stepCount > 10 ? 34 : stepCount > 6 ? 46 : stepCount > 4 ? 64 : 84;
+  const firstRow = 106;
+  const lastRow = firstRow + (sequence.steps.length - 1) * rowHeight;
+  const columns = Object.fromEntries(sequence.participants.map((id, index) => [id, left + index * gap]));
+  return {
+    columns,
+    boxWidth: Math.min(126, gap - 8),
+    rowY: (index) => firstRow + index * rowHeight,
+    rowHeight,
+    lastRow,
+    height: lastRow + (sequence.cut ? 78 : 34)
+  };
+}
+
+/* Barras de activación: cuándo está cada participante dentro de una llamada.
+   Una llamada apila al receptor; una respuesta o una excepción desapila hasta quien la recibe. */
+function activations(sequence) {
+  const bars = [];
+  const stack = [];
+  const closeUntil = (target, index) => {
+    while (stack.length && stack[stack.length - 1].id !== target) {
+      const open = stack.pop();
+      bars.push({ id: open.id, from: open.from, to: index });
+    }
+  };
+  sequence.steps.forEach((step, index) => {
+    if (step.kind === 'call') {
+      stack.push({ id: step.to, from: index });
+    } else {
+      closeUntil(step.to, index);
+      if (step.kind === 'error' && !stack.some((open) => open.id === step.to)) {
+        stack.push({ id: step.to, from: index });
+      }
+    }
+  });
+  return bars;
+}
+
+function renderSequence(sequence, participants) {
+  const layout = sequenceLayout(sequence);
+  const reached = new Set(sequence.steps.flatMap((step) => [step.from, step.to]));
+  const bottom = layout.height - 12;
+
+  let band = '';
+  if (sequence.band) {
+    const x = layout.columns[sequence.band.start] - 22;
+    const y = layout.rowY(sequence.band.from - 1) - 20;
+    const h = layout.rowY(sequence.band.to - 1) + 12 - y;
+    const w = SEQUENCE_WIDTH - 10 - x;
+    const labelX = x + w - 12;
+    band = `<rect class="band" x="${x}" y="${y}" width="${w}" height="${h}" rx="10"/>
+      <text class="band-label" transform="translate(${labelX} ${y + h / 2}) rotate(90)" text-anchor="middle">${escapeHtml(sequence.band.label)}</text>`;
+  }
+
+  const actors = sequence.participants.map((id) => {
+    const actor = participants[id];
+    const x = layout.columns[id];
+    const unreached = reached.has(id) ? '' : ' is-unreached';
+    const half = layout.boxWidth / 2;
+    return `<g class="actor dimmable layer-${actor.layer}${unreached}" data-pick="actor" data-id="${id}" tabindex="0" role="button" aria-label="${escapeHtml(`Participante: ${actor.label}, ${actor.sub}`)}">
+      <line class="lifeline" x1="${x}" y1="62" x2="${x}" y2="${bottom}"/>
+      <rect class="box" x="${x - half}" y="14" width="${layout.boxWidth}" height="48" rx="9"/>
+      <text class="name" x="${x}" y="35" text-anchor="middle">${escapeHtml(actor.label)}</text>
+      <text class="sub" x="${x}" y="51" text-anchor="middle">${escapeHtml(actor.sub)}</text>
+    </g>`;
+  });
+
+  const bars = activations(sequence).map((bar) => {
+    const x = layout.columns[bar.id] - 4;
+    const y = layout.rowY(bar.from);
+    return `<rect class="activation dimmable layer-${participants[bar.id].layer}" data-actor="${bar.id}" x="${x}" y="${y}" width="8" height="${layout.rowY(bar.to) - y}" rx="2"/>`;
+  });
+
+  const messages = sequence.steps.map((step, index) => {
+    const y = layout.rowY(index);
+    const toRight = layout.columns[step.to] > layout.columns[step.from];
+    const x1 = layout.columns[step.from] + (toRight ? 5 : -5);
+    const x2 = layout.columns[step.to] + (toRight ? -6 : 6);
+    const middle = (x1 + x2) / 2;
+    const name = `Paso ${index + 1}: ${plain(step.title)}`;
+    return `<g class="msg dimmable is-${step.kind} ${toRight ? 'to-right' : 'to-left'}" data-pick="step" data-id="${index}" tabindex="0" role="button" aria-label="${escapeHtml(name)}">
+      <rect class="hit" x="${Math.min(x1, x2)}" y="${y - 20}" width="${Math.abs(x2 - x1)}" height="${Math.min(layout.rowHeight, 28)}"/>
+      <g class="shaft"><line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}"/>${arrowHead([x1, y], [x2, y])}</g>
+      <text class="lbl halo" x="${middle}" y="${y - 7}" text-anchor="middle"><tspan class="num">${index + 1}</tspan> · ${escapeHtml(step.label)}</text>
+    </g>`;
+  });
+
+  let cut = '';
+  if (sequence.cut) {
+    const y = layout.lastRow + 34;
+    /* El aviso se dibuja una sola vez, aquí. Se oculta del árbol de accesibilidad y se enlaza como
+       descripción del diagrama (aria-describedby), para que un lector de pantalla lo lea una vez. */
+    cut = `<line class="cut-line" x1="20" y1="${y}" x2="${SEQUENCE_WIDTH - 20}" y2="${y}"/>
+      <text class="cut-text halo" id="cutNotice" aria-hidden="true" x="${SEQUENCE_WIDTH / 2}" y="${y + 22}" text-anchor="middle">✂ ${escapeHtml(sequence.cut)}</text>`;
+  }
+
+  return `<svg viewBox="0 0 ${SEQUENCE_WIDTH} ${layout.height}" preserveAspectRatio="xMidYMid meet" role="group" aria-label="${escapeHtml(`Diagrama de secuencia: ${sequence.title}`)}"${sequence.cut ? ' aria-describedby="cutNotice"' : ''}>
+    ${band}${actors.join('')}${bars.join('')}${cut}${messages.join('')}
+  </svg>`;
+}
+
+/* Coloca la etiqueta de cada flecha donde no choque con una barra de activación ni con otra
+   etiqueta. Hay que medir el texto ya dibujado, así que se ejecuta con el SVG en el documento.
+   Para cada flecha prueba el hueco libre más cercano a su centro, primero encima y luego debajo
+   de la línea; si no cabe, deja que sobresalga un poco de los extremos y, como último recurso,
+   la parte en dos líneas. */
+function placeSequenceLabels(svg, sequence) {
+  const layout = sequenceLayout(sequence);
+  const columns = Object.values(layout.columns);
+  const bars = activations(sequence).map((bar) => ({
+    x: layout.columns[bar.id], top: layout.rowY(bar.from), bottom: layout.rowY(bar.to)
+  }));
+  const BAR_HALF = 4;
+  const PAD = 4;
+  const LINE = 14;
+  const minX = 8;
+  const maxX = SEQUENCE_WIDTH - (sequence.band ? 26 : 8);
+  const placed = [];
+
+  /* Parte «N · texto» en dos líneas por el espacio o la mayúscula interna más cercanos al centro. */
+  const splitLabel = (label) => {
+    const breaks = [];
+    for (let i = 1; i < label.length; i += 1) {
+      if (label[i - 1] === ' ') breaks.push(i);
+      else if (/[a-z]/.test(label[i - 1]) && /[A-Z]/.test(label[i])) breaks.push(i);
+    }
+    if (!breaks.length) return null;
+    const longest = (i) => Math.max(label.slice(0, i).length + 4, label.slice(i).length);
+    const at = breaks.sort((p, q) => longest(p) - longest(q))[0];
+    return [label.slice(0, at).trimEnd(), label.slice(at).trimStart()];
+  };
+
+  svg.querySelectorAll('.msg').forEach((group, index) => {
+    const text = group.querySelector('.lbl');
+    const step = sequence.steps[index];
+    const rowY = layout.rowY(index);
+    const xa = layout.columns[step.from];
+    const xb = layout.columns[step.to];
+    const target = (xa + xb) / 2;
+    const widthOf = (element) => {
+      element.style.fontWeight = '700'; /* el paso activo va en negrita: se mide el caso más ancho */
+      const width = element.getComputedTextLength();
+      element.style.fontWeight = '';
+      return width + 2 * PAD;
+    };
+
+    /* Variantes: una línea o dos. Las de dos líneas solo se miden si hacen falta. */
+    const variants = [{ lines: 1, width: widthOf(text) }];
+    const parts = splitLabel(step.label);
+    const attempts = [[0, 0], [0, 24], [0, 48]];
+    if (parts) {
+      variants.push({ lines: 2, parts });
+      attempts.push([1, 0], [1, 24], [1, 48]);
+    }
+
+    let best = null;
+    attempts.some(([variantIndex, extra]) => {
+      const variant = variants[variantIndex];
+      if (variant.lines === 2 && !variant.width) {
+        text.innerHTML = `<tspan class="l1"><tspan class="num">${index + 1}</tspan> · ${escapeHtml(variant.parts[0])}</tspan><tspan class="l2" x="0" dy="${LINE}">${escapeHtml(variant.parts[1])}</tspan>`;
+        variant.width = Math.max(...[...text.querySelectorAll('.l1, .l2')].map(widthOf));
+        text.innerHTML = `<tspan class="num">${index + 1}</tspan> · ${escapeHtml(step.label)}`;
+      }
+      const { lines, width } = variant;
+      const sides = {
+        above: [rowY - 5 - LINE * lines, rowY - 3, rowY - 7 - LINE * (lines - 1)],
+        below: [rowY + 3, rowY + 5 + LINE * lines, rowY + 15]
+      };
+      const options = [];
+      Object.entries(sides).forEach(([side, [top, bottom, baseline]]) => {
+        const blocked = [
+          ...bars.filter((bar) => bar.top < bottom && bar.bottom > top)
+            .map((bar) => [bar.x - BAR_HALF - PAD, bar.x + BAR_HALF + PAD]),
+          ...placed.filter((box) => box.top < bottom && box.bottom > top).map((box) => [box.left, box.right])
+        ].sort((p, q) => p[0] - q[0]);
+        let cursor = Math.max(minX, Math.min(xa, xb) + 8 - extra);
+        const end = Math.min(maxX, Math.max(xa, xb) - 8 + extra);
+        const gaps = [];
+        blocked.forEach(([from, to]) => {
+          if (from > cursor) gaps.push([cursor, Math.min(from, end)]);
+          cursor = Math.max(cursor, to);
+        });
+        if (cursor < end) gaps.push([cursor, end]);
+        gaps.filter(([from, to]) => to - from >= width).forEach(([from, to]) => {
+          const centre = Math.min(Math.max(target, from + width / 2), to - width / 2);
+          const crossed = columns.filter((x) => x > centre - width / 2 && x < centre + width / 2).length;
+          options.push({ centre, baseline, top, bottom, variant,
+            cost: Math.abs(centre - target) + (side === 'below' ? 20 : 0) + crossed * 60 });
+        });
+      });
+      best = options.sort((p, q) => p.cost - q.cost)[0] || null;
+      return best !== null;
+    });
+    if (!best) return; /* sin hueco: se queda donde la dibujó renderSequence */
+
+    const { centre, variant } = best;
+    if (variant.lines === 2) {
+      text.innerHTML = `<tspan class="l1"><tspan class="num">${index + 1}</tspan> · ${escapeHtml(variant.parts[0])}</tspan><tspan class="l2" x="${centre.toFixed(1)}" dy="${LINE}">${escapeHtml(variant.parts[1])}</tspan>`;
+    }
+    text.setAttribute('x', centre.toFixed(1));
+    text.setAttribute('y', best.baseline);
+    placed.push({ left: centre - variant.width / 2, right: centre + variant.width / 2, top: best.top, bottom: best.bottom });
+  });
+}
+
+/* =====================================================================================
+   TARJETAS: el texto que acompaña a lo que está resaltado en el diagrama.
+   ===================================================================================== */
+const KIND_LABEL = { call: 'Llamada', return: 'Respuesta', error: 'Excepción' };
+
+/* `withPrefix` antepone «HTTP »; la lista de pasos, que es estrecha, lo omite. */
+const statusBadge = (status, withPrefix = true) =>
+  status
+    ? `<span class="status${status.startsWith('2') ? ' is-ok' : ''}">${withPrefix ? 'HTTP ' : ''}${escapeHtml(status)}</span>`
+    : '';
+
+function codeSection(code) {
+  if (!code || !code.length) return '';
+  const rows = code.map((item) => {
+    const path = item.repoFile || item.file;
+    /* Una ruta larga se parte tras una barra, no en medio de un nombre. */
+    return `<li><code>${escapeHtml(item.ref)}</code><span>${escapeHtml(path).replace(/\//g, '/<wbr>')}</span></li>`;
+  });
+  return `<h3>Clase y método · archivo</h3><ul class="refs">${rows.join('')}</ul>`;
+}
+
+const whySection = (why) => (why ? `<h3>Por qué</h3><p class="why">${rich(why)}</p>` : '');
+
+function stepCard(model, index) {
+  const step = model.steps[index];
+  const people = DIAGRAM.participants;
+  const kindClass = step.kind === 'error' ? ' is-error' : '';
+  return {
+    accent: step.kind === 'error' ? 'var(--danger)' : 'var(--accent)',
+    html: `<div class="eyebrow"><span>Paso ${index + 1} de ${model.steps.length}</span>
+        <span class="kind${kindClass}">${KIND_LABEL[step.kind]}</span>${statusBadge(step.status)}</div>
+      <h2>${rich(step.title)}</h2>
+      <p class="route">${escapeHtml(people[step.from].label)} → ${escapeHtml(people[step.to].label)} · <code>${escapeHtml(step.label)}</code></p>
+      <p>${rich(step.what)}</p>
+      ${whySection(step.why)}
+      ${codeSection(step.code)}`
+  };
+}
+
+function actorCard(model, id) {
+  const actor = DIAGRAM.participants[id];
+  const link = (step, index) =>
+    `<button type="button" data-goto="${index}"><b>${index + 1}</b> ${escapeHtml(step.label)}</button>`;
+  const pickSteps = (side) =>
+    model.steps.map((step, index) => (step[side] === id ? link(step, index) : '')).join('');
+  const sends = pickSteps('from');
+  const receives = pickSteps('to');
+  const idle = !sends && !receives
+    ? '<p class="why">En este escenario no llega a intervenir: el flujo se corta antes.</p>'
+    : '';
+  return {
+    layer: actor.layer,
+    html: `<div class="eyebrow"><span>Participante</span><span class="kind layer">${escapeHtml(DIAGRAM.layers[actor.layer])}</span></div>
+      <h2>${escapeHtml(actor.label)} · ${escapeHtml(actor.sub)}</h2>
+      <p class="route">${escapeHtml(actor.role)}</p>
+      <p>${rich(actor.what)}</p>${idle}
+      ${sends ? `<h3>Envía</h3><div class="links">${sends}</div>` : ''}
+      ${receives ? `<h3>Recibe</h3><div class="links">${receives}</div>` : ''}
+      ${codeSection(actor.code)}`
+  };
+}
+
+function sequenceOverviewCard(model) {
+  const sequence = model.sequence;
+  const notes = [
+    'El tiempo corre de arriba abajo. Cada columna es un participante y cada flecha numerada, una llamada o su respuesta.',
+    'Pulse Reproducir para recorrerlo paso a paso, o haga clic en una flecha o en un participante.'
+  ];
+  if (sequence.band) {
+    notes.push(`La franja verde es la transacción: empieza en el paso ${sequence.band.from} y se confirma en el paso ${sequence.band.to}.`);
+  }
+  if (sequence.cut) {
+    notes.push('La flecha roja es una excepción que se propaga. Los participantes en gris no llegan a intervenir.');
+  }
+  return {
+    accent: sequence.cut ? 'var(--danger)' : 'var(--ok)',
+    html: `<div class="eyebrow"><span>Vista general · ${model.steps.length} pasos</span>${statusBadge(sequence.result)}</div>
+      <h2>${escapeHtml(sequence.title)}</h2>
+      <p>${rich(sequence.summary)}</p>
+      <h3>Cómo leer el diagrama</h3>
+      <ul class="plain">${notes.map((note) => `<li>${rich(note)}</li>`).join('')}</ul>
+      <h3>Rutas de archivo</h3>
+      <p class="route">Relativas a <code>${DIAGRAM.basePath}</code></p>`
+  };
+}
+
+function componentsOverviewCard(model) {
+  const intro = model.view.intro;
+  return {
+    html: `<div class="eyebrow"><span>Vista general · ${model.steps.length} paradas</span></div>
+      <h2>${escapeHtml(intro.title)}</h2>
+      ${intro.text.map((paragraph) => `<p>${rich(paragraph)}</p>`).join('')}
+      <h3>Qué no se dibuja</h3>
+      <ul class="plain">${intro.notes.map((note) => `<li>${rich(note)}</li>`).join('')}</ul>
+      <h3>Rutas de archivo</h3>
+      <p class="route">Relativas a <code>${DIAGRAM.basePath}</code></p>`
+  };
+}
+
+function ruleCard(model, index) {
+  const rule = DIAGRAM.components.rule;
+  return {
+    layer: 'application',
+    html: `<div class="eyebrow"><span>Paso ${index + 1} de ${model.steps.length}</span><span class="kind">${escapeHtml(rule.kind)}</span></div>
+      <h2>${escapeHtml(rule.title)}</h2>
+      <p>${rich(rule.what)}</p>
+      ${whySection(rule.why)}
+      ${codeSection(rule.code)}`
+  };
+}
+
+function nodeCard(model, index) {
+  const { nodes, edges } = DIAGRAM.components;
+  const node = model.steps[index].node;
+  const label = (id) => escapeHtml(nodes.find((other) => other.id === id).label);
+  const outgoing = edges.filter((edge) => edge.from === node.id)
+    .map((edge) => `<button type="button" data-node="${edge.to}"><b>${escapeHtml(edge.label)} →</b> ${label(edge.to)}</button>`);
+  const incoming = edges.filter((edge) => edge.to === node.id)
+    .map((edge) => `<button type="button" data-node="${edge.from}">${label(edge.from)} <b>· ${escapeHtml(edge.label)}</b></button>`);
+  return {
+    layer: node.layer,
+    html: `<div class="eyebrow"><span>Paso ${index + 1} de ${model.steps.length}</span><span class="kind layer">${escapeHtml(DIAGRAM.layers[node.layer])}</span></div>
+      <h2>${escapeHtml(node.label)}</h2>
+      <p class="route">${escapeHtml(node.role)}</p>
+      <p>${rich(node.what)}</p>
+      ${whySection(node.why)}
+      ${outgoing.length ? `<h3>Depende de</h3><div class="links">${outgoing.join('')}</div>` : ''}
+      ${incoming.length ? `<h3>Dependen de él</h3><div class="links">${incoming.join('')}</div>` : ''}
+      ${codeSection(node.code)}`
+  };
+}
+
+function edgeCard(id) {
+  const { nodes, edges } = DIAGRAM.components;
+  const edge = edges.find((other) => other.id === id);
+  const node = (nodeId) => nodes.find((other) => other.id === nodeId);
+  const kinds = { uses: 'Usa o llama', implements: 'Implementa la interfaz', request: 'Camino de la petición' };
+  return {
+    html: `<div class="eyebrow"><span>Flecha</span><span class="kind">${kinds[edge.kind]}</span></div>
+      <h2>${escapeHtml(node(edge.from).label)} → ${escapeHtml(node(edge.to).label)}</h2>
+      <p class="route"><code>${escapeHtml(edge.label)}</code></p>
+      <p>${rich(edge.why)}</p>
+      <h3>Extremos</h3>
+      <div class="links">
+        <button type="button" data-node="${edge.from}"><b>desde</b> ${escapeHtml(node(edge.from).label)}</button>
+        <button type="button" data-node="${edge.to}"><b>hacia</b> ${escapeHtml(node(edge.to).label)}</button>
+      </div>`
+  };
+}
+
+/* =====================================================================================
+   PRESENTACIÓN: estado, resaltado, reproductor, teclado y enlaces.
+   ===================================================================================== */
+const el = (id) => document.getElementById(id);
+const ui = {
+  views: el('views'), panel: el('panel'), bar: el('bar'), canvas: el('canvas'), legend: el('legend'),
+  card: el('card'), steps: el('steps'), track: el('track'), counter: el('counter'),
+  hint: el('hint'), timer: el('timer'), speed: el('speed'), playIcon: el('playIcon'),
+  play: el('btnPlay'), prev: el('btnPrev'), next: el('btnNext'), restart: el('btnRestart')
+};
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+const ICON = { play: 'M8 5v14l11-7z', pause: 'M6 5h4v14H6zM14 5h4v14h-4z' };
+
+/* `step` vale -1 en la vista general. `selection` es un participante o una flecha elegidos
+   a mano; avanzar de paso la borra. */
+const state = {
+  view: DIAGRAM.views[0].id,
+  scenario: DIAGRAM.views.find((view) => view.scenarios).scenarios[0],
+  step: -1,
+  selection: null,
+  playing: false,
+  held: false,
+  elapsed: 0,
+  speed: 1
+};
+let model = null;
+let lastTick = 0;
+let frame = 0; /* único fotograma pendiente del bucle de reproducción */
+let cardShown = false;
+
+/* Lo que se recorre en la vista actual: pasos de una secuencia o paradas de los componentes. */
+function buildModel() {
+  const view = DIAGRAM.views.find((candidate) => candidate.id === state.view);
+  if (view.kind === 'components') {
+    const { rule, tour, nodes } = DIAGRAM.components;
+    const stops = tour.map((id) => {
+      const node = nodes.find((candidate) => candidate.id === id);
+      return { title: node.label, what: node.what, why: node.why, node };
+    });
+    return { view, kind: 'components', steps: [{ ...rule, rule: true }, ...stops] };
+  }
+  const sequence = DIAGRAM.sequences[view.sequence || state.scenario];
+  return { view, kind: 'sequence', sequence, steps: sequence.steps };
+}
+
+/* ---------- Partes fijas de la vista: pestañas, barra, diagrama, leyenda y lista ---------- */
+
+/* Las pestañas se crean una sola vez y después solo cambian sus atributos: así el foco no se pierde. */
+function renderViews() {
+  ui.views.innerHTML = DIAGRAM.views.map((view) =>
+    `<button type="button" role="tab" id="tab-${view.id}" data-view="${view.id}" aria-controls="panel" aria-selected="false" tabindex="-1">${escapeHtml(view.label)}</button>`
+  ).join('');
+}
+
+function updateViews() {
+  ui.views.querySelectorAll('[data-view]').forEach((tab) => {
+    const selected = tab.dataset.view === state.view;
+    tab.setAttribute('aria-selected', String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+  });
+  ui.panel.setAttribute('aria-labelledby', `tab-${state.view}`);
+}
+
+/* La barra se redibuja solo al cambiar de vista; elegir otro escenario solo cambia aria-pressed. */
+let barView = null;
+
+function renderBar() {
+  const view = model.view;
+  barView = view.id;
+  if (!view.scenarios) {
+    ui.bar.innerHTML = `<p class="summary">${escapeHtml(view.summary)}</p>`;
+    return;
+  }
+  const chips = view.scenarios.map((id) => {
+    const scenario = DIAGRAM.sequences[id];
+    return `<button type="button" data-scenario="${id}" aria-pressed="${id === state.scenario}">
+      <span class="status">${escapeHtml(scenario.result)}</span>${escapeHtml(scenario.chip)}</button>`;
+  });
+  ui.bar.innerHTML = `<span class="bar-label" id="scenarioLabel">Escenario</span>
+    <div class="scenarios" role="group" aria-labelledby="scenarioLabel">${chips.join('')}</div>`;
+}
+
+function updateBar() {
+  ui.bar.querySelectorAll('[data-scenario]').forEach((chip) => {
+    chip.setAttribute('aria-pressed', String(chip.dataset.scenario === state.scenario));
+  });
+}
+
+function renderLegend() {
+  const line = (color, dashed) =>
+    `<svg width="30" height="8" aria-hidden="true"><path d="M0 4h24" stroke="${color}" stroke-width="1.8" ${dashed ? 'stroke-dasharray="5 3"' : ''}/><path d="M30 4l-7-3.5v7z" fill="${color}"/></svg>`;
+  let items;
+  if (model.kind === 'components') {
+    const layers = [...new Set(DIAGRAM.components.nodes.map((node) => node.layer))];
+    items = [
+      `<span>${line('#64748b')}usa o llama</span>`,
+      `<span>${line('#64748b', true)}implementa</span>`,
+      `<span>${line('#059669')}camino de la petición</span>`,
+      ...layers.map((layer) => `<span class="layer-${layer}"><i></i>${escapeHtml(DIAGRAM.layers[layer])}</span>`)
+    ];
+  } else {
+    items = [`<span>${line('#334155')}llamada</span>`, `<span>${line('#64748b', true)}respuesta</span>`];
+    if (model.steps.some((step) => step.kind === 'error')) items.push(`<span>${line('#be123c')}excepción propagada</span>`);
+    if (model.sequence.band) items.push('<span class="layer-application"><i></i>transacción</span>');
+    if (model.sequence.cut) items.push('<span class="layer-external"><i style="border-style:dashed"></i>no llega a intervenir</span>');
+  }
+  ui.legend.innerHTML = items.join('');
+}
+
+function renderDiagram() {
+  ui.canvas.classList.toggle('is-components', model.kind === 'components');
+  ui.canvas.innerHTML = model.kind === 'components'
+    ? renderComponents(DIAGRAM.components, DIAGRAM.layers)
+    : renderSequence(model.sequence, DIAGRAM.participants);
+  if (model.kind === 'sequence') placeSequenceLabels(ui.canvas.querySelector('svg'), model.sequence);
+  ui.canvas.scrollLeft = 0;
+}
+
+function renderStepList() {
+  const rows = model.steps.map((step, index) => {
+    const title = escapeHtml(plain(step.title));
+    const badge = statusBadge(step.status, false);
+    return `<li><button type="button" data-goto="${index}"${step.kind === 'error' ? ' class="is-error"' : ''}>
+      <span class="n">${index + 1}</span><span class="t">${title}</span>${badge}</button></li>`;
+  });
+  ui.steps.innerHTML = rows.join('');
+  ui.track.innerHTML = model.steps.map((step, index) =>
+    `<button type="button" tabindex="-1" data-goto="${index}" title="${index + 1} · ${escapeHtml(plain(step.title))}" aria-label="Ir al paso ${index + 1}: ${escapeHtml(plain(step.title))}"></button>`
+  ).join('');
+}
+
+/* ---------- Resaltado en el diagrama ---------- */
+
+function groupOf(node) {
+  const [x, y] = node.at;
+  return DIAGRAM.components.groups.find(({ box }) => x >= box[0] && x <= box[0] + box[2] && y >= box[1] && y <= box[1] + box[3]);
+}
+
+/* Devuelve, para cada elemento atenuable, la clase que le toca: 'is-active', 'is-past', 'is-dim' o ''. */
+function focusClasses() {
+  const classOf = new Map();
+  const svg = ui.canvas.querySelector('svg');
+  const all = [...svg.querySelectorAll('.dimmable')];
+  const stepIndex = state.step;
+  if (!state.selection && stepIndex < 0) return { all, classOf };
+
+  if (model.kind === 'sequence') {
+    const actorId = state.selection && state.selection.type === 'actor' ? state.selection.id : null;
+    const involved = new Set();
+    all.filter((item) => item.dataset.pick === 'step').forEach((item) => {
+      const index = Number(item.dataset.id);
+      const step = model.steps[index];
+      if (actorId) {
+        const touches = step.from === actorId || step.to === actorId;
+        if (touches) { involved.add(step.from); involved.add(step.to); }
+        classOf.set(item, touches ? 'is-active' : 'is-dim');
+      } else {
+        if (index === stepIndex) { involved.add(step.from); involved.add(step.to); }
+        classOf.set(item, index === stepIndex ? 'is-active is-drawing' : index < stepIndex ? 'is-past' : 'is-dim');
+      }
+    });
+    all.filter((item) => item.dataset.pick === 'actor').forEach((item) => {
+      const highlighted = actorId ? item.dataset.id === actorId : involved.has(item.dataset.id);
+      classOf.set(item, highlighted ? 'is-active' : involved.has(item.dataset.id) ? '' : 'is-past');
+    });
+    all.filter((item) => item.dataset.actor).forEach((item) => {
+      classOf.set(item, involved.has(item.dataset.actor) ? '' : 'is-past');
+    });
+    return { all, classOf };
+  }
+
+  /* Componentes: una flecha elegida, la regla de dependencia o una caja con sus flechas. */
+  const { nodes, edges } = DIAGRAM.components;
+  const lit = { nodes: new Set(), near: new Set(), edges: new Set(), groups: new Set() };
+  if (state.selection) {
+    const edge = edges.find((candidate) => candidate.id === state.selection.id);
+    lit.edges.add(edge.id);
+    lit.near.add(edge.from).add(edge.to);
+  } else if (model.steps[stepIndex].rule) {
+    model.steps[stepIndex].groups.forEach((id) => lit.groups.add(id));
+    nodes.filter((node) => lit.groups.has((groupOf(node) || {}).id)).forEach((node) => lit.near.add(node.id));
+    edges.filter((edge) => lit.near.has(edge.from) && lit.near.has(edge.to)).forEach((edge) => lit.edges.add(edge.id));
+  } else {
+    const id = model.steps[stepIndex].node.id;
+    lit.nodes.add(id);
+    edges.filter((edge) => edge.from === id || edge.to === id).forEach((edge) => {
+      lit.edges.add(edge.id);
+      lit.near.add(edge.from).add(edge.to);
+    });
+  }
+  all.forEach((item) => {
+    const id = item.dataset.id;
+    if (item.dataset.pick === 'node') {
+      classOf.set(item, lit.nodes.has(id) ? 'is-active' : lit.near.has(id) ? '' : 'is-dim');
+    } else if (item.dataset.pick === 'edge') {
+      classOf.set(item, lit.edges.has(id) ? 'is-active' : 'is-dim');
+    } else {
+      classOf.set(item, lit.groups.has(item.dataset.group) ? 'is-active' : 'is-past');
+    }
+  });
+  return { all, classOf };
+}
+
+function applyFocus() {
+  const { all, classOf } = focusClasses();
+  all.forEach((item) => {
+    item.classList.remove('is-active', 'is-past', 'is-dim', 'is-drawing');
+    const classes = classOf.get(item);
+    if (classes) item.classList.add(...classes.split(' '));
+  });
+  /* Si el diagrama se desplaza dentro de su contenedor, lleva lo resaltado al centro. */
+  const active = ui.canvas.querySelector('.is-active');
+  if (active && ui.canvas.scrollWidth > ui.canvas.clientWidth + 1) {
+    const box = active.getBoundingClientRect();
+    const frame = ui.canvas.getBoundingClientRect();
+    const shift = box.left + box.width / 2 - (frame.left + frame.width / 2);
+    ui.canvas.scrollTo({ left: ui.canvas.scrollLeft + shift, behavior: reducedMotion.matches ? 'auto' : 'smooth' });
+  }
+}
+
+/* ---------- Tarjeta, lista y reproductor ---------- */
+
+function currentCard() {
+  if (state.selection && state.selection.type === 'actor') return actorCard(model, state.selection.id);
+  if (state.selection && state.selection.type === 'edge') return edgeCard(state.selection.id);
+  if (model.kind === 'sequence') {
+    return state.step < 0 ? sequenceOverviewCard(model) : stepCard(model, state.step);
+  }
+  if (state.step < 0) return componentsOverviewCard(model);
+  return model.steps[state.step].rule ? ruleCard(model, state.step) : nodeCard(model, state.step);
+}
+
+function renderCard() {
+  const card = currentCard();
+  ui.card.className = `card${card.layer ? ` layer-${card.layer}` : ''}`;
+  ui.card.style.setProperty('--card-accent', card.layer ? 'var(--c)' : card.accent || 'var(--ink)');
+  /* Si el foco estaba en un botón de la tarjeta, ese botón desaparece al redibujarla: el foco pasa
+     a la propia tarjeta, que es donde está ahora el contenido nuevo. */
+  const focusWasInside = document.activeElement !== ui.card && ui.card.contains(document.activeElement);
+  ui.card.innerHTML = card.html;
+  if (focusWasInside) ui.card.focus({ preventScroll: true });
+  /* La entrada animada es solo para los cambios: la primera tarjeta aparece ya completa,
+     de modo que una captura o una impresión hechas al cargar la página la muestran entera. */
+  if (cardShown) {
+    void ui.card.offsetWidth; /* reinicia la animación */
+    ui.card.classList.add('is-fresh');
+  }
+  cardShown = true;
+  state.held = cardIsBeingRead();
+}
+
+function renderProgress() {
+  const total = model.steps.length;
+  ui.counter.textContent = state.step < 0 ? 'Vista general' : `Paso ${state.step + 1} de ${total}`;
+  ui.steps.querySelectorAll('button').forEach((button, index) => {
+    if (index === state.step) button.setAttribute('aria-current', 'step');
+    else button.removeAttribute('aria-current');
+  });
+  ui.track.querySelectorAll('button').forEach((button, index) => {
+    button.classList.toggle('is-done', index < state.step);
+    button.classList.toggle('is-current', index === state.step);
+  });
+  /* Mantiene visible el paso actual cuando la lista tiene su propio desplazamiento. */
+  const list = ui.steps.parentElement;
+  const current = ui.steps.querySelector('[aria-current="step"]');
+  if (current && list.scrollHeight > list.clientHeight + 1) {
+    const top = current.offsetTop - list.offsetTop;
+    if (top < list.scrollTop || top + current.offsetHeight > list.scrollTop + list.clientHeight) {
+      list.scrollTop = top - list.clientHeight / 2 + current.offsetHeight / 2;
+    }
+  }
+  ui.prev.disabled = state.step <= 0;
+  ui.next.disabled = state.step >= total - 1;
+  renderPlayState();
+}
+
+function renderPlayState() {
+  const blocked = reducedMotion.matches;
+  ui.play.disabled = blocked;
+  ui.playIcon.setAttribute('d', state.playing ? ICON.pause : ICON.play);
+  ui.play.setAttribute('aria-label', state.playing ? 'Pausar' : 'Reproducir');
+  ui.play.title = blocked
+    ? 'Reproducción automática desactivada: el sistema pide reducir el movimiento. Use Anterior y Siguiente.'
+    : 'Reproducir o pausar (Espacio)';
+  ui.hint.textContent = blocked ? 'Avance manual' : !state.playing ? '' : state.held ? 'En pausa mientras lee' : 'Reproduciendo';
+  if (!state.playing) ui.timer.style.width = '0';
+}
+
+/* Ancla del estado actual: vista, escenario (solo en errores) y paso. */
+function currentHash() {
+  const parts = [state.view];
+  if (model.view.scenarios && (state.scenario !== model.view.scenarios[0] || state.step >= 0)) parts.push(state.scenario);
+  if (state.step >= 0) parts.push(state.step + 1);
+  return `#${parts.join('-')}`;
+}
+
+function syncHash() {
+  const hash = currentHash();
+  if (window.location.hash === hash) return;
+  try {
+    window.history.replaceState(null, '', hash);
+  } catch (error) {
+    window.location.hash = hash;
+  }
+}
+
+/* Lee un ancla como #registro-7 o #errores-carrera-3. Devuelve null si no nombra una vista. */
+function parseHash(hash) {
+  let decoded;
+  try {
+    decoded = decodeURIComponent(hash.replace(/^#/, ''));
+  } catch (error) {
+    return null; /* ancla con una secuencia % mal formada: se ignora */
+  }
+  const parts = decoded.split('-');
+  const view = DIAGRAM.views.find((candidate) => candidate.id === parts[0]);
+  if (!view) return null;
+  const scenario = view.scenarios ? (view.scenarios.includes(parts[1]) ? parts[1] : view.scenarios[0]) : null;
+  const step = Number(parts[parts.length - 1]);
+  return { view: view.id, scenario, step: parts.length > 1 && Number.isInteger(step) ? step - 1 : -1 };
+}
+
+/* ---------- Cambios de estado ---------- */
+
+function refresh() {
+  applyFocus();
+  renderCard();
+  renderProgress();
+  syncHash();
+}
+
+/* Cambia de vista o de escenario y redibuja todo. */
+function openView(view, scenario, step = -1) {
+  state.view = view;
+  if (scenario) state.scenario = scenario;
+  state.selection = null;
+  state.playing = false;
+  state.elapsed = 0;
+  model = buildModel();
+  state.step = Math.max(-1, Math.min(step, model.steps.length - 1));
+  updateViews();
+  if (barView === model.view.id) updateBar();
+  else renderBar();
+  renderDiagram();
+  renderLegend();
+  renderStepList();
+  refresh();
+}
+
+function goTo(step) {
+  state.step = Math.max(-1, Math.min(step, model.steps.length - 1));
+  state.selection = null;
+  state.elapsed = 0;
+  if (state.step < 0) state.playing = false;
+  refresh();
+}
+
+function select(type, id) {
+  state.selection = { type, id };
+  state.playing = false;
+  refresh();
+}
+
+/* Tiempo de lectura de un paso en milisegundos, según la longitud de su texto. */
+function readingTime(step) {
+  const length = plain(step.title).length + plain(step.what).length + plain(step.why).length;
+  return Math.max(4500, Math.min(20000, 2200 + length * 55));
+}
+
+function tick(now) {
+  if (!state.playing) return;
+  const delta = Math.min(now - lastTick, 250);
+  lastTick = now;
+  if (!state.held && !document.hidden) state.elapsed += delta * state.speed;
+  const duration = readingTime(model.steps[state.step]);
+  if (state.elapsed >= duration) {
+    if (state.step >= model.steps.length - 1) {
+      state.playing = false;
+      renderPlayState();
+      return;
+    }
+    goTo(state.step + 1);
+  }
+  ui.timer.style.width = `${Math.min(100, (state.elapsed / duration) * 100)}%`;
+  schedule();
+}
+
+/* Pausar y volver a reproducir deja un fotograma viejo pendiente; cancelarlo antes de pedir otro
+   evita que haya dos bucles avanzando el tiempo a la vez. */
+function schedule() {
+  window.cancelAnimationFrame(frame);
+  frame = window.requestAnimationFrame(tick);
+}
+
+function play() {
+  if (reducedMotion.matches) return;
+  state.playing = true;
+  if (state.selection || state.step < 0 || state.step >= model.steps.length - 1) goTo(0);
+  else renderPlayState();
+  lastTick = performance.now();
+  schedule();
+}
+
+function pause() {
+  state.playing = false;
+  window.cancelAnimationFrame(frame);
+  renderPlayState();
+}
+
+const togglePlay = () => (state.playing ? pause() : play());
+
+/* El puntero está sobre la tarjeta o el foco del teclado está dentro de ella. */
+const cardIsBeingRead = () =>
+  ui.card.matches(':hover') || ui.card.matches(':focus-visible') || Boolean(ui.card.querySelector(':focus-visible'));
+
+function hold(held) {
+  state.held = held;
+  renderPlayState();
+}
+
+/* ---------- Eventos ---------- */
+
+function activatePick(item) {
+  const { pick, id } = item.dataset;
+  if (pick === 'step') goTo(Number(id));
+  else if (pick === 'actor') select('actor', id);
+  else if (pick === 'edge') select('edge', id);
+  else goToNode(id);
+}
+
+function goToNode(id) {
+  goTo(model.steps.findIndex((step) => step.node && step.node.id === id));
+}
+
+document.addEventListener('click', (event) => {
+  const target = event.target.closest('[data-view], [data-scenario], [data-goto], [data-node], [data-pick]');
+  if (!target) return;
+  if (target.dataset.view) openView(target.dataset.view);
+  else if (target.dataset.scenario) openView(state.view, target.dataset.scenario);
+  else if (target.dataset.goto) goTo(Number(target.dataset.goto));
+  else if (target.dataset.node) goToNode(target.dataset.node);
+  else activatePick(target);
+});
+
+ui.play.addEventListener('click', togglePlay);
+ui.prev.addEventListener('click', () => goTo(Math.max(0, state.step - 1)));
+ui.next.addEventListener('click', () => goTo(state.step + 1));
+ui.restart.addEventListener('click', () => goTo(0));
+ui.speed.addEventListener('change', () => { state.speed = Number(ui.speed.value); });
+
+/* Leer la tarjeta detiene el avance automático; salir de ella lo reanuda. */
+['mouseenter', 'mouseleave', 'focusin', 'focusout'].forEach((type) => {
+  ui.card.addEventListener(type, () => window.setTimeout(() => hold(cardIsBeingRead()), 0));
+});
+
+/* Elementos donde la barra espaciadora tiene su propio significado (abrir la lista, escribir). En
+   cualquier otro, incluidos los botones, Espacio alterna la reproducción y el botón se activa con
+   Intro; así el atajo funciona aunque el foco se haya quedado en el último botón pulsado. */
+const KEEPS_SPACE = new Set(['SELECT', 'INPUT', 'TEXTAREA']);
+
+/* Lista de pestañas: flechas, Inicio y Fin mueven entre vistas y la activan (patrón WAI-ARIA). */
+function moveAmongTabs(event, tab) {
+  const tabs = [...ui.views.querySelectorAll('[role="tab"]')];
+  const index = tabs.indexOf(tab);
+  const next = {
+    ArrowRight: tabs[(index + 1) % tabs.length],
+    ArrowLeft: tabs[(index - 1 + tabs.length) % tabs.length],
+    Home: tabs[0],
+    End: tabs[tabs.length - 1]
+  }[event.key];
+  if (!next) return false;
+  event.preventDefault();
+  openView(next.dataset.view);
+  next.focus();
+  return true;
+}
+
+document.addEventListener('keydown', (event) => {
+  if (event.altKey || event.ctrlKey || event.metaKey) return;
+  const target = event.target;
+  if (KEEPS_SPACE.has(target.tagName)) return;
+  const tab = target.closest('[role="tab"]');
+  if (tab && moveAmongTabs(event, tab)) return;
+  const pick = target.closest('[data-pick]');
+  if (pick && event.key === 'Enter') {
+    event.preventDefault();
+    activatePick(pick);
+    return;
+  }
+  const actions = {
+    ' ': () => { if (!event.repeat) togglePlay(); },
+    ArrowRight: () => goTo(state.step + 1),
+    ArrowLeft: () => goTo(Math.max(0, state.step - 1)),
+    Home: () => goTo(0),
+    End: () => goTo(model.steps.length - 1),
+    Escape: () => goTo(-1)
+  };
+  const action = actions[event.key];
+  if (!action) return;
+  event.preventDefault();
+  action();
+});
+
+/* Un botón se activa con Espacio al soltar la tecla; como Espacio es de la reproducción, se anula. */
+document.addEventListener('keyup', (event) => {
+  if (event.key === ' ' && !KEEPS_SPACE.has(event.target.tagName)) event.preventDefault();
+});
+
+window.addEventListener('hashchange', () => {
+  if (window.location.hash === currentHash()) return;
+  const target = parseHash(window.location.hash);
+  if (target) openView(target.view, target.scenario, target.step);
+});
+
+reducedMotion.addEventListener('change', () => {
+  if (reducedMotion.matches) state.playing = false;
+  renderPlayState();
+});
+
+/* Arranque: abre lo que diga el ancla o, si no hay, la vista de componentes. */
+const initial = parseHash(window.location.hash) || { view: state.view, scenario: null, step: -1 };
+renderViews();
+openView(initial.view, initial.scenario, initial.step);
+})();
+</script>
+</body>
+</html>

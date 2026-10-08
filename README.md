@@ -49,7 +49,7 @@ Dónde se cumple cada requisito del enunciado, en su orden:
 | Java 8+ | Java 17 (toolchain de [`build.gradle`](build.gradle)); el motivo está en [Supuestos sobre el enunciado](#supuestos-sobre-el-enunciado) |
 | Repositorio público con código fuente y script de creación de BD | [`src/main/resources/schema.sql`](src/main/resources/schema.sql) |
 | Readme explicando cómo probarlo | La sección [Ejecutar](#ejecutar), los [casos de prueba con curl](#casos-de-prueba-con-curl), [`scripts/acceptance.sh`](scripts/acceptance.sh) y la [colección de Postman](postman/registro-usuarios-api.postman_collection.json) |
-| Diagrama de la solución | [Diagramas](#arquitectura) en `docs/diagrams` (PNG, fuente JSON y versión HTML interactiva) |
+| Diagrama de la solución | [Diagramas](#arquitectura) en `docs/diagrams` (PNG y una página HTML interactiva, [`architecture.html`](docs/diagrams/architecture.html)) |
 | JWT como token | [`JjwtTokenIssuer`](src/main/java/com/registro/usuarios/infrastructure/security/JjwtTokenIssuer.java): HS256 con `sub`, `email`, `iat` y `exp` |
 | Pruebas unitarias | `./gradlew test` y el árbol [`src/test/java`](src/test/java) |
 | Swagger | `http://localhost:8080/swagger-ui.html` |
@@ -597,40 +597,48 @@ npx -y newman run postman/registro-usuarios-api.postman_collection.json --env-va
 
 ## Arquitectura
 
-![Arquitectura hexagonal del servicio](docs/diagrams/components.png)
+![Arquitectura hexagonal del servicio](docs/diagrams/architecture-componentes.png)
 
-Las líneas continuas son "usa" y las discontinuas "implementa". Toda dependencia que cruza la frontera
-del núcleo (`application` y `domain`) apunta hacia adentro. Las dos flechas que quedan fuera del núcleo
-son `lee` (de `ApplicationConfig` a `RegistrationProperties`) y `JPA` (de `UserPersistenceAdapter` a H2).
+Las líneas continuas son "usa", las discontinuas "implementa" y la verde es el camino de la petición
+HTTP. Toda dependencia que cruza la frontera del núcleo (`application` y `domain`) apunta hacia adentro.
+Cuatro flechas no tocan el núcleo: `HTTP` (del cliente a `UserController`), `traduce` (de
+`UserController` a `UserWebMapper`), `lee` (de `ApplicationConfig` a `RegistrationProperties`) y `JPA`
+(de `UserPersistenceAdapter` a H2).
 Del uso que el adaptador web hace del dominio se dibuja una flecha, la de `GlobalExceptionHandler` a
 `domain.exception`; no se dibuja que `UserController`, `UserWebMapper`, `ErrorMessages` y los records
 web también leen tipos de `domain.model`, ni que los puertos y sus adaptadores reciben `User`, `Email` y
 `UserId`.
 
-![Flujo de registro de un usuario](docs/diagrams/registration-sequence.png)
+![Flujo de registro de un usuario](docs/diagrams/architecture-registro.png)
 
-![Flujo de registro de un usuario: errores](docs/diagrams/registration-sequence-errors.png)
+![Flujo de registro de un usuario: errores](docs/diagrams/architecture-errores.png)
 
-Cada diagrama tiene, en [`docs/diagrams`](docs/diagrams), su fuente en JSON, el PNG de arriba y una versión
-HTML interactiva y autocontenida (tema claro y oscuro, búsqueda y zoom) que se abre en el navegador tras
-clonar el repositorio. En la versión interactiva, un clic en un componente abre una ficha con qué es, su
-paquete y sus relaciones de entrada y de salida, y debajo del diagrama hay tarjetas que explican cada
-componente, cada flecha y cada paso, con la clase, el método y el archivo. El de arquitectura añade un
-recorrido guiado de cinco capítulos que sigue un registro de extremo a extremo; los de secuencia numeran
-los mensajes y los dibujan en orden al abrir la página. Los controles del visor están en inglés.
+Las tres imágenes son capturas de una sola página interactiva y autocontenida,
+[`docs/diagrams/architecture.html`](docs/diagrams/architecture.html), que se abre en el navegador tras
+clonar el repositorio (no carga nada externo). La tercera muestra el primero de los siete escenarios de
+rechazo; los demás se eligen en la página.
 
-| Diagrama | Fuente | Interactivo |
+| Vista | Enlace | Qué muestra |
 |---|---|---|
-| Arquitectura | [`components.json`](docs/diagrams/components.json) | [`components.html`](docs/diagrams/components.html) |
-| Registro, camino feliz | [`registration-sequence.json`](docs/diagrams/registration-sequence.json) | [`registration-sequence.html`](docs/diagrams/registration-sequence.html) |
-| Registro, errores | [`registration-sequence-errors.json`](docs/diagrams/registration-sequence-errors.json) | [`registration-sequence-errors.html`](docs/diagrams/registration-sequence-errors.html) |
+| Componentes | [`architecture.html#componentes`](docs/diagrams/architecture.html#componentes) | Cada clase o paquete, su capa, de quién depende y quién depende de él |
+| Registro exitoso | [`architecture.html#registro`](docs/diagrams/architecture.html#registro) | Los 16 pasos de un `POST /api/v1/users` que termina en 201 |
+| Registro rechazado | [`architecture.html#errores`](docs/diagrams/architecture.html#errores) | Un escenario por tipo de rechazo: datos inválidos (400), correo duplicado (409), duplicado en carrera (409), cuerpo ilegible (400), tipo de contenido (415), fallo inesperado (500) y errores fuera de Spring MVC |
 
-El HTML y el PNG se regeneran desde el JSON con [`docs/diagrams/build.sh`](docs/diagrams/build.sh), que
-requiere Node.js 18 o superior, Python 3, Chrome o Chromium y una copia de
-[Archify](https://github.com/tt-a1i/archify) 2.17:
+La página funciona como una presentación: el botón Reproducir recorre la vista paso a paso, resalta en el
+diagrama lo que interviene en cada paso y muestra a su lado una tarjeta con qué ocurre, por qué, la clase
+y el método, y el archivo. También se avanza con Anterior y Siguiente o con el teclado: Espacio
+reproduce o pausa (también con el foco en un botón, que se activa con Intro; solo en el selector de
+velocidad conserva su significado), las flechas izquierda y derecha cambian de paso, Inicio y Fin van al
+primero y al último, y Esc vuelve a la vista general. Con el foco en las pestañas, las flechas, Inicio y
+Fin cambian de vista. Un clic en una caja, un participante, una flecha o un paso de la lista abre su
+tarjeta. Un ancla con número, como `architecture.html#registro-7`, abre ese paso.
+
+Los datos de los tres diagramas están en el objeto `DIAGRAM` de la propia página, que no necesita
+compilación. Las imágenes se regeneran con [`docs/diagrams/build.sh`](docs/diagrams/build.sh), que solo
+requiere Chrome o Chromium:
 
 ```bash
-ARCHIFY_HOME=/ruta/a/archify docs/diagrams/build.sh
+docs/diagrams/build.sh
 ```
 
 - `domain` no tiene framework: `User`, `Email`, `Phone`, `UserId`, las reglas de validación (con sus

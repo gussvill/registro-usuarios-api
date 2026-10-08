@@ -1,25 +1,38 @@
 #!/bin/sh
-# Regenerates the interactive HTML and the PNG of every diagram from its JSON source.
+# Regenera las imágenes PNG que incrusta el README a partir de architecture.html.
 #
-#   ARCHIFY_HOME=/path/to/archify docs/diagrams/build.sh [name ...]
+#   docs/diagrams/build.sh
 #
-# Requires Node.js 18+, Python 3, Chrome or Chromium, and a checkout of Archify 2.17
-# (https://github.com/tt-a1i/archify). ARCHIFY_HOME is the folder that contains bin/archify.mjs;
-# CHROME overrides the browser binary. Without arguments every diagram is rebuilt.
+# architecture.html es la fuente: los datos de los tres diagramas están en su objeto DIAGRAM y la
+# página no necesita ningún paso de compilación. Este script solo toma una captura estática de cada
+# vista (la vista general, con todos los elementos visibles) para que el README las pueda mostrar.
+#
+# Único requisito: Chrome o Chromium. La variable CHROME indica el binario si no está en el PATH.
+# Las imágenes solo se reemplazan si Chrome termina bien y la captura no está vacía.
 set -eu
 
-: "${ARCHIFY_HOME:?set ARCHIFY_HOME to the folder that contains bin/archify.mjs}"
-export ARCHIFY_UPDATE_CHECK_DISABLED=1
 cd "$(dirname "$0")"
+
+fail() {
+  echo "build.sh: $1" >&2
+  exit 1
+}
 
 find_chrome() {
   if [ -n "${CHROME:-}" ]; then
-    echo "$CHROME"
-    return
+    if [ -f "$CHROME" ] && [ -x "$CHROME" ]; then
+      echo "$CHROME"
+      return
+    fi
+    if found=$(command -v "$CHROME" 2>/dev/null) && [ -f "$found" ] && [ -x "$found" ]; then
+      echo "$found"
+      return
+    fi
+    fail "CHROME=$CHROME no es un ejecutable; indique la ruta de Chrome o de Chromium"
   fi
-  for candidate in google-chrome chromium chromium-browser chrome; do
-    if command -v "$candidate" >/dev/null 2>&1; then
-      command -v "$candidate"
+  for candidate in google-chrome google-chrome-stable chromium chromium-browser chrome; do
+    if found=$(command -v "$candidate" 2>/dev/null); then
+      echo "$found"
       return
     fi
   done
@@ -31,60 +44,38 @@ find_chrome() {
       return
     fi
   done
-  echo "Chrome or Chromium was not found; set CHROME to its binary" >&2
-  exit 1
+  fail "no se encontró Chrome ni Chromium; indique el binario en la variable CHROME"
 }
 
-type_of() {
-  python3 -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["diagram_type"])' "$1.json"
+# URL file:// de la página. Se escapan el porcentaje (primero, para no escapar dos veces), el
+# espacio, la almohadilla y la interrogación, que de otro modo Chrome leería como principio del
+# fragmento o de la consulta. Una ruta con un salto de línea no está soportada.
+file_url() {
+  printf 'file://%s/architecture.html' "$(printf '%s' "$PWD" |
+    sed -e 's/%/%25/g' -e 's/ /%20/g' -e 's/#/%23/g' -e 's/?/%3F/g')"
 }
 
-# The viewer only ships English and Chinese chrome. These three strings are the ones a reader of
-# the Spanish diagrams sees first, so they are rewritten after rendering.
-localise() {
-  python3 - "$1.html" <<'PY'
-import re
-import sys
+[ -f architecture.html ] || fail "no existe architecture.html junto al script"
 
-path = sys.argv[1]
-html = open(path, encoding="utf-8").read()
-html = html.replace(">Legend</text>", ">Leyenda</text>")
-html = re.sub(r'<html lang="en"', '<html lang="es"', html, count=1)
-html = re.sub(r"(<title>[^<]*?) Diagram</title>", r"\1</title>", html, count=1)
-open(path, "w", encoding="utf-8").write(html)
-PY
-}
+chrome=$(find_chrome)
+url=$(file_url)
+work=$(mktemp -d "${TMPDIR:-/tmp}/architecture-build.XXXXXX")
+trap 'rm -rf "$work"' EXIT HUP INT TERM
 
-# The PNG is the inline SVG alone, at twice its size, in the light theme, on a white background
-# and with the optional motion switched off.
-capture() {
-  size=$(python3 -c 'import json, sys; print(*json.load(open(sys.argv[1], encoding="utf-8"))["meta"]["viewBox"], sep=",")' "$1.json")
-  python3 - "$1.html" ".$1.capture.html" <<'PY'
-import sys
-
-html = open(sys.argv[1], encoding="utf-8").read()
-css = """<style>
-html,body{background:#ffffff!important;margin:0!important;padding:0!important;overflow:hidden!important}
-body>*{visibility:hidden!important}
-.diagram-container,.diagram-container *{visibility:visible}
-.diagram-container .diagram-nav,.diagram-container>:not(svg){display:none!important}
-.diagram-container svg{position:fixed!important;left:0;top:0;width:100vw!important;height:100vh!important;z-index:2147483647;background:#ffffff;transform:none!important}
-.diagram-container svg [data-animate]{animation:none!important}
-</style></head>"""
-open(sys.argv[2], "w", encoding="utf-8").write(html.replace("</head>", css, 1))
-PY
-  "$(find_chrome)" --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=2 \
-    --window-size="$size" --screenshot="$PWD/$1.png" "file://$PWD/.$1.capture.html?theme=light" >/dev/null 2>&1
-  rm -f ".$1.capture.html"
-}
-
-if [ "$#" -eq 0 ]; then
-  set -- components registration-sequence registration-sequence-errors
-fi
-
-for name in "$@"; do
-  node "$ARCHIFY_HOME/bin/archify.mjs" deliver "$(type_of "$name")" "$name.json" "$name.html" --quality showcase
-  localise "$name"
-  capture "$name"
-  echo "$name: $name.html and $name.png rebuilt"
+# Una captura por vista: el ancla abre la vista y el nombre del PNG la repite.
+# 1440x900 al doble de densidad; a ese tamaño la página entera cabe sin desplazamiento.
+for view in componentes registro errores; do
+  shot="$work/architecture-$view.png"
+  if ! "$chrome" --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=2 \
+    --window-size=1440,900 --virtual-time-budget=2000 \
+    --screenshot="$shot" "$url#$view" >"$work/chrome.log" 2>&1; then
+    cat "$work/chrome.log" >&2
+    fail "Chrome falló al capturar la vista $view (binario: $chrome)"
+  fi
+  if [ ! -s "$shot" ]; then
+    cat "$work/chrome.log" >&2
+    fail "Chrome terminó sin error pero no escribió una captura para la vista $view"
+  fi
+  mv "$shot" "architecture-$view.png"
+  echo "architecture-$view.png regenerada"
 done
