@@ -105,6 +105,7 @@ Una solicitud que rompe varias reglas informa todos los campos erróneos, ordena
 | 405 | Método incorrecto en una ruta conocida (se conserva el encabezado `Allow`) | `Método no permitido` |
 | 406 | No se puede satisfacer el encabezado `Accept` | `Formato de respuesta no aceptable` |
 | 409 | El correo ya está registrado | `El correo ya registrado` |
+| 409 | Cualquier otro 409 sin rechazo tipado (por ejemplo un `sendError(409)` desde un filtro, o una excepción estándar de Spring MVC con ese estado); el registro no lo produce | `La solicitud entra en conflicto con el estado actual del recurso` |
 | 415 | El `Content-Type` no es JSON | `Tipo de contenido no soportado` |
 | 500 | Cualquier cosa inesperada | `Error interno del servidor` |
 
