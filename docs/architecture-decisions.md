@@ -327,7 +327,9 @@ conservan sus propios formatos.
 - El cuerpo del 500 es texto fijo. El log del servidor recibe la clase y los frames de la traza de la
   falla y de cada causa, nunca un mensaje de excepción, porque un mensaje puede citar la solicitud (una
   base de datos informa el valor que rechazó). Una prueba hace que un mensaje de base de datos cite un
-  valor marcador y exige que ese marcador no aparezca en el log.
+  valor marcador y exige que ese marcador no aparezca en el log. Lo mismo vale para un 5xx que produce
+  una excepción estándar de Spring MVC, que el advice registra con el mismo formato; un 4xx no se
+  registra.
 - Cualquier 4xx sin fila específica responde `La solicitud no es válida` y conserva su estado; un 413 o
   un 431 no se anuncia como error interno.
 

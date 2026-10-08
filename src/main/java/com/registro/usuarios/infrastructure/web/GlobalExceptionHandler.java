@@ -84,7 +84,11 @@ class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     return answer(HttpStatus.BAD_REQUEST, headers, ErrorMessages.INVALID_BODY);
   }
 
-  /** Descarta el ProblemDetail del framework: toda excepción estándar termina aquí. */
+  /**
+   * Descarta el ProblemDetail del framework: toda excepción estándar termina aquí. Un 5xx se
+   * registra igual que un fallo inesperado, con clases y frames y sin mensaje; un 4xx es un error
+   * del cliente y no se registra.
+   */
   @Override
   protected ResponseEntity<Object> handleExceptionInternal(
       Exception failure,
@@ -92,6 +96,9 @@ class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
       HttpHeaders headers,
       HttpStatusCode status,
       WebRequest request) {
+    if (status.is5xxServerError()) {
+      LOG.error("Unexpected failure while handling a request: {}", withoutMessages(failure));
+    }
     return answer(status, headers, ErrorMessages.forStatus(status.value()));
   }
 

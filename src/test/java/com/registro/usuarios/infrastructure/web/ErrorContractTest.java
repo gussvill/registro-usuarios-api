@@ -21,6 +21,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -28,10 +29,13 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
+import org.springframework.http.converter.HttpMessageNotWritableException;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -45,6 +49,7 @@ import tools.jackson.databind.json.JsonMapper;
  * un objeto JSON con la única clave {@code mensaje}, en español, UTF-8, sin nada interno. El caso
  * de uso es un mock, así que cada prueba provoca la categoría solo en la capa web.
  */
+@ExtendWith(OutputCaptureExtension.class)
 @WebMvcTest(UserController.class)
 @Import({JacksonConfig.class, GlobalExceptionHandler.class})
 class ErrorContractTest {
@@ -446,6 +451,32 @@ class ErrorContractTest {
     when(useCase.register(any())).thenThrow(new IllegalStateException());
 
     assertError(register(STATEMENT_BODY), 500, INTERNAL);
+  }
+
+  @Test
+  void aServerErrorOfAStandardMvcExceptionIsLoggedWithTheClassAndNoMessage(CapturedOutput output)
+      throws Exception {
+    when(useCase.register(any()))
+        .thenThrow(new HttpMessageNotWritableException("cannot write secret-mvc-value"));
+
+    MvcResult result = register(STATEMENT_BODY);
+
+    assertError(result, 500, INTERNAL);
+    assertThat(output.getAll())
+        .contains("ERROR")
+        .contains(
+            "Unexpected failure while handling a request: "
+                + "org.springframework.http.converter.HttpMessageNotWritableException")
+        .doesNotContain("secret-mvc-value");
+  }
+
+  @Test
+  void aClientErrorOfAStandardMvcExceptionIsNotLoggedAsAnUnexpectedFailure(CapturedOutput output)
+      throws Exception {
+    MvcResult result = register("{\"name\":");
+
+    assertError(result, 400, INVALID_BODY);
+    assertThat(output.getAll()).doesNotContain("Unexpected failure");
   }
 
   // --- codificación ---
