@@ -16,9 +16,8 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import io.swagger.v3.oas.models.OpenAPI;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -353,8 +352,6 @@ class RegistrationConfigurationTest {
 
   // --- los valores por defecto con los que se entrega la aplicación ---
 
-  private static final Path PROPERTIES = Path.of("src/main/resources/application.properties");
-
   private ApplicationContextRunner shipped() {
     return new ApplicationContextRunner()
         .withUserConfiguration(Wiring.class)
@@ -425,7 +422,11 @@ class RegistrationConfigurationTest {
 
   @Test
   void theShippedPropertiesTakeTheSecretFromTheEnvironmentAndCarryNoValueForIt() throws Exception {
-    List<String> lines = Files.readAllLines(PROPERTIES);
+    List<String> lines;
+    try (InputStream properties = getClass().getResourceAsStream("/application.properties")) {
+      assertThat(properties).as("application.properties en el classpath").isNotNull();
+      lines = new String(properties.readAllBytes(), StandardCharsets.UTF_8).lines().toList();
+    }
 
     assertThat(lines).contains("app.token.secret=${TOKEN_SECRET:}");
   }
