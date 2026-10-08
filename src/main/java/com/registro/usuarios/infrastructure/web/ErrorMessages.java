@@ -41,10 +41,14 @@ final class ErrorMessages {
       case PHONE_NULL -> "El teléfono no puede ser nulo";
       case PHONE_NUMBER_REQUIRED -> "El número de teléfono es obligatorio";
       case PHONE_NUMBER_TOO_LONG -> "El número de teléfono no debe superar 20 caracteres";
+      case PHONE_NUMBER_FORMAT -> "El número de teléfono solo puede contener dígitos";
       case CITY_CODE_REQUIRED -> "El código de ciudad es obligatorio";
       case CITY_CODE_TOO_LONG -> "El código de ciudad no debe superar 10 caracteres";
+      case CITY_CODE_FORMAT -> "El código de ciudad solo puede contener dígitos";
       case COUNTRY_CODE_REQUIRED -> "El código de país es obligatorio";
       case COUNTRY_CODE_TOO_LONG -> "El código de país no debe superar 10 caracteres";
+      case COUNTRY_CODE_FORMAT ->
+          "El código de país solo puede contener dígitos, con un + inicial opcional";
     };
   }
 

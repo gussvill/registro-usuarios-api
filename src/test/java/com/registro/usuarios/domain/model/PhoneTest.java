@@ -21,9 +21,9 @@ class PhoneTest {
   void aCompletePhoneHasNoViolationsAndKeepsTheValuesAsReceived() {
     assertThat(Phone.violations(NUMBER, CITY, COUNTRY)).isEmpty();
 
-    Phone phone = new Phone("0012-345", "01", "+57");
+    Phone phone = new Phone("0012345", "01", "+57");
 
-    assertThat(phone.number()).isEqualTo("0012-345");
+    assertThat(phone.number()).isEqualTo("0012345");
     assertThat(phone.cityCode()).isEqualTo("01");
     assertThat(phone.countryCode()).isEqualTo("+57");
   }
@@ -86,6 +86,70 @@ class PhoneTest {
     assertThat(Phone.violations("1".repeat(21), null, "3".repeat(11)))
         .containsExactlyInAnyOrder(
             Reason.PHONE_NUMBER_TOO_LONG, Reason.CITY_CODE_REQUIRED, Reason.COUNTRY_CODE_TOO_LONG);
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "12-34",
+        "12 34",
+        "abc",
+        "+123",
+        "1.5",
+        "12a",
+        "1e3",
+        "\u0661\u0662",
+        "\uff11\uff12"
+      })
+  void aNumberOrCityCodeWithAnythingButAsciiDigitsGivesItsFormatReason(String value) {
+    assertThat(Phone.violations(value, CITY, COUNTRY)).containsExactly(Reason.PHONE_NUMBER_FORMAT);
+    assertThat(Phone.violations(NUMBER, value, COUNTRY)).containsExactly(Reason.CITY_CODE_FORMAT);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"+", "++57", "5+7", "57+", "+ 57", "abc", "+5a", "57 ", "\u0661"})
+  void aCountryCodeNeedsDigitsWithAtMostOneLeadingPlus(String value) {
+    assertThat(Phone.violations(NUMBER, CITY, value)).containsExactly(Reason.COUNTRY_CODE_FORMAT);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"1", "57", "+1", "+57", "0057", "+0057"})
+  void aCountryCodeOfDigitsWithAnOptionalLeadingPlusIsAccepted(String value) {
+    assertThat(Phone.violations(NUMBER, CITY, value)).isEmpty();
+  }
+
+  @Test
+  void theStatementExampleStaysValid() {
+    assertThat(Phone.violations("1234567", "1", "57")).isEmpty();
+  }
+
+  @Test
+  void aPlusIsOnlyAllowedInTheCountryCode() {
+    assertThat(Phone.violations("+1234567", "+1", "+57"))
+        .containsExactlyInAnyOrder(Reason.PHONE_NUMBER_FORMAT, Reason.CITY_CODE_FORMAT);
+  }
+
+  @Test
+  void lengthWinsOverFormatAndRequiredWinsOverBoth() {
+    assertThat(Phone.violations("a".repeat(21), "b".repeat(11), "+" + "7".repeat(10) + "x"))
+        .containsExactlyInAnyOrder(
+            Reason.PHONE_NUMBER_TOO_LONG, Reason.CITY_CODE_TOO_LONG, Reason.COUNTRY_CODE_TOO_LONG);
+    assertThat(Phone.violations(" ", " ", " "))
+        .containsExactlyInAnyOrder(
+            Reason.PHONE_NUMBER_REQUIRED, Reason.CITY_CODE_REQUIRED, Reason.COUNTRY_CODE_REQUIRED);
+  }
+
+  @Test
+  void aPlusCountsTowardTheCountryCodeLimit() {
+    assertThat(Phone.violations(NUMBER, CITY, "+" + "7".repeat(9))).isEmpty();
+    assertThat(Phone.violations(NUMBER, CITY, "+" + "7".repeat(10)))
+        .containsExactly(Reason.COUNTRY_CODE_TOO_LONG);
+  }
+
+  @Test
+  void theConstructorRejectsANonDigitNumber() {
+    assertThat(reasonsOf(() -> new Phone("12-34", CITY, COUNTRY)))
+        .containsExactly(Reason.PHONE_NUMBER_FORMAT);
   }
 
   @Test

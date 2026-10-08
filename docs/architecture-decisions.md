@@ -517,7 +517,12 @@ required `contrycode` is then reported as missing.
   even though `$` alone would tolerate it. Patterns are therefore written in lower case, since they
   apply to the lower-cased value.
 - Names and phone fields are stored exactly as received.
-- Phone fields are strings, so leading zeros and `+` survive.
+- Phone fields are strings, so leading zeros survive. `number` and `citycode` contain ASCII digits
+  only; `contrycode` contains ASCII digits with an optional leading `+`, which counts toward its
+  limit. The statement's example (`"1234567"`, `"1"`, `"57"`) is valid. Each field is checked in
+  the order required, length, format, with a typed reason of its own (`PHONE_NUMBER_FORMAT`,
+  `CITY_CODE_FORMAT`, `COUNTRY_CODE_FORMAT`). The OpenAPI schema publishes the same patterns,
+  which come from constants in `Phone`.
 - `phones` may be absent, null or empty; it is returned as `[]`.
 
 | Field | Limit |

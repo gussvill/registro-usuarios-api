@@ -12,21 +12,24 @@ import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 @Schema(description = "A phone of the user")
 record PhoneRequest(
     @Schema(
-            description = "Phone number",
+            description = "Phone number, digits only",
             example = "1234567",
             requiredMode = RequiredMode.REQUIRED,
-            maxLength = Phone.NUMBER_MAX_LENGTH)
+            maxLength = Phone.NUMBER_MAX_LENGTH,
+            pattern = Phone.DIGITS_PATTERN)
         String number,
     @Schema(
-            description = "City code",
+            description = "City code, digits only",
             example = "1",
             requiredMode = RequiredMode.REQUIRED,
-            maxLength = Phone.CODE_MAX_LENGTH)
+            maxLength = Phone.CODE_MAX_LENGTH,
+            pattern = Phone.DIGITS_PATTERN)
         String citycode,
     @Schema(
-            description = "Country code",
+            description = "Country code, with an optional leading +",
             example = "57",
             requiredMode = RequiredMode.REQUIRED,
-            maxLength = Phone.CODE_MAX_LENGTH)
+            maxLength = Phone.CODE_MAX_LENGTH,
+            pattern = Phone.COUNTRY_CODE_PATTERN)
         @JsonProperty("contrycode")
         String countryCode) {}

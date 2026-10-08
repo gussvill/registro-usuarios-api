@@ -215,6 +215,9 @@ alternatives that were discarded, is in
   address.
 - **Field limits are assumptions**, since the statement gives none: name 255 characters, email 254,
   password 72 bytes, 10 phones, phone number 20 characters, city and country codes 10 each.
+- **Phone fields are digits.** `number` and `citycode` contain only the digits 0 to 9; `contrycode`
+  is digits with an optional leading `+`. The statement's example (`"1234567"`, `"1"`, `"57"`) is
+  valid; `"123-4567"` or `"57+"` is a `400` with its own message.
 - **The token is stored in clear**, because the statement requires it to be persisted.
 - **Java 17 instead of "Java 8+".** Spring Boot 3 and later need Java 17
   ([ADR-011](docs/architecture-decisions.md#adr-011-spring-boot-411-and-java-17-against-the-statements-java-8)).

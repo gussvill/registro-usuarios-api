@@ -127,10 +127,13 @@ class ErrorContractTest {
     "PHONE_NULL, El teléfono no puede ser nulo",
     "PHONE_NUMBER_REQUIRED, El número de teléfono es obligatorio",
     "PHONE_NUMBER_TOO_LONG, El número de teléfono no debe superar 20 caracteres",
+    "PHONE_NUMBER_FORMAT, El número de teléfono solo puede contener dígitos",
     "CITY_CODE_REQUIRED, El código de ciudad es obligatorio",
     "CITY_CODE_TOO_LONG, El código de ciudad no debe superar 10 caracteres",
+    "CITY_CODE_FORMAT, El código de ciudad solo puede contener dígitos",
     "COUNTRY_CODE_REQUIRED, El código de país es obligatorio",
-    "COUNTRY_CODE_TOO_LONG, El código de país no debe superar 10 caracteres"
+    "COUNTRY_CODE_TOO_LONG, El código de país no debe superar 10 caracteres",
+    "COUNTRY_CODE_FORMAT, 'El código de país solo puede contener dígitos, con un + inicial opcional'"
   })
   void everyReasonIsAnswered400WithItsCatalogueText(Reason reason, String mensaje)
       throws Exception {

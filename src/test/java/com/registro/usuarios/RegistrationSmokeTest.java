@@ -194,6 +194,10 @@ class RegistrationSmokeTest {
                 .get("maxLength")
                 .asInt())
         .isEqualTo(10);
+    JsonNode phone = schemas.get("PhoneRequest").get("properties");
+    assertThat(phone.get("number").get("pattern").asString()).isEqualTo("^[0-9]+$");
+    assertThat(phone.get("citycode").get("pattern").asString()).isEqualTo("^[0-9]+$");
+    assertThat(phone.get("contrycode").get("pattern").asString()).isEqualTo("^\\+?[0-9]+$");
     assertThat(
             schemas.get("UserResponse").get("properties").get("created").get("format").asString())
         .isEqualTo("date-time");

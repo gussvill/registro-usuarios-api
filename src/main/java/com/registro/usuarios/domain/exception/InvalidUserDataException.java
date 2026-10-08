@@ -12,7 +12,10 @@ public final class InvalidUserDataException extends DomainException {
 
   private static final long serialVersionUID = 1L;
 
-  /** Why a field was rejected; at most one reason per field, the first failing rule. */
+  /**
+   * Why a field was rejected; at most one reason per field, the first failing rule (required, then
+   * length, then format).
+   */
   public enum Reason {
     NAME_REQUIRED,
     NAME_TOO_LONG,
@@ -26,10 +29,13 @@ public final class InvalidUserDataException extends DomainException {
     PHONE_NULL,
     PHONE_NUMBER_REQUIRED,
     PHONE_NUMBER_TOO_LONG,
+    PHONE_NUMBER_FORMAT,
     CITY_CODE_REQUIRED,
     CITY_CODE_TOO_LONG,
+    CITY_CODE_FORMAT,
     COUNTRY_CODE_REQUIRED,
-    COUNTRY_CODE_TOO_LONG
+    COUNTRY_CODE_TOO_LONG,
+    COUNTRY_CODE_FORMAT
   }
 
   private final EnumSet<Reason> reasons;

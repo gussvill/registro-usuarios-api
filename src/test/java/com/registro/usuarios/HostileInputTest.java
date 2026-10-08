@@ -284,7 +284,41 @@ class HostileInputTest {
         Arguments.of(
             "a blank code",
             body("phones", "[" + phone("\"1234567\"", quote(" "), "\"57\"") + "]"),
-            "El código de ciudad es obligatorio"));
+            "El código de ciudad es obligatorio"),
+        Arguments.of(
+            "a number with a hyphen",
+            body("phones", "[" + phone(quote("123-4567"), "\"1\"", "\"57\"") + "]"),
+            "El número de teléfono solo puede contener dígitos"),
+        Arguments.of(
+            "a number with a leading plus",
+            body("phones", "[" + phone(quote("+1234567"), "\"1\"", "\"57\"") + "]"),
+            "El número de teléfono solo puede contener dígitos"),
+        Arguments.of(
+            "a city code with letters",
+            body("phones", "[" + phone("\"1234567\"", quote("1a"), "\"57\"") + "]"),
+            "El código de ciudad solo puede contener dígitos"),
+        Arguments.of(
+            "a country code with a trailing plus",
+            body("phones", "[" + phone("\"1234567\"", "\"1\"", quote("57+")) + "]"),
+            "El código de país solo puede contener dígitos, con un + inicial opcional"),
+        Arguments.of(
+            "a country code with two plus signs",
+            body("phones", "[" + phone("\"1234567\"", "\"1\"", quote("++57")) + "]"),
+            "El código de país solo puede contener dígitos, con un + inicial opcional"),
+        Arguments.of(
+            "all three fields with non-digits",
+            body("phones", "[" + phone(quote("12 34"), quote("x"), quote("+")) + "]"),
+            "El código de ciudad solo puede contener dígitos; "
+                + "El código de país solo puede contener dígitos, con un + inicial opcional; "
+                + "El número de teléfono solo puede contener dígitos"));
+  }
+
+  @Test
+  void aPhoneWithALeadingPlusOnTheCountryCodeIsAccepted() {
+    Reply reply = timed(body("phones", "[" + phone("\"1234567\"", "\"1\"", quote("+57")) + "]"));
+
+    assertThat(reply.status()).isEqualTo(201);
+    assertThat(reply.json().get("phones").get(0).get("contrycode").asString()).isEqualTo("+57");
   }
 
   @ParameterizedTest(name = "phones: {0}")

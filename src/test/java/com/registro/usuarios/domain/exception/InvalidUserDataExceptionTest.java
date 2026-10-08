@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 class InvalidUserDataExceptionTest {
 
   @Test
-  void catalogueHasExactlyTheSixteenRejectionReasons() {
+  void catalogueHasExactlyTheNineteenRejectionReasons() {
     assertThat(Reason.values())
         .containsExactly(
             Reason.NAME_REQUIRED,
@@ -28,10 +28,13 @@ class InvalidUserDataExceptionTest {
             Reason.PHONE_NULL,
             Reason.PHONE_NUMBER_REQUIRED,
             Reason.PHONE_NUMBER_TOO_LONG,
+            Reason.PHONE_NUMBER_FORMAT,
             Reason.CITY_CODE_REQUIRED,
             Reason.CITY_CODE_TOO_LONG,
+            Reason.CITY_CODE_FORMAT,
             Reason.COUNTRY_CODE_REQUIRED,
-            Reason.COUNTRY_CODE_TOO_LONG);
+            Reason.COUNTRY_CODE_TOO_LONG,
+            Reason.COUNTRY_CODE_FORMAT);
   }
 
   @Test

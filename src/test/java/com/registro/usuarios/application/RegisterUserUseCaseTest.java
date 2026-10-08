@@ -330,6 +330,27 @@ class RegisterUserUseCaseTest {
   }
 
   @Test
+  void aPhoneFieldThatIsNotMadeOfDigitsGivesItsFormatReason() {
+    assertRejectedWith(withPhones(List.of(phone("12-34", "1", "57"))), Reason.PHONE_NUMBER_FORMAT);
+    assertRejectedWith(withPhones(List.of(phone("1234567", "a", "57"))), Reason.CITY_CODE_FORMAT);
+    assertRejectedWith(
+        withPhones(List.of(phone("1234567", "1", "5+7"))), Reason.COUNTRY_CODE_FORMAT);
+  }
+
+  @Test
+  void aLeadingPlusIsAcceptedOnTheCountryCode() {
+    User user = useCase.register(withPhones(List.of(phone("1234567", "1", "+57"))));
+
+    assertThat(user.phones()).containsExactly(new Phone("1234567", "1", "+57"));
+  }
+
+  @Test
+  void aLeadingPlusIsRejectedOnTheNumber() {
+    assertRejectedWith(
+        withPhones(List.of(phone("+1234567", "1", "57"))), Reason.PHONE_NUMBER_FORMAT);
+  }
+
+  @Test
   void aNullEntryInThePhoneListIsRejectedAsNull() {
     assertRejectedWith(withPhones(Arrays.asList((PhoneData) null)), Reason.PHONE_NULL);
     assertRejectedWith(
