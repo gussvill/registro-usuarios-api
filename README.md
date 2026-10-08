@@ -101,7 +101,7 @@ Cualquiera se puede fijar desde el entorno.
 | `app.registration.email-pattern` | `APP_REGISTRATION_EMAIL_PATTERN` | `^[a-z0-9._%+-]+@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$` | Formato del correo, aplicado a la dirección en minúsculas |
 | `app.registration.password-pattern` | `APP_REGISTRATION_PASSWORD_PATTERN` | `^(?=.*[A-Za-z])(?=.*[0-9])\S{7,72}$` | Formato de la contraseña: una letra y un dígito, de 7 a 72 caracteres sin espacios |
 | `app.token.secret` | `TOKEN_SECRET` | ninguno | Secreto de firma HS256, de al menos 32 bytes; la aplicación no arranca con uno más corto. Si no se define, se genera una clave aleatoria de 256 bits al arrancar y los tokens no sobreviven a un reinicio |
-| `app.token.expiration` | `APP_TOKEN_EXPIRATION` | `15m` | Vigencia del token (`120s`, `15m`, ...); debe ser positiva |
+| `app.token.expiration` | `APP_TOKEN_EXPIRATION` | `15m` | Vigencia del token (`120s`, `15m`, ...); rango permitido: mayor que cero y hasta 24 horas (`24h`); fuera de ese rango la aplicación no arranca |
 
 **La aplicación no distribuye ningún secreto de firma.** Sin `TOKEN_SECRET` el servicio genera una
 clave aleatoria en cada arranque y registra una línea `INFO` que lo indica (nunca la clave). Fíjelo

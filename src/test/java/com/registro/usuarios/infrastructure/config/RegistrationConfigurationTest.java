@@ -286,6 +286,28 @@ class RegistrationConfigurationTest {
   }
 
   @ParameterizedTest
+  @CsvSource({"PT24H1S", "25h", "PT2562047788015215H"})
+  void anExpirationOverTheMaximumStopsTheStartupAndTheFailureNamesThePropertyAndTheRange(
+      String expiration) {
+    withDefaults()
+        .withPropertyValues("app.token.expiration=" + expiration)
+        .run(
+            context -> {
+              assertThat(context).hasFailed();
+              assertThat(messagesOf(context.getStartupFailure()))
+                  .anySatisfy(
+                      m -> assertThat(m).contains("app.token.expiration").contains("PT24H"));
+            });
+  }
+
+  @Test
+  void anExpirationOfExactlyTwentyFourHoursStartsTheContext() {
+    withDefaults()
+        .withPropertyValues("app.token.expiration=24h")
+        .run(context -> assertThat(context).hasNotFailed());
+  }
+
+  @ParameterizedTest
   @CsvSource({"0s", "-5s", "0m"})
   void aZeroOrNegativeExpirationStopsTheStartupAndTheFailureNamesTheProperty(String expiration) {
     withDefaults()

@@ -27,7 +27,9 @@ import org.springframework.stereotype.Component;
  * no hay secreto configurado (está ausente o vacío) se genera una clave aleatoria de 256 bits al
  * arrancar, una línea INFO lo indica y la clave nunca se registra en el log: los tokens que firma
  * no sobreviven a un reinicio. La aplicación no se entrega con ningún secreto utilizable. La
- * expiración debe ser una duración positiva; de lo contrario, cada token nacería expirado.
+ * expiración debe ser una duración positiva y de a lo sumo {@link #MAX_EXPIRATION}: con cero o un
+ * valor negativo cada token nacería expirado, y con uno desmesurado el cálculo de {@code exp}
+ * desbordaría y cada registro respondería 500. Fuera de ese rango el arranque falla.
  */
 @Component
 class JjwtTokenIssuer implements TokenIssuer {
@@ -35,6 +37,10 @@ class JjwtTokenIssuer implements TokenIssuer {
   private static final Logger LOG = LoggerFactory.getLogger(JjwtTokenIssuer.class);
 
   static final int MIN_SECRET_BYTES = 32;
+
+  /** Cota superior de la vigencia: un valor mayor no tiene un uso legítimo y puede desbordar. */
+  static final Duration MAX_EXPIRATION = Duration.ofHours(24);
+
   private static final String SECRET_PROPERTY = "app.token.secret";
   private static final String EXPIRATION_PROPERTY = "app.token.expiration";
 
@@ -48,7 +54,7 @@ class JjwtTokenIssuer implements TokenIssuer {
 
   JjwtTokenIssuer(TokenProperties properties, SecureRandom random) {
     this.properties = properties;
-    requirePositive(properties.expiration());
+    requireWithinRange(properties.expiration());
     this.key =
         isConfigured(properties.secret()) ? keyOf(properties.secret()) : ephemeralKey(random);
   }
@@ -67,9 +73,13 @@ class JjwtTokenIssuer implements TokenIssuer {
     return new SecretKeySpec(bytes, "HmacSHA256");
   }
 
-  private static void requirePositive(Duration expiration) {
-    if (expiration == null || expiration.isZero() || expiration.isNegative()) {
-      throw new IllegalStateException(EXPIRATION_PROPERTY + " must be a positive duration");
+  private static void requireWithinRange(Duration expiration) {
+    if (expiration == null
+        || expiration.isZero()
+        || expiration.isNegative()
+        || expiration.compareTo(MAX_EXPIRATION) > 0) {
+      throw new IllegalStateException(
+          EXPIRATION_PROPERTY + " must be positive and at most " + MAX_EXPIRATION);
     }
   }
 

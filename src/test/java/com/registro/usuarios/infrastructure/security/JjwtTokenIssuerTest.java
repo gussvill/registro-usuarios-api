@@ -297,6 +297,42 @@ class JjwtTokenIssuerTest {
   }
 
   @Test
+  void theMaximumExpirationIsTwentyFourHours() {
+    assertThat(JjwtTokenIssuer.MAX_EXPIRATION).isEqualTo(Duration.ofHours(24));
+  }
+
+  @Test
+  void anExpirationOfExactlyTheMaximumIsAccepted() {
+    String token = issuer(SECRET, JjwtTokenIssuer.MAX_EXPIRATION).issue(SUBJECT, EMAIL, ISSUED_AT);
+
+    Claims claims = parse(token, SECRET, ISSUED_AT).getPayload();
+    assertThat(claims.getExpiration().getTime() - claims.getIssuedAt().getTime())
+        .isEqualTo(24L * 3600 * 1000);
+  }
+
+  @Test
+  void anExpirationOneSecondOverTheMaximumIsRejectedAndTheMessageStatesTheRange() {
+    Duration overTheMaximum = JjwtTokenIssuer.MAX_EXPIRATION.plusSeconds(1);
+
+    assertThatThrownBy(() -> issuer(SECRET, overTheMaximum))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("app.token.expiration")
+        .hasMessageContaining("positive")
+        .hasMessageContaining("PT24H");
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"PT2562047788015215H", "PT9223372036854775807S", "PT25H", "P2D"})
+  void anAbsurdExpirationIsRejectedAtConstructionNotAtIssueTime(String iso) {
+    Duration absurd = Duration.parse(iso);
+
+    assertThatThrownBy(() -> issuer(SECRET, absurd))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("app.token.expiration")
+        .hasMessageContaining("PT24H");
+  }
+
+  @Test
   void aMissingExpirationIsRejectedLikeANonPositiveOne() {
     assertThatThrownBy(() -> issuer(SECRET, null))
         .isInstanceOf(IllegalStateException.class)

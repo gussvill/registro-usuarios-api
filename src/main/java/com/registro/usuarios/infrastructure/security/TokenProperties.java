@@ -14,7 +14,8 @@ import org.springframework.validation.annotation.Validated;
  * #toString()} oculta el secreto para que una línea de log o un informe de fallo nunca lo imprima.
  *
  * @param secret material de la clave de la firma HS256, o nulo o vacío para usar una clave efímera
- * @param expiration cuánto tiempo es válido un token después de emitirse
+ * @param expiration cuánto tiempo es válido un token después de emitirse; positivo y de 24 horas
+ *     como máximo, lo cual comprueba el emisor de tokens al crearse
  */
 @ConfigurationProperties(prefix = "app.token")
 @Validated

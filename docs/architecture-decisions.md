@@ -507,12 +507,16 @@ comprueba que el token más largo posible (un correo de 254 caracteres) cabe. El
 ninguna solicitud, de modo que nada del servicio depende del valor almacenado.
 
 El secreto y la expiración son propiedades: `app.token.secret` (variable de entorno `TOKEN_SECRET`) y
-`app.token.expiration` (15 minutos por defecto, debe ser positiva). **No se distribuye ningún
+`app.token.expiration` (15 minutos por defecto; debe ser positiva y de 24 horas como máximo). **No se distribuye ningún
 secreto.** Cuando `app.token.secret` está ausente o vacío, `JjwtTokenIssuer` genera una clave aleatoria
 de 256 bits con `SecureRandom` al arrancar y registra una línea `INFO` que indica que se usa una clave
 de firma efímera y que los tokens no sobrevivirán a un reinicio; la clave nunca se registra. Cuando hay
 un secreto configurado se aplican las reglas de siempre: al menos 32 bytes, de lo contrario el arranque
-falla con un mensaje que nombra la propiedad y nunca el valor.
+falla con un mensaje que nombra la propiedad y nunca el valor. La expiración se acota por ambos lados
+en el mismo punto, el constructor de `JjwtTokenIssuer`: una duración positiva pero desmesurada
+(`PT2562047788015215H`) arrancaba y luego hacía fallar con un 500 cada registro, porque el cálculo de
+`exp` desbordaba. El máximo es de 24 horas (`JjwtTokenIssuer.MAX_EXPIRATION`): ningún token de este
+servicio necesita vivir más, y el arranque falla con un mensaje que nombra la propiedad y el rango.
 
 | Opción | Veredicto |
 |--------|-----------|
