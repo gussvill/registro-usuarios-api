@@ -34,6 +34,36 @@ docker run --rm -p 8080:8080 registro-usuarios-api
 La imagen tiene dos etapas (JDK 17 para construir, JRE 17 para ejecutar), corre como usuario sin
 privilegios y expone el puerto 8080. No necesita configuración.
 
+## Cumplimiento del enunciado
+
+Dónde se cumple cada requisito del enunciado, en su orden:
+
+| Requisito | Dónde se cumple |
+|-----------|-----------------|
+| Banco de datos en memoria | H2 en memoria: [`application.properties`](src/main/resources/application.properties) (`spring.datasource.url=jdbc:h2:mem:userdb...`) y la consola H2 de [Documentación de la API y base de datos](#documentación-de-la-api-y-base-de-datos) |
+| Proceso de build vía Gradle o Maven | Gradle con wrapper: `./gradlew build` ([`build.gradle`](build.gradle)); ver [Pruebas y compuertas de calidad](#pruebas-y-compuertas-de-calidad) |
+| Persistencia con JPA | Hibernate mediante Spring Data JPA: [`UserJpaEntity`](src/main/java/com/registro/usuarios/infrastructure/persistence/UserJpaEntity.java) y [`UserPersistenceAdapter`](src/main/java/com/registro/usuarios/infrastructure/persistence/UserPersistenceAdapter.java) |
+| Framework Spring Boot | Spring Boot 4.1.1 ([`build.gradle`](build.gradle)) |
+| Java 8+ | Java 17 (toolchain de [`build.gradle`](build.gradle)); el motivo está en [Supuestos sobre el enunciado](#supuestos-sobre-el-enunciado) |
+| Repositorio público con código fuente y script de creación de BD | [`src/main/resources/schema.sql`](src/main/resources/schema.sql) |
+| Readme explicando cómo probarlo | La sección [Ejecutar](#ejecutar), [`scripts/acceptance.sh`](scripts/acceptance.sh) y la [colección de Postman](postman/registro-usuarios-api.postman_collection.json) |
+| Diagrama de la solución | [Diagramas](#arquitectura) en `docs/diagrams` (PNG, fuente JSON y versión HTML interactiva) |
+| JWT como token | [`JjwtTokenIssuer`](src/main/java/com/registro/usuarios/infrastructure/security/JjwtTokenIssuer.java): HS256 con `sub`, `email`, `iat` y `exp` |
+| Pruebas unitarias | `./gradlew test` y el árbol [`src/test/java`](src/test/java) |
+| Swagger | `http://localhost:8080/swagger-ui.html` |
+| Patrones de diseño y buenas prácticas | [Patrones de diseño aplicados](#patrones-de-diseño-aplicados) y las [decisiones de arquitectura](docs/architecture-decisions.md) |
+
+Y las reglas funcionales del registro:
+
+| Regla del enunciado | Dónde se cumple |
+|---------------------|-----------------|
+| Solo JSON; los errores son `{"mensaje": "..."}` | [`UserApi`](src/main/java/com/registro/usuarios/infrastructure/web/UserApi.java) (`consumes` y `produces` JSON) y [Formato de error](#formato-de-error) |
+| Respuesta con `id` (UUID), `created`, `modified`, `last_login`, `token` e `isactive` | [`UserResponse`](src/main/java/com/registro/usuarios/infrastructure/web/UserResponse.java) y [Qué responde](#qué-responde) |
+| Un correo repetido responde `El correo ya registrado` | Estado `409`, en [Códigos de estado](#códigos-de-estado); la unicidad la garantiza la restricción `UNIQUE` de `users.email` |
+| El correo se valida con una expresión regular | [`Email`](src/main/java/com/registro/usuarios/domain/model/Email.java), con el patrón de `app.registration.email-pattern` |
+| La contraseña se valida con una expresión regular configurable | `app.registration.password-pattern`, en [Configuración](#configuración); [`RegexPasswordPolicy`](src/main/java/com/registro/usuarios/domain/policy/RegexPasswordPolicy.java) |
+| El token se persiste con el usuario | Columna `users.token` de [`schema.sql`](src/main/resources/schema.sql); el motivo está en el [ADR-016](docs/architecture-decisions.md#adr-016-el-token-se-persiste-en-claro-y-la-clave-de-firma-es-efímera-salvo-que-se-configure) |
+
 ## Qué responde
 
 La respuesta al ejemplo es `201` con este cuerpo (el id, las marcas de tiempo y el token cambian en
@@ -232,6 +262,22 @@ uso sin contenedor ni base de datos, y mantiene los tipos de terceros (JPA, BCry
 reglas de negocio. El costo, dicho en una frase: hay más tipos de los que el comportamiento necesita, y
 un servicio tan pequeño normalmente no requeriría un hexágono. Cada decisión, con las alternativas
 descartadas, está en [`docs/architecture-decisions.md`](docs/architecture-decisions.md#adr-001-un-hexágono-ligero-para-un-servicio-de-un-solo-endpoint).
+
+### Patrones de diseño aplicados
+
+| Patrón | Dónde | Qué problema resuelve aquí |
+|--------|-------|----------------------------|
+| Puertos y adaptadores (arquitectura hexagonal) | Puerto de entrada [`RegisterUser`](src/main/java/com/registro/usuarios/application/port/RegisterUser.java); puertos de salida [`UserRepository`](src/main/java/com/registro/usuarios/domain/port/UserRepository.java), [`PasswordHasher`](src/main/java/com/registro/usuarios/domain/port/PasswordHasher.java) y [`TokenIssuer`](src/main/java/com/registro/usuarios/domain/port/TokenIssuer.java), implementados en `infrastructure` | El dominio y el caso de uso se prueban sin base de datos, BCrypt ni JJWT |
+| Repository | [`UserRepository`](src/main/java/com/registro/usuarios/domain/port/UserRepository.java) y [`UserPersistenceAdapter`](src/main/java/com/registro/usuarios/infrastructure/persistence/UserPersistenceAdapter.java) | El dominio guarda un usuario sin conocer JPA |
+| Adapter | [`UserPersistenceAdapter`](src/main/java/com/registro/usuarios/infrastructure/persistence/UserPersistenceAdapter.java), [`BCryptPasswordHasher`](src/main/java/com/registro/usuarios/infrastructure/security/BCryptPasswordHasher.java), [`JjwtTokenIssuer`](src/main/java/com/registro/usuarios/infrastructure/security/JjwtTokenIssuer.java) | Adapta las interfaces de JPA, BCrypt y JJWT a los puertos del dominio |
+| Strategy | [`PasswordPolicy`](src/main/java/com/registro/usuarios/domain/policy/PasswordPolicy.java) y [`RegexPasswordPolicy`](src/main/java/com/registro/usuarios/domain/policy/RegexPasswordPolicy.java) | Separa el formato de la contraseña, que el enunciado pide configurable, de los límites fijos de `Password`. Tiene una sola implementación de producción: existe por esa regla configurable, no por variedad |
+| Value Object | [`Email`](src/main/java/com/registro/usuarios/domain/model/Email.java), [`UserId`](src/main/java/com/registro/usuarios/domain/model/UserId.java), [`Phone`](src/main/java/com/registro/usuarios/domain/model/Phone.java) | Normalización y validez en un solo lugar; un valor inválido no llega a existir |
+| Builder | `User.Builder` en [`User`](src/main/java/com/registro/usuarios/domain/model/User.java) | Evita pasar por error un token donde va un hash: tres `String` contiguos |
+| Método de fábrica estático | `User.registration()`, `Email.of` y `UserId.generate()` | Construyen con validación o con el valor generado por la aplicación, sin exponer el constructor. No es el patrón Factory de GoF, que no se usa |
+| DTO y Mapper | Records [`RegisterUserRequest`](src/main/java/com/registro/usuarios/infrastructure/web/RegisterUserRequest.java) y [`UserResponse`](src/main/java/com/registro/usuarios/infrastructure/web/UserResponse.java); [`UserWebMapper`](src/main/java/com/registro/usuarios/infrastructure/web/UserWebMapper.java) | El JSON no se acopla al dominio, y la respuesta nunca lee el hash de la contraseña |
+| Inyección de dependencias por constructor | [`ApplicationConfig`](src/main/java/com/registro/usuarios/infrastructure/config/ApplicationConfig.java) cablea el caso de uso con sus puertos | Las dependencias son explícitas y se sustituyen en pruebas; una regla de ArchUnit prohíbe la inyección en campos |
+
+El razonamiento de cada uno está en [`docs/architecture-decisions.md`](docs/architecture-decisions.md#adr-001-un-hexágono-ligero-para-un-servicio-de-un-solo-endpoint). Se descartaron a propósito Factory, Observer, los eventos de dominio y CQRS, y no se usan bibliotecas de mapeo ni Lombok ([ADR-001](docs/architecture-decisions.md#adr-001-un-hexágono-ligero-para-un-servicio-de-un-solo-endpoint) y [ADR-022](docs/architecture-decisions.md#adr-022-lo-que-se-dejó-fuera-deliberadamente)).
 
 ## Supuestos sobre el enunciado
 
