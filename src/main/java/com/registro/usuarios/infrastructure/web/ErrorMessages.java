@@ -1,6 +1,9 @@
 package com.registro.usuarios.infrastructure.web;
 
+import com.registro.usuarios.domain.model.Email;
+import com.registro.usuarios.domain.model.Phone;
 import com.registro.usuarios.domain.model.Reason;
+import com.registro.usuarios.domain.model.User;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
@@ -8,7 +11,9 @@ import java.util.stream.Collectors;
 /**
  * El catálogo de mensajes en español del contrato de errores. El dominio solo conoce motivos
  * tipados; el texto destinado al cliente es presentación y vive aquí. Los literales están en forma
- * NFC en un archivo fuente UTF-8, de modo que una letra acentuada es un único punto de código.
+ * NFC en un archivo fuente UTF-8, de modo que una letra acentuada es un único punto de código. Los
+ * límites que citan algunos mensajes se toman de las constantes del dominio, para que el texto no
+ * pueda quedar desactualizado.
  */
 final class ErrorMessages {
 
@@ -30,23 +35,26 @@ final class ErrorMessages {
   static String of(Reason reason) {
     return switch (reason) {
       case NAME_REQUIRED -> "El nombre es obligatorio";
-      case NAME_TOO_LONG -> "El nombre no debe superar 255 caracteres";
+      case NAME_TOO_LONG -> "El nombre no debe superar " + User.NAME_MAX_LENGTH + " caracteres";
       case EMAIL_REQUIRED -> "El correo es obligatorio";
-      case EMAIL_TOO_LONG -> "El correo no debe superar 254 caracteres";
+      case EMAIL_TOO_LONG -> "El correo no debe superar " + Email.MAX_LENGTH + " caracteres";
       case EMAIL_FORMAT -> "El correo no tiene un formato válido";
       case PASSWORD_REQUIRED -> "La contraseña es obligatoria";
       case PASSWORD_TOO_LONG -> "La contraseña es demasiado larga";
       case PASSWORD_FORMAT -> "La contraseña no cumple el formato requerido";
-      case PHONES_TOO_MANY -> "No se permiten más de 10 teléfonos";
+      case PHONES_TOO_MANY -> "No se permiten más de " + User.MAX_PHONES + " teléfonos";
       case PHONE_NULL -> "El teléfono no puede ser nulo";
       case PHONE_NUMBER_REQUIRED -> "El número de teléfono es obligatorio";
-      case PHONE_NUMBER_TOO_LONG -> "El número de teléfono no debe superar 20 caracteres";
+      case PHONE_NUMBER_TOO_LONG ->
+          "El número de teléfono no debe superar " + Phone.NUMBER_MAX_LENGTH + " caracteres";
       case PHONE_NUMBER_FORMAT -> "El número de teléfono solo puede contener dígitos";
       case CITY_CODE_REQUIRED -> "El código de ciudad es obligatorio";
-      case CITY_CODE_TOO_LONG -> "El código de ciudad no debe superar 10 caracteres";
+      case CITY_CODE_TOO_LONG ->
+          "El código de ciudad no debe superar " + Phone.CODE_MAX_LENGTH + " caracteres";
       case CITY_CODE_FORMAT -> "El código de ciudad solo puede contener dígitos";
       case COUNTRY_CODE_REQUIRED -> "El código de país es obligatorio";
-      case COUNTRY_CODE_TOO_LONG -> "El código de país no debe superar 10 caracteres";
+      case COUNTRY_CODE_TOO_LONG ->
+          "El código de país no debe superar " + Phone.CODE_MAX_LENGTH + " caracteres";
       case COUNTRY_CODE_FORMAT ->
           "El código de país solo puede contener dígitos, con un + inicial opcional";
     };
