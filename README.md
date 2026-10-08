@@ -209,10 +209,14 @@ npx -y newman run postman/registro-usuarios-api.postman_collection.json   # cole
 ## Colección de Postman
 
 [`postman/registro-usuarios-api.postman_collection.json`](postman/registro-usuarios-api.postman_collection.json)
-(Postman Collection v2.1) tiene 16 solicitudes con sus pruebas: el registro, el duplicado, cada tipo de
-rechazo, 404, 405, 406, 415 y el documento OpenAPI. La solicitud `00` envía el ejemplo literal del
+(Postman Collection v2.1) tiene 17 solicitudes con sus pruebas: el registro, el duplicado, cada tipo de
+rechazo, 404, 405, 406, 415, el documento OpenAPI y una prueba manual. La solicitud `00` envía el ejemplo literal del
 enunciado: responde `201` la primera vez y `409` después, y su prueba acepta ambos. Las demás usan un
 correo distinto en cada ejecución, de modo que la colección se puede repetir sobre la misma instancia.
+
+La solicitud `16` es una prueba manual para probar valores propios: toma `nombre`, `correo`, `clave`,
+`telefono`, `codigoCiudad` y `codigoPais` de las variables de la colección (pestaña *Variables*) o se edita
+directamente en la pestaña *Body*. Acepta `201`, `400` y `409`, y escribe un resumen en la consola de Postman.
 
 - **Importar en Postman:** *Import*, elegir el archivo. La variable de colección `baseUrl` vale
   `http://localhost:8080`; cámbiela si el servicio escucha en otra dirección.

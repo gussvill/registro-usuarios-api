@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "API de registro de usuarios",
-    "description": "Pruebas de punta a punta de POST /api/v1/users y de los errores del contrato {\"mensaje\": \"...\"}. Se puede ejecutar varias veces contra la misma instancia: cada ejecución usa correos únicos, salvo la solicitud 00, que envía el ejemplo literal del enunciado y acepta 201 (primera vez) o 409 (ya registrado). La variable de colección baseUrl apunta a http://localhost:8080.",
+    "description": "Pruebas de punta a punta de POST /api/v1/users y de los errores del contrato {\"mensaje\": \"...\"}. Se puede ejecutar varias veces contra la misma instancia: cada ejecución usa correos únicos, salvo la solicitud 00, que envía el ejemplo literal del enunciado y acepta 201 (primera vez) o 409 (ya registrado). La variable de colección baseUrl apunta a http://localhost:8080. La solicitud 16 es una prueba manual: usa las variables nombre, correo, clave, telefono, codigoCiudad y codigoPais, y acepta 201, 400 o 409.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -1050,12 +1050,112 @@
         },
         "description": "Documento OpenAPI generado por la aplicación."
       }
+    },
+    {
+      "name": "16 Prueba manual: edita las variables o el cuerpo",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const estado = pm.response.code;",
+              "pm.test('Estado 201, 400 o 409', function () {",
+              "  pm.expect([201, 400, 409]).to.include(estado);",
+              "});",
+              "",
+              "pm.test('Content-Type es application/json', function () {",
+              "  pm.expect(pm.response.headers.get('Content-Type')).to.match(/^application\\/json/);",
+              "});",
+              "",
+              "const cuerpo = pm.response.json();",
+              "",
+              "if (estado === 201) {",
+              "  pm.test('201: el usuario trae sus campos y no incluye la contraseña', function () {",
+              "    ['id', 'created', 'modified', 'last_login', 'token', 'isactive'].forEach(function (clave) {",
+              "      pm.expect(cuerpo).to.have.property(clave);",
+              "    });",
+              "    pm.expect(cuerpo).to.not.have.property('password');",
+              "  });",
+              "  console.log('201 creado: ' + cuerpo.email);",
+              "} else if (estado === 400 || estado === 409) {",
+              "  pm.test(estado + ': el cuerpo tiene exactamente la clave mensaje', function () {",
+              "    pm.expect(Object.keys(cuerpo)).to.eql(['mensaje']);",
+              "    pm.expect(cuerpo.mensaje).to.be.a('string').and.not.empty;",
+              "  });",
+              "  console.log(estado + ': ' + cuerpo.mensaje);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users"
+          ]
+        },
+        "description": "Registra un usuario con los valores de las variables de colección nombre, correo, clave, telefono, codigoCiudad y codigoPais. Para probar sus propios valores, cámbielos en la pestaña Variables de la colección o edite directamente el JSON en la pestaña Body. Con los valores por defecto, la primera ejecución sobre una instancia nueva responde 201 y las siguientes 409 (correo repetido). Un dato inválido responde 400 con el mensaje del campo erróneo. La prueba acepta 201, 400 y 409, y escribe en la consola de Postman un resumen de una línea.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"{{nombre}}\",\n  \"email\": \"{{correo}}\",\n  \"password\": \"{{clave}}\",\n  \"phones\": [\n    {\n      \"number\": \"{{telefono}}\",\n      \"citycode\": \"{{codigoCiudad}}\",\n      \"contrycode\": \"{{codigoPais}}\"\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
     }
   ],
   "variable": [
     {
       "key": "baseUrl",
       "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "nombre",
+      "value": "Juan Rodriguez",
+      "type": "string"
+    },
+    {
+      "key": "correo",
+      "value": "prueba@dominio.cl",
+      "type": "string"
+    },
+    {
+      "key": "clave",
+      "value": "hunter2",
+      "type": "string"
+    },
+    {
+      "key": "telefono",
+      "value": "1234567",
+      "type": "string"
+    },
+    {
+      "key": "codigoCiudad",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "codigoPais",
+      "value": "57",
       "type": "string"
     }
   ]
