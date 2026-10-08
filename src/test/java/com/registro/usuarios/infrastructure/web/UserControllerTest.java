@@ -308,9 +308,8 @@ class UserControllerTest {
         .andExpect(header().doesNotExist("Location"));
   }
 
-  // El estado de las peticiones que el endpoint no consume ni produce pertenece a su mapeo. El
-  // cuerpo
-  // de esas respuestas pertenece al contrato de errores y no se verifica aquí.
+  // El estado de las peticiones que el endpoint no consume ni produce pertenece a su mapeo.
+  // El cuerpo de esas respuestas pertenece al contrato de errores y no se verifica aquí.
 
   @Test
   void aBodyThatIsNotJsonIsNotConsumed() throws Exception {
