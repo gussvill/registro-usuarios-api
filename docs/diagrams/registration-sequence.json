@@ -1,0 +1,251 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Flujo de registro de un usuario",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1085,
+      690
+    ],
+    "column_fit": "spread",
+    "legend": {
+      "entries": {
+        "emphasis": {
+          "label": "Llamada principal"
+        },
+        "default": {
+          "label": "Llamada a un puerto o al dominio"
+        },
+        "return": {
+          "label": "Respuesta"
+        }
+      }
+    }
+  },
+  "participants": [
+    {
+      "id": "client",
+      "type": "external",
+      "label": "Cliente",
+      "sublabel": "HTTP · JSON"
+    },
+    {
+      "id": "controller",
+      "type": "frontend",
+      "label": "Controlador",
+      "sublabel": "UserController"
+    },
+    {
+      "id": "usecase",
+      "type": "backend",
+      "label": "Caso de uso",
+      "sublabel": "RegisterUser"
+    },
+    {
+      "id": "domain",
+      "type": "messagebus",
+      "label": "Dominio",
+      "sublabel": "modelo y política"
+    },
+    {
+      "id": "repo",
+      "type": "database",
+      "label": "Repositorio",
+      "sublabel": "UserRepository"
+    },
+    {
+      "id": "hasher",
+      "type": "security",
+      "label": "Hash",
+      "sublabel": "PasswordHasher"
+    },
+    {
+      "id": "tokens",
+      "type": "security",
+      "label": "Token",
+      "sublabel": "TokenIssuer"
+    }
+  ],
+  "segments": [
+    {
+      "from": 201,
+      "to": 578,
+      "label": "Transacción (@Transactional)"
+    },
+    {
+      "from": 380,
+      "to": 431,
+      "label": "El reloj se lee una sola vez (now)"
+    },
+    {
+      "from": 496,
+      "to": 547,
+      "label": "save: violación de unicidad → 409"
+    }
+  ],
+  "messages": [
+    {
+      "id": "post",
+      "from": "client",
+      "to": "controller",
+      "y": 160,
+      "label": "POST /api/v1/users",
+      "variant": "emphasis"
+    },
+    {
+      "id": "register",
+      "from": "controller",
+      "to": "usecase",
+      "y": 189,
+      "label": "register(command)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "validate",
+      "from": "usecase",
+      "to": "domain",
+      "y": 218,
+      "label": "valida todos los campos"
+    },
+    {
+      "id": "valid",
+      "from": "domain",
+      "to": "usecase",
+      "y": 247,
+      "label": "sin violaciones",
+      "variant": "return"
+    },
+    {
+      "id": "exists",
+      "from": "usecase",
+      "to": "repo",
+      "y": 276,
+      "label": "existsByEmail(email)"
+    },
+    {
+      "id": "not-exists",
+      "from": "repo",
+      "to": "usecase",
+      "y": 305,
+      "label": "false",
+      "variant": "return"
+    },
+    {
+      "id": "hash",
+      "from": "usecase",
+      "to": "hasher",
+      "y": 334,
+      "label": "hash(password)"
+    },
+    {
+      "id": "hashed",
+      "from": "hasher",
+      "to": "usecase",
+      "y": 363,
+      "label": "hash BCrypt",
+      "variant": "return"
+    },
+    {
+      "id": "issue",
+      "from": "usecase",
+      "to": "tokens",
+      "y": 392,
+      "label": "issue(id, email, now)"
+    },
+    {
+      "id": "issued",
+      "from": "tokens",
+      "to": "usecase",
+      "y": 421,
+      "label": "JWT firmado",
+      "variant": "return"
+    },
+    {
+      "id": "build",
+      "from": "usecase",
+      "to": "domain",
+      "y": 450,
+      "label": "User.registration()"
+    },
+    {
+      "id": "built",
+      "from": "domain",
+      "to": "usecase",
+      "y": 479,
+      "label": "User",
+      "variant": "return"
+    },
+    {
+      "id": "save",
+      "from": "usecase",
+      "to": "repo",
+      "y": 508,
+      "label": "save(user)"
+    },
+    {
+      "id": "saved",
+      "from": "repo",
+      "to": "usecase",
+      "y": 537,
+      "label": "guardado",
+      "variant": "return"
+    },
+    {
+      "id": "user",
+      "from": "usecase",
+      "to": "controller",
+      "y": 566,
+      "label": "User",
+      "variant": "return"
+    },
+    {
+      "id": "created",
+      "from": "controller",
+      "to": "client",
+      "y": 595,
+      "label": "201 UserResponse",
+      "variant": "return"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "controller",
+      "from": 160,
+      "to": 595,
+      "type": "frontend"
+    },
+    {
+      "participant": "usecase",
+      "from": 189,
+      "to": 566,
+      "type": "backend"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Orden del caso de uso",
+      "items": [
+        "Valida todos los campos antes de consultar",
+        "Duplicado, hash, reloj, token, User, save"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Transacción",
+      "items": [
+        "Empieza al entrar en register()",
+        "Se confirma al retornar el User"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Respuesta",
+      "items": [
+        "201 con UserResponse",
+        "La contraseña nunca se devuelve"
+      ]
+    }
+  ]
+}

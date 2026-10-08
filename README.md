@@ -194,13 +194,24 @@ npx -y newman run postman/registro-usuarios-api.postman_collection.json --env-va
 
 ## Arquitectura
 
-![Componentes](docs/diagrams/components.png)
+![Arquitectura hexagonal del servicio](docs/diagrams/components.png)
 
-![Secuencia del registro](docs/diagrams/registration-sequence.png)
+Las líneas continuas son "usa" y las discontinuas "implementa"; todas apuntan hacia el núcleo
+(`application` y `domain`).
 
-Los diagramas son Mermaid ([`components.mmd`](docs/diagrams/components.mmd),
-[`registration-sequence.mmd`](docs/diagrams/registration-sequence.mmd)) y se exportan a PNG en la misma
-carpeta.
+![Flujo de registro de un usuario](docs/diagrams/registration-sequence.png)
+
+![Flujo de registro de un usuario: errores](docs/diagrams/registration-sequence-errors.png)
+
+Cada diagrama tiene, en [`docs/diagrams`](docs/diagrams), su fuente en JSON, el PNG de arriba y una versión
+HTML interactiva y autocontenida (tema claro y oscuro, búsqueda y zoom) que se abre en el navegador tras
+clonar el repositorio:
+
+| Diagrama | Fuente | Interactivo |
+|---|---|---|
+| Arquitectura | [`components.json`](docs/diagrams/components.json) | [`components.html`](docs/diagrams/components.html) |
+| Registro, camino feliz | [`registration-sequence.json`](docs/diagrams/registration-sequence.json) | [`registration-sequence.html`](docs/diagrams/registration-sequence.html) |
+| Registro, errores | [`registration-sequence-errors.json`](docs/diagrams/registration-sequence-errors.json) | [`registration-sequence-errors.html`](docs/diagrams/registration-sequence-errors.html) |
 
 - `domain` no tiene framework: `User`, `Email`, `Phone`, `UserId`, las reglas de validación (con sus
   motivos tipados, `Reason`), los límites fijos de la contraseña (`Password`), el formato configurable

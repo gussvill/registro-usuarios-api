@@ -1,0 +1,227 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Flujo de registro de un usuario: errores",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1085,
+      690
+    ],
+    "column_fit": "spread",
+    "legend": {
+      "entries": {
+        "emphasis": {
+          "label": "Llamada principal"
+        },
+        "default": {
+          "label": "Llamada a un puerto o al dominio"
+        },
+        "return": {
+          "label": "Respuesta"
+        },
+        "security": {
+          "label": "Excepción propagada"
+        }
+      }
+    }
+  },
+  "participants": [
+    {
+      "id": "client",
+      "type": "external",
+      "label": "Cliente",
+      "sublabel": "HTTP · JSON"
+    },
+    {
+      "id": "errors",
+      "type": "frontend",
+      "label": "Errores",
+      "sublabel": "GlobalExceptionHandler"
+    },
+    {
+      "id": "controller",
+      "type": "frontend",
+      "label": "Controlador",
+      "sublabel": "UserController"
+    },
+    {
+      "id": "usecase",
+      "type": "backend",
+      "label": "Caso de uso",
+      "sublabel": "RegisterUser"
+    },
+    {
+      "id": "domain",
+      "type": "messagebus",
+      "label": "Dominio",
+      "sublabel": "modelo y política"
+    },
+    {
+      "id": "repo",
+      "type": "database",
+      "label": "Repositorio",
+      "sublabel": "UserRepository"
+    }
+  ],
+  "segments": [
+    {
+      "from": 158,
+      "to": 354,
+      "label": "Validación fallida → 400"
+    },
+    {
+      "from": 380,
+      "to": 576,
+      "label": "Correo ya registrado → 409 (también si la restricción única falla en save)"
+    }
+  ],
+  "messages": [
+    {
+      "id": "a-post",
+      "from": "client",
+      "to": "controller",
+      "y": 192,
+      "label": "POST /api/v1/users",
+      "variant": "emphasis"
+    },
+    {
+      "id": "a-register",
+      "from": "controller",
+      "to": "usecase",
+      "y": 222,
+      "label": "register(command)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "a-validate",
+      "from": "usecase",
+      "to": "domain",
+      "y": 252,
+      "label": "valida todos los campos"
+    },
+    {
+      "id": "a-reasons",
+      "from": "domain",
+      "to": "usecase",
+      "y": 282,
+      "label": "motivos (Reason)",
+      "variant": "return"
+    },
+    {
+      "id": "a-throw",
+      "from": "usecase",
+      "to": "errors",
+      "y": 312,
+      "label": "InvalidUserDataException",
+      "variant": "security"
+    },
+    {
+      "id": "a-400",
+      "from": "errors",
+      "to": "client",
+      "y": 342,
+      "label": "400 · mensajes unidos",
+      "variant": "return"
+    },
+    {
+      "id": "b-post",
+      "from": "client",
+      "to": "controller",
+      "y": 414,
+      "label": "POST /api/v1/users",
+      "variant": "emphasis"
+    },
+    {
+      "id": "b-register",
+      "from": "controller",
+      "to": "usecase",
+      "y": 444,
+      "label": "register(command)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "b-exists",
+      "from": "usecase",
+      "to": "repo",
+      "y": 474,
+      "label": "existsByEmail(email)"
+    },
+    {
+      "id": "b-true",
+      "from": "repo",
+      "to": "usecase",
+      "y": 504,
+      "label": "true",
+      "variant": "return"
+    },
+    {
+      "id": "b-throw",
+      "from": "usecase",
+      "to": "errors",
+      "y": 534,
+      "label": "EmailAlreadyRegisteredException",
+      "variant": "security"
+    },
+    {
+      "id": "b-409",
+      "from": "errors",
+      "to": "client",
+      "y": 564,
+      "label": "409 · El correo ya registrado",
+      "variant": "return"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "controller",
+      "from": 192,
+      "to": 312,
+      "type": "frontend"
+    },
+    {
+      "participant": "usecase",
+      "from": 222,
+      "to": 312,
+      "type": "backend"
+    },
+    {
+      "participant": "controller",
+      "from": 414,
+      "to": 534,
+      "type": "frontend"
+    },
+    {
+      "participant": "usecase",
+      "from": 444,
+      "to": 534,
+      "type": "backend"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "Propagación",
+      "items": [
+        "Nadie captura la excepción: cruza UserController",
+        "GlobalExceptionHandler la traduce a JSON"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "400",
+      "items": [
+        "Mensajes de todos los campos erróneos",
+        "Ordenados y unidos con \"; \""
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "409",
+      "items": [
+        "existsByEmail o la restricción única",
+        "La transacción se revierte"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,489 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Arquitectura hexagonal del servicio",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1180,
+      758
+    ],
+    "legend": {
+      "entries": {
+        "external": {
+          "label": "Cliente"
+        },
+        "frontend": {
+          "label": "Adaptador web"
+        },
+        "backend": {
+          "label": "Aplicación"
+        },
+        "messagebus": {
+          "label": "Dominio"
+        },
+        "security": {
+          "label": "Adaptador de seguridad"
+        },
+        "database": {
+          "label": "Persistencia"
+        },
+        "cloud": {
+          "label": "Configuración"
+        }
+      }
+    }
+  },
+  "components": [
+    {
+      "id": "client",
+      "type": "external",
+      "label": "Cliente",
+      "sublabel": "HTTP · JSON",
+      "pos": [
+        37,
+        76
+      ],
+      "size": [
+        100,
+        52
+      ]
+    },
+    {
+      "id": "controller",
+      "type": "frontend",
+      "label": "UserController",
+      "sublabel": "UserApi · POST /api/v1/users",
+      "pos": [
+        197,
+        76
+      ],
+      "size": [
+        184,
+        52
+      ]
+    },
+    {
+      "id": "mapper",
+      "type": "frontend",
+      "label": "UserWebMapper",
+      "sublabel": "records JSON ↔ comando",
+      "pos": [
+        197,
+        180
+      ],
+      "size": [
+        184,
+        52
+      ]
+    },
+    {
+      "id": "handler",
+      "type": "frontend",
+      "label": "GlobalExceptionHandler",
+      "sublabel": "excepción → 400 · 409 · 500",
+      "pos": [
+        197,
+        284
+      ],
+      "size": [
+        184,
+        52
+      ]
+    },
+    {
+      "id": "errorController",
+      "type": "frontend",
+      "label": "ApiErrorController",
+      "sublabel": "errores fuera de MVC",
+      "pos": [
+        197,
+        388
+      ],
+      "size": [
+        184,
+        52
+      ]
+    },
+    {
+      "id": "registerUser",
+      "type": "backend",
+      "label": "RegisterUser",
+      "sublabel": "puerto de entrada",
+      "pos": [
+        453,
+        76
+      ],
+      "size": [
+        164,
+        52
+      ]
+    },
+    {
+      "id": "useCase",
+      "type": "backend",
+      "label": "RegisterUserUseCase",
+      "sublabel": "@Transactional",
+      "pos": [
+        453,
+        180
+      ],
+      "size": [
+        164,
+        52
+      ]
+    },
+    {
+      "id": "passwordHasher",
+      "type": "messagebus",
+      "label": "PasswordHasher",
+      "sublabel": "puerto de salida",
+      "pos": [
+        697,
+        76
+      ],
+      "size": [
+        160,
+        52
+      ]
+    },
+    {
+      "id": "tokenIssuer",
+      "type": "messagebus",
+      "label": "TokenIssuer",
+      "sublabel": "puerto de salida",
+      "pos": [
+        697,
+        180
+      ],
+      "size": [
+        160,
+        52
+      ]
+    },
+    {
+      "id": "userRepository",
+      "type": "messagebus",
+      "label": "UserRepository",
+      "sublabel": "puerto de salida",
+      "pos": [
+        697,
+        284
+      ],
+      "size": [
+        160,
+        52
+      ]
+    },
+    {
+      "id": "model",
+      "type": "messagebus",
+      "label": "domain.model",
+      "sublabel": "User · Email · Phone",
+      "pos": [
+        697,
+        388
+      ],
+      "size": [
+        160,
+        52
+      ]
+    },
+    {
+      "id": "policy",
+      "type": "messagebus",
+      "label": "domain.policy",
+      "sublabel": "Password · PasswordPolicy",
+      "pos": [
+        697,
+        492
+      ],
+      "size": [
+        160,
+        52
+      ]
+    },
+    {
+      "id": "exceptions",
+      "type": "messagebus",
+      "label": "domain.exception",
+      "sublabel": "DomainException",
+      "pos": [
+        697,
+        596
+      ],
+      "size": [
+        160,
+        52
+      ]
+    },
+    {
+      "id": "bcrypt",
+      "type": "security",
+      "label": "BCryptPasswordHasher",
+      "sublabel": "hash BCrypt con sal",
+      "pos": [
+        953,
+        76
+      ],
+      "size": [
+        188,
+        52
+      ]
+    },
+    {
+      "id": "jjwt",
+      "type": "security",
+      "label": "JjwtTokenIssuer",
+      "sublabel": "JWT · TokenProperties",
+      "pos": [
+        953,
+        180
+      ],
+      "size": [
+        188,
+        52
+      ]
+    },
+    {
+      "id": "persistence",
+      "type": "database",
+      "label": "UserPersistenceAdapter",
+      "sublabel": "UserJpaRepository · entidades",
+      "pos": [
+        953,
+        284
+      ],
+      "size": [
+        188,
+        52
+      ]
+    },
+    {
+      "id": "h2",
+      "type": "database",
+      "label": "H2 en memoria",
+      "sublabel": "schema.sql",
+      "pos": [
+        953,
+        492
+      ],
+      "size": [
+        188,
+        52
+      ]
+    },
+    {
+      "id": "properties",
+      "type": "cloud",
+      "label": "RegistrationProperties",
+      "sublabel": "app.registration.*",
+      "pos": [
+        197,
+        596
+      ],
+      "size": [
+        184,
+        52
+      ]
+    },
+    {
+      "id": "config",
+      "type": "cloud",
+      "label": "ApplicationConfig",
+      "sublabel": "beans del núcleo · Clock",
+      "pos": [
+        453,
+        596
+      ],
+      "size": [
+        164,
+        52
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "infrastructure.web",
+      "pad": 10,
+      "wraps": [
+        "controller",
+        "mapper",
+        "handler",
+        "errorController"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "application",
+      "pad": 10,
+      "wraps": [
+        "registerUser",
+        "useCase"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "domain",
+      "pad": 10,
+      "wraps": [
+        "passwordHasher",
+        "tokenIssuer",
+        "userRepository",
+        "model",
+        "policy",
+        "exceptions"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "infrastructure.security",
+      "pad": 10,
+      "wraps": [
+        "bcrypt",
+        "jjwt"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "infrastructure.persistence",
+      "pad": 10,
+      "wraps": [
+        "persistence"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "infrastructure.config",
+      "pad": 10,
+      "wraps": [
+        "properties",
+        "config"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "http",
+      "from": "client",
+      "to": "controller",
+      "label": "HTTP",
+      "variant": "emphasis"
+    },
+    {
+      "id": "controller-port",
+      "from": "controller",
+      "to": "registerUser",
+      "label": "usa",
+      "variant": "emphasis"
+    },
+    {
+      "id": "usecase-implements",
+      "from": "useCase",
+      "to": "registerUser",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "label": "implementa",
+      "labelDx": 46
+    },
+    {
+      "id": "usecase-hasher",
+      "from": "useCase",
+      "to": "passwordHasher"
+    },
+    {
+      "id": "usecase-token",
+      "from": "useCase",
+      "to": "tokenIssuer"
+    },
+    {
+      "id": "usecase-repo",
+      "from": "useCase",
+      "to": "userRepository"
+    },
+    {
+      "id": "usecase-model",
+      "from": "useCase",
+      "to": "model"
+    },
+    {
+      "id": "bcrypt-implements",
+      "from": "bcrypt",
+      "to": "passwordHasher",
+      "variant": "dashed",
+      "label": "implementa"
+    },
+    {
+      "id": "jjwt-implements",
+      "from": "jjwt",
+      "to": "tokenIssuer",
+      "variant": "dashed",
+      "label": "implementa"
+    },
+    {
+      "id": "persistence-implements",
+      "from": "persistence",
+      "to": "userRepository",
+      "variant": "dashed",
+      "label": "implementa"
+    },
+    {
+      "id": "persistence-h2",
+      "from": "persistence",
+      "to": "h2",
+      "label": "JPA",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        1067,
+        416
+      ]
+    },
+    {
+      "id": "config-usecase",
+      "from": "config",
+      "to": "useCase",
+      "label": "instancia",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [
+        571,
+        440
+      ]
+    },
+    {
+      "id": "config-properties",
+      "from": "config",
+      "to": "properties",
+      "label": "lee"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Regla de dependencia",
+      "items": [
+        "Toda flecha apunta hacia el núcleo",
+        "domain no depende de Spring ni de JPA"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Cómo leer las flechas",
+      "items": [
+        "Línea continua: usa o llama",
+        "Línea discontinua: implementa"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Cableado",
+      "items": [
+        "ApplicationConfig crea los beans del núcleo",
+        "Un adaptador de producción por puerto"
+      ]
+    }
+  ]
+}
