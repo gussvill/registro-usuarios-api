@@ -270,6 +270,7 @@ keep their own formats.
 | `Accept` cannot be satisfied | 406 | `Formato de respuesta no aceptable` |
 | `Content-Type` is not JSON | 415 | `Tipo de contenido no soportado` |
 | Email already registered | 409 | `El correo ya registrado` |
+| Any other 409 without a typed rejection | 409 | `La solicitud entra en conflicto con el estado actual del recurso` |
 | Anything unexpected | 500 | `Error interno del servidor` |
 
 **Decisions inside the table.**
@@ -294,7 +295,8 @@ negotiates its content, so it can answer an HTML page or an empty body.
 
 **Decision.** `ApiErrorController` replaces Boot's `/error` handler. Errors forwarded to `/error` get
 the same JSON body as every other error, for every method and every `Accept` value, with an explicit
-JSON content type. The controller is hidden from the OpenAPI document.
+JSON content type. A direct `GET /error` with no forwarded status is a request for a missing page
+and is answered as a 404. The controller is hidden from the OpenAPI document.
 
 **Alternatives discarded.**
 

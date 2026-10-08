@@ -96,12 +96,18 @@ class ErrorMessagesTest {
     "404, Recurso no encontrado",
     "405, Método no permitido",
     "406, Formato de respuesta no aceptable",
-    "409, El correo ya registrado",
+    "409, La solicitud entra en conflicto con el estado actual del recurso",
     "415, Tipo de contenido no soportado",
     "500, Error interno del servidor"
   })
   void eachMappedStatusHasItsLiteralMessage(int status, String message) {
     assertThat(ErrorMessages.forStatus(status)).isEqualTo(message);
+  }
+
+  @Test
+  void aGenericConflictDoesNotClaimThatAnEmailIsRegistered() {
+    assertThat(ErrorMessages.forStatus(409)).isNotEqualTo(ErrorMessages.EMAIL_ALREADY_REGISTERED);
+    assertThat(ErrorMessages.EMAIL_ALREADY_REGISTERED).isEqualTo("El correo ya registrado");
   }
 
   @ParameterizedTest

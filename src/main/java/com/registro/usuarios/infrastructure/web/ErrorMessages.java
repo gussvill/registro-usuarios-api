@@ -18,6 +18,7 @@ final class ErrorMessages {
   static final String METHOD_NOT_ALLOWED = "Método no permitido";
   static final String NOT_ACCEPTABLE = "Formato de respuesta no aceptable";
   static final String EMAIL_ALREADY_REGISTERED = "El correo ya registrado";
+  static final String CONFLICT = "La solicitud entra en conflicto con el estado actual del recurso";
   static final String UNSUPPORTED_MEDIA_TYPE = "Tipo de contenido no soportado";
   static final String INTERNAL_ERROR = "Error interno del servidor";
 
@@ -69,7 +70,7 @@ final class ErrorMessages {
       case 404 -> NOT_FOUND;
       case 405 -> METHOD_NOT_ALLOWED;
       case 406 -> NOT_ACCEPTABLE;
-      case 409 -> EMAIL_ALREADY_REGISTERED;
+      case 409 -> CONFLICT;
       case 415 -> UNSUPPORTED_MEDIA_TYPE;
       default -> status >= 400 && status < 500 ? INVALID_REQUEST : INTERNAL_ERROR;
     };

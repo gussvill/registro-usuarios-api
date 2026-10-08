@@ -136,10 +136,10 @@ class ErrorPathTest {
   // --- the application's own error page, hit directly ---
 
   @Test
-  void aDirectRequestToTheErrorPathIsAJsonContractBody() throws IOException {
+  void aDirectRequestToTheErrorPathWithoutAnErrorIsA404JsonContractBody() throws IOException {
     Wire wire = get("/error");
 
-    assertContractShape(wire, 500, "Error interno del servidor");
+    assertContractShape(wire, 404, "Recurso no encontrado");
   }
 
   @ParameterizedTest(name = "{0}")
@@ -156,7 +156,7 @@ class ErrorPathTest {
   void aBrowserHittingTheErrorPathDirectlyGetsJsonAndNotAWhitelabelPage() throws IOException {
     Wire wire = request("GET", "/error", Map.of("Accept", "text/html"));
 
-    assertContractShape(wire, 500, "Error interno del servidor");
+    assertContractShape(wire, 404, "Recurso no encontrado");
     assertThat(wire.text()).doesNotContainIgnoringCase("whitelabel").doesNotContain("<");
   }
 

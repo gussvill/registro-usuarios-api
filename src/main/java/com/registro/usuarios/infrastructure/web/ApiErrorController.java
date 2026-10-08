@@ -21,7 +21,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("${server.error.path:/error}")
 class ApiErrorController implements ErrorController {
 
-  private static final int DEFAULT_STATUS = 500;
+  private static final int NO_ERROR_STATUS = 404;
+  private static final int UNREADABLE_STATUS = 500;
 
   @RequestMapping
   ResponseEntity<ErrorResponse> error(HttpServletRequest request) {
@@ -33,6 +34,10 @@ class ApiErrorController implements ErrorController {
 
   private static int statusOf(HttpServletRequest request) {
     Object attribute = request.getAttribute(RequestDispatcher.ERROR_STATUS_CODE);
-    return attribute instanceof Integer status ? status : DEFAULT_STATUS;
+    if (attribute == null) {
+      // Nothing was forwarded: a direct request to the error path is a request for a missing page.
+      return NO_ERROR_STATUS;
+    }
+    return attribute instanceof Integer status ? status : UNREADABLE_STATUS;
   }
 }
