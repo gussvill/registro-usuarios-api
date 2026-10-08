@@ -1,20 +1,20 @@
 sequenceDiagram
-  actor C as Cliente HTTP
+  actor C as Cliente
   participant W as UserController
-  participant E as GlobalExceptionHandler
+  participant E as Manejador de errores
   participant U as RegisterUserUseCase
-  participant D as Reglas de dominio (Email, Phone, User, PasswordPolicy)
-  participant R as UserRepository (UserPersistenceAdapter)
-  participant H as PasswordHasher (BCryptPasswordHasher)
-  participant T as TokenIssuer (JjwtTokenIssuer)
+  participant D as Dominio
+  participant R as UserRepository
+  participant H as PasswordHasher
+  participant T as TokenIssuer
 
   C->>W: POST /api/v1/users (JSON)
   Note over W: enlace estricto, un error de sintaxis o de tipo es un 400
-  W->>U: register(command)
+  W->>U: register(command), mediante el puerto RegisterUser
   Note over U: comienza la transacción
-  U->>D: reúne las violaciones de todos los campos
+  U->>D: reúne las violaciones de todos los campos<br/>(Email, User, Password con PasswordPolicy, lista de teléfonos)
   alt algún campo incumple una regla
-    D-->>U: motivos
+    D-->>U: motivos (Reason)
     U-->>W: InvalidUserDataException (se propaga, nadie la captura)
     W-->>E: la excepción llega al manejador
     E-->>C: 400 mensaje = los mensajes de los campos erróneos, ordenados y unidos
@@ -34,7 +34,7 @@ sequenceDiagram
   U->>D: User.registration()...build()
   D-->>U: User
   U->>R: save(user)
-  Note over R: saveAndFlush, una violación de unicidad es un 409
+  Note over R: UserPersistenceAdapter, saveAndFlush,<br/>una violación de unicidad es un 409
   R-->>U: guardado
   Note over U: la transacción se confirma
   U-->>W: User

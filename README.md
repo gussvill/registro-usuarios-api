@@ -155,6 +155,7 @@ la página se sirve, pero rechaza la conexión ("remote connections are disabled
 ./gradlew clean build --rerun-tasks  # lo mismo desde cero, sin caché
 ./gradlew spotlessApply              # corrige el formato
 bash scripts/acceptance.sh           # con el servicio en marcha: solicitudes reales con curl
+npx -y newman run postman/registro-usuarios-api.postman_collection.json   # colección de Postman
 ```
 
 - **Capas de prueba:** JUnit simple para el dominio y el caso de uso (sin Spring ni base de datos),
@@ -168,10 +169,28 @@ bash scripts/acceptance.sh           # con el servicio en marcha: solicitudes re
   que cada regla falla cuando una clase de fixture la rompe.
 - **Script de aceptación:** hace solicitudes reales con `curl` (el ejemplo del enunciado, el duplicado,
   cuerpos inválidos y mal formados, 404, 405, 406, 415, Swagger UI y el documento OpenAPI) y termina con
-  código distinto de cero en el primer fallo. Use una instancia nueva cada vez, porque la dirección del
-  ejemplo solo se puede registrar una vez; `BASE_URL` apunta a otra dirección.
+  código distinto de cero en el primer fallo. Se puede ejecutar varias veces sobre la misma instancia,
+  porque cada ejecución registra una dirección distinta; `BASE_URL` apunta a otra dirección.
+- **Colección de Postman:** ver la sección siguiente.
 - **CI:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) ejecuta `./gradlew build` y construye la
   imagen en cada push y pull request a `main`.
+
+## Colección de Postman
+
+[`postman/registro-usuarios-api.postman_collection.json`](postman/registro-usuarios-api.postman_collection.json)
+(Postman Collection v2.1) tiene 16 solicitudes con sus pruebas: el registro, el duplicado, cada tipo de
+rechazo, 404, 405, 406, 415 y el documento OpenAPI. La solicitud `00` envía el ejemplo literal del
+enunciado: responde `201` la primera vez y `409` después, y su prueba acepta ambos. Las demás usan un
+correo distinto en cada ejecución, de modo que la colección se puede repetir sobre la misma instancia.
+
+- **Importar en Postman:** *Import*, elegir el archivo. La variable de colección `baseUrl` vale
+  `http://localhost:8080`; cámbiela si el servicio escucha en otra dirección.
+- **Ejecutar con Newman** (con el servicio en marcha):
+
+```
+npx -y newman run postman/registro-usuarios-api.postman_collection.json
+npx -y newman run postman/registro-usuarios-api.postman_collection.json --env-var baseUrl=http://localhost:9090
+```
 
 ## Arquitectura
 
@@ -183,10 +202,12 @@ Los diagramas son Mermaid ([`components.mmd`](docs/diagrams/components.mmd),
 [`registration-sequence.mmd`](docs/diagrams/registration-sequence.mmd)) y se exportan a PNG en la misma
 carpeta.
 
-- `domain` no tiene framework: `User`, `Email`, `Phone`, `UserId`, la política de contraseña, las
-  reglas de validación y los tres puertos (`UserRepository`, `PasswordHasher`, `TokenIssuer`).
-- `application` tiene una sola clase, `RegisterUserUseCase`, que orquesta el registro y es dueña de la
-  transacción. `@Transactional` es el único tipo del framework permitido allí.
+- `domain` no tiene framework: `User`, `Email`, `Phone`, `UserId`, las reglas de validación (con sus
+  motivos tipados, `Reason`), los límites fijos de la contraseña (`Password`), el formato configurable
+  (`PasswordPolicy`) y los tres puertos de salida (`UserRepository`, `PasswordHasher`, `TokenIssuer`).
+- `application` tiene el puerto de entrada `RegisterUser` (con su comando) y una sola implementación,
+  `RegisterUserUseCase`, que orquesta el registro y es dueña de la transacción. `@Transactional` es el
+  único tipo del framework permitido allí.
 - `infrastructure` contiene los adaptadores: `web` (controlador, records JSON, manejo de errores),
   `persistence` (JPA), `security` (BCrypt, JJWT) y `config` (cableado y propiedades).
 
@@ -230,6 +251,8 @@ descartadas, está en [`docs/architecture-decisions.md`](docs/architecture-decis
 - El patrón de contraseña por defecto es débil a propósito.
 - Los datos están en memoria y se pierden al reiniciar.
 - La consola H2 y Swagger UI vienen activadas.
+- Una barra final (`POST /api/v1/users/`) responde `404`, y la aplicación no fija un tamaño máximo para
+  el cuerpo de la solicitud más allá de los valores por defecto del servidor.
 - Una respuesta de duplicado le dice a quien llama que una dirección está registrada.
 
 La lista completa, con su razonamiento, está al final de

@@ -14,7 +14,7 @@ eso y del enunciado del ejercicio.
 |----|----------|
 | [ADR-001](#adr-001-un-hexágono-ligero-para-un-servicio-de-un-solo-endpoint) | Un hexágono ligero para un servicio de un solo endpoint |
 | [ADR-002](#adr-002-puertos-y-adaptadores-una-razón-para-cada-uno) | Puertos y adaptadores, una razón para cada uno |
-| [ADR-003](#adr-003-sin-interfaz-de-puerto-de-entrada) | Sin interfaz de puerto de entrada |
+| [ADR-003](#adr-003-un-puerto-de-entrada-para-el-caso-de-uso) | Un puerto de entrada para el caso de uso |
 | [ADR-004](#adr-004-transactional-en-el-caso-de-uso-es-la-única-concesión-al-framework) | `@Transactional` en el caso de uso es la única concesión al framework |
 | [ADR-005](#adr-005-un-modelo-de-persistencia-separado-con-mapeo-de-solo-escritura) | Un modelo de persistencia separado con mapeo de solo escritura |
 | [ADR-006](#adr-006-la-validación-vive-en-el-dominio) | La validación vive en el dominio |
@@ -28,7 +28,7 @@ eso y del enunciado del ejercicio.
 | [ADR-014](#adr-014-jjwt-con-jackson-2-junto-a-jackson-3) | JJWT con Jackson 2 junto a Jackson 3 |
 | [ADR-015](#adr-015-bcrypt-mediante-spring-security-crypto-sin-el-starter-de-seguridad) | BCrypt mediante `spring-security-crypto`, sin el starter de seguridad |
 | [ADR-016](#adr-016-el-token-se-persiste-en-claro-y-la-clave-de-firma-es-efímera-salvo-que-se-configure) | El token se persiste en claro y la clave de firma es efímera salvo que se configure |
-| [ADR-017](#adr-017-un-strategy-de-política-de-contraseña-con-un-valor-por-defecto-débil-a-propósito) | Un Strategy de política de contraseña con un valor por defecto débil a propósito |
+| [ADR-017](#adr-017-un-strategy-para-el-formato-de-la-contraseña-con-un-valor-por-defecto-débil-a-propósito) | Un Strategy para el formato de la contraseña, con un valor por defecto débil a propósito |
 | [ADR-018](#adr-018-el-contrycode-literal) | El `contrycode` literal |
 | [ADR-019](#adr-019-normalización-del-correo-y-límites-de-campos) | Normalización del correo y límites de campos |
 | [ADR-020](#adr-020-identificador-generado-por-la-aplicación-y-una-única-lectura-del-reloj) | Identificador generado por la aplicación y una única lectura del reloj |
@@ -52,15 +52,15 @@ solo en parte.
 **Decisión.** El enunciado pide mostrar patrones de diseño y buenas prácticas, así que el servicio se
 construye como un hexágono y se mantiene lo más liviano posible. Cinco reglas acotan el costo:
 
-1. Una sola clase de caso de uso y ninguna interfaz de puerto de entrada (ADR-003).
+1. Una sola clase de caso de uso, con un único puerto de entrada que la expone (ADR-003).
 2. Un puerto existe solo donde hay una dependencia real y reemplazable: la base de datos, el hash y la
    firma del token (ADR-002). El tiempo usa `java.time.Clock`, no un puerto propio.
 3. Sin camino de lectura. El puerto del repositorio tiene dos métodos y no hay mapeo desde el
    almacenamiento de vuelta al dominio.
 4. Sin biblioteca de mapeo, sin Lombok, sin eventos de dominio, sin CQRS.
-5. Cada patrón de la tabla siguiente se nombra con la razón por la que está. Strategy es la única
-   vitrina deliberada: responde al requisito de "regex configurable" del enunciado y tiene una sola
-   implementación de producción.
+5. Cada patrón de la tabla siguiente se nombra con la razón por la que está. Strategy tiene una sola
+   implementación de producción; se justifica por lo que hace, que es separar la regla reemplazable
+   de los límites fijos (ADR-017).
 
 Patrones en uso y por qué:
 
@@ -68,7 +68,7 @@ Patrones en uso y por qué:
 |--------|-------|--------------|
 | Puertos y adaptadores | `domain.port` e `infrastructure.*` | La base de datos, el hash y la firma son dependencias reemplazables, y las pruebas unitarias las sustituyen por dobles de prueba |
 | Value object | `Email`, `UserId`, `Phone` | Normalización y validez en un solo lugar |
-| Strategy | `PasswordPolicy` | Vitrina deliberada para la regla de contraseña configurable del enunciado; una implementación de producción, `RegexPasswordPolicy`, construida desde una propiedad (ADR-017) |
+| Strategy | `PasswordPolicy` | Aísla el formato de la contraseña, la única regla que el enunciado pide configurable, de los límites fijos que aplica `Password`; una implementación de producción, `RegexPasswordPolicy`, construida desde una propiedad (ADR-017) |
 | Adapter | `UserPersistenceAdapter`, `JjwtTokenIssuer`, `BCryptPasswordHasher` | Interfaces de terceros frente a los puertos |
 | Builder | `User.Builder` | Tres campos `String` contiguos (`name`, `passwordHash`, `token`) invitan a una llamada posicional que guarda un token como si fuera un hash |
 
@@ -79,8 +79,9 @@ un único lugar para traducir errores (ADR-008), no un patrón de diseño de est
 
 - Paquetes por capa sin dominio (`controller`, `service`, `repository`): más simple y suficiente para
   el comportamiento, pero no muestra ninguno de los patrones pedidos.
-- Paquetes anidados `adapter/in`, `adapter/out`, `application/port/in`, `application/port/out`: cuatro
-  niveles de paquete más para un puñado de clases.
+- Paquetes anidados `adapter/in`, `adapter/out` y `application/port/out`: niveles de paquete de más
+  para un puñado de clases. Solo existe `application.port`, que contiene el puerto de entrada y su
+  comando (ADR-003); los puertos de salida están en `domain.port` (ADR-002).
 - Factory, Observer, eventos de dominio y CQRS: nada en este servicio los requiere.
 
 **Consecuencias.**
@@ -122,28 +123,43 @@ emisor falso), no un segundo adaptador de producción: los puertos se justifican
 reemplazable y por la capacidad de prueba, no por una segunda implementación real. Los adaptadores son
 privados al paquete e independientes entre sí, lo que una regla de ArchUnit hace cumplir.
 
-## ADR-003: Sin interfaz de puerto de entrada
+## ADR-003: Un puerto de entrada para el caso de uso
 
-**Contexto.** Los diagramas hexagonales suelen mostrar un puerto de entrada delante del caso de uso.
+**Contexto.** Los diagramas hexagonales muestran un puerto de entrada delante del caso de uso. El
+servicio ya tiene puertos de salida (ADR-002): sin el de entrada, cada frontera entre capas sería una
+interfaz salvo esta, y el adaptador web dependería de una clase concreta de la capa de aplicación.
 
-**Decisión.** `UserController` depende de la clase concreta `RegisterUserUseCase`. Una interfaz con un
-solo implementador agrega un archivo y un salto y no quita nada. Las pruebas del corte web
-reemplazan la clase por un mock.
+**Decisión.** `RegisterUser` (en `application.port`, junto a `RegisterUserCommand`) es la interfaz del
+caso de uso, con el único método `register`. `RegisterUserUseCase` la implementa y conserva el
+`@Transactional`. `UserController` depende de la interfaz y `ApplicationConfig` expone el bean con ese
+tipo. La implementación vive directamente en `application`; el subpaquete `port` es lo que el adaptador
+web puede ver, y una regla de ArchUnit prohíbe que una clase de `infrastructure.web` dependa de las
+clases de `application` (ADR-021). Se agregan interfaces solo en las fronteras entre capas: no hay
+interfaces para value objects, records, entidades, excepciones ni clases de configuración.
 
-**Alternativas descartadas.** Una interfaz `RegisterUserPort` con una implementación `...Service`.
+**Por qué.** El adaptador web depende de una abstracción cuyo dueño es la capa de aplicación, de forma
+simétrica con los puertos de salida, que son abstracciones cuyo dueño es el dominio. Además, el
+controlador se prueba con un doble de la interfaz sin tocar una clase concreta que Spring envuelve en un
+proxy.
 
-**Consecuencias.** Si se agrega un segundo punto de entrada (un consumidor de mensajes, una línea de
-comandos), extraer una interfaz de la clase es un cambio mecánico que se hace cuando existe el segundo
-llamador.
+**Alternativas descartadas.** Depender de la clase concreta: una interfaz con un solo implementador
+agrega un tipo y un salto, y el argumento era que la extracción se podía hacer cuando apareciera un
+segundo llamador. Se descartó porque la frontera entre capas queda sin abstracción hasta entonces y
+porque la regla de dependencia deja de poder comprobarse con una prueba de arquitectura.
+
+**Consecuencias.** El costo es un tipo más con una única implementación. El proxy de `@Transactional` es
+de clase (CGLIB, el valor por defecto de Boot), así que la implementación sigue sin ser `final` y su
+método sigue siendo público; una prueba lo fija.
 
 ## ADR-004: `@Transactional` en el caso de uso es la única concesión al framework
 
-**Contexto.** La comprobación de existencia y la inserción deben pertenecer a una misma operación
-consistente, y la capa de aplicación es la dueña natural de ese límite.
+**Contexto.** La comprobación de existencia del correo, la inserción del usuario y la de sus teléfonos
+son pasos de una misma operación, y la capa de aplicación es la dueña natural de ese límite.
 
-**Decisión.** `RegisterUserUseCase.register` lleva el `@Transactional` de Spring. Es el único tipo del
-framework en los paquetes `domain` y `application`. La clase no tiene anotación de estereotipo:
-`ApplicationConfig` la crea como bean.
+**Decisión.** `RegisterUserUseCase.register` lleva el `@Transactional` de Spring. El caso de uso es el
+límite de la transacción para que la comprobación de duplicado, la inserción del usuario y la de sus
+teléfonos se confirmen o se deshagan juntas. Es el único tipo del framework en los paquetes `domain` y
+`application`. La clase no tiene anotación de estereotipo: `ApplicationConfig` la crea como bean.
 
 | Opción | Veredicto |
 |--------|-----------|
@@ -151,6 +167,21 @@ framework en los paquetes `domain` y `application`. La clase no tiene anotación
 | Un decorador construido con `TransactionTemplate` en la configuración | Rechazada: mantiene la capa de aplicación libre de Spring, pero agrega una interfaz y una clase cuyo único trabajo es evitar una anotación |
 | `@Transactional` en el adaptador de persistencia | Rechazada: la comprobación de existencia y el guardado correrían en transacciones separadas |
 | En el controlador | Rechazada: mezcla HTTP con consistencia |
+
+**Qué garantiza la anotación y qué no.**
+
+- Garantiza que `existsByEmail`, el insert de `users` y los de `phones` ocurren en una sola transacción:
+  si algo falla después de insertar el usuario, la fila del usuario se deshace con las demás.
+- No es lo que garantiza la unicidad del correo. Dos solicitudes concurrentes pueden pasar ambas la
+  comprobación; la restricción `UNIQUE` de la base de datos es la que rechaza a la segunda, y el
+  adaptador traduce esa violación a un 409.
+- Las pruebas de atomicidad (un teléfono rechazado por la base no deja ni el usuario ni ningún
+  teléfono) pasarían también sin la anotación, porque `saveAndFlush` de Spring Data es transaccional por
+  sí mismo y el usuario y sus teléfonos se guardan en esa misma llamada. Una mutación que quite
+  `@Transactional` la detectan solo las pruebas estructurales: la que comprueba que el bean es un proxy
+  transaccional de la clase y la que fija que la clase no es `final` y que el método es público. La
+  anotación fija el límite de la operación completa; el comportamiento observable de hoy no depende de
+  ella.
 
 **Consecuencias.**
 
@@ -197,10 +228,13 @@ los campos erróneos en un solo mensaje, como máximo un mensaje por campo, toma
 falla en este orden: obligatorio, largo, formato. Los dos formatos (correo y contraseña) son
 configuración en tiempo de ejecución.
 
-**Decisión.** Cada regla es una función pura del dominio que devuelve un motivo tipado
-(`Email.violation`, `User.nameViolation`, `Phone.violations`, `PasswordPolicy.violation`). El caso de uso
-reúne los motivos en un conjunto, y un conjunto no vacío se convierte en una sola
-`InvalidUserDataException` antes de tocar el repositorio. Los value objects llaman a las mismas
+**Decisión.** Cada regla es una función pura del dominio que devuelve un motivo tipado, `Reason`, un enum del paquete
+`domain.model` (`Email.violation`, `User.nameViolation`, `Password.violation`,
+`User.phoneListViolations`, que a su vez usa `Phone.violations`). Las reglas de la lista de teléfonos
+(una lista ausente es válida, una lista con demasiadas entradas se rechaza sin mirar las entradas, una
+entrada nula tiene su propio motivo) viven en el dominio, no en el caso de uso. El caso de uso reúne los
+motivos en un conjunto, y un conjunto no vacío se convierte en una sola `InvalidUserDataException`
+antes de tocar el repositorio: orquesta y no decide nada. Los value objects llaman a las mismas
 funciones en sus constructores, de modo que un `Email` no puede existir en estado inválido si se
 construye por otro camino. El dominio no lleva texto para el cliente: `ErrorMessages`, en la capa web,
 asigna a cada motivo su mensaje. Los records de solicitud no llevan anotaciones de Bean Validation.
@@ -217,9 +251,9 @@ asigna a cada motivo su mensaje. Los records de solicitud no llevan anotaciones 
 - El largo siempre precede al patrón, así que un valor desmesurado nunca llega al motor de expresiones
   regulares. Una prueba envía un correo de 50.000 caracteres contra un patrón propenso a backtracking
   catastrófico y exige una respuesta en menos de cinco segundos.
-- Las reglas de "obligatorio" y de largo en bytes de la contraseña están en el dominio, fuera del
-  Strategy, de modo que el límite de 72 bytes se mantiene sea cual sea el patrón que configure un
-  operador.
+- Las reglas de "obligatorio" y de largo en bytes de la contraseña están en `Password`, una clase final
+  con una función estática, fuera del Strategy: ninguna implementación de `PasswordPolicy` puede
+  saltárselas, y el límite de 72 bytes se mantiene sea cual sea el patrón que configure un operador.
 - Bean Validation se sigue usando para los dos records de configuración, de modo que una propiedad
   incorrecta detiene el arranque.
 
@@ -488,13 +522,14 @@ correo enmascarado, y las pruebas capturan la salida en DEBUG y TRACE y buscan l
 el token y el secreto. Una prueba también falla si las fuentes principales contienen el antiguo
 secreto de desarrollo.
 
-## ADR-017: Un Strategy de política de contraseña con un valor por defecto débil a propósito
+## ADR-017: Un Strategy para el formato de la contraseña, con un valor por defecto débil a propósito
 
 **Contexto.** El enunciado hace configurable la regla de contraseña, y su contraseña de ejemplo es
 `hunter2`.
 
-**Decisión.** `PasswordPolicy` es una interfaz (un Strategy) con `RegexPasswordPolicy` como
-implementación, construida desde `app.registration.password-pattern`. El valor por defecto es
+**Decisión.** `PasswordPolicy` es una interfaz (un Strategy) con un único método, `isSatisfiedBy`, que
+decide solo el formato. `RegexPasswordPolicy` la implementa, construida desde
+`app.registration.password-pattern`. El valor por defecto es
 
 ```
 ^(?=.*[A-Za-z])(?=.*[0-9])\S{7,72}$
@@ -510,22 +545,30 @@ una mayúscula, un dígito y un símbolo:
 ^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9\s])\S{12,72}$
 ```
 
-Los límites de 72 caracteres y 72 bytes los aplica el dominio sea cual sea el patrón.
+**Por qué un Strategy aquí.** Se justifica por lo que hace. La contraseña tiene dos tipos de regla:
+límites fijos, que no dependen de la configuración (es obligatoria y cabe en 72 bytes UTF-8, el límite
+con el que trabaja BCrypt), y un formato reemplazable, que el enunciado pide "configurable". La
+interfaz separa ambos: `Password.violation` aplica los límites fijos en este orden, obligatorio, largo,
+y solo entonces consulta al `PasswordPolicy` el formato. Los límites viven en una clase final con una
+función estática, no en un método por defecto de la interfaz, porque un método por defecto lo puede
+sobrescribir una implementación y saltarse el límite. Dicho con franqueza: **hay una sola implementación
+de producción**, `RegexPasswordPolicy`, y la interfaz no la fuerza una segunda implementación; las
+pruebas la usan con expresiones regulares simples y con contadores de llamadas.
 
-**Por qué un Strategy aquí.** `PasswordPolicy` es la vitrina deliberada del requisito de "regex
-configurable" del enunciado, y tiene una sola implementación de producción, `RegexPasswordPolicy`. La
-interfaz no está forzada por una segunda implementación; nombra el punto de extensión que el enunciado
-pide, y las pruebas unitarias la usan con expresiones regulares simples.
+**Por qué el correo no tiene lo mismo.** El correo usa un `Pattern` simple, recibido como parámetro de
+`Email.violation` y de `Email.of`. La asimetría tiene dos razones. El enunciado pide que sea
+configurable la regla de la contraseña y no la del correo. Y la contraseña tiene límites fijos que deben
+quedar fuera de lo reemplazable, mientras que en el correo lo único reemplazable es el formato: su largo
+máximo y su normalización ya viven en `Email`, de modo que no hay nada que separar y una interfaz
+`EmailPolicy` sería una abstracción más para lo mismo.
 
-**Alternativas descartadas.** Un campo `Pattern` en el caso de uso: funciona pero oculta el único punto
-de extensión que nombra el enunciado. Una interfaz simétrica `EmailPolicy`: el formato del correo
-también es una expresión regular, así que basta un parámetro `Pattern` y no se agrega una segunda
-abstracción para lo mismo. La asimetría es deliberada: el enunciado pide que la regla de contraseña sea
-configurable como política, y el Strategy se muestra una sola vez.
+**Alternativas descartadas.** Un campo `Pattern` en el caso de uso: funciona, pero deja los límites
+fijos y el formato mezclados y sin un punto de extensión con nombre. Un método por defecto en la
+interfaz que aplique los límites: era el diseño anterior; un implementador lo podía sobrescribir.
 
 **Consecuencias.** El valor por defecto acepta contraseñas débiles; la debilidad está documentada en el
 README y aquí. Una expresión regular inválida detiene el arranque con un mensaje que nombra la
-propiedad.
+propiedad. Los límites de 72 caracteres y de 72 bytes los aplica `Password` sea cual sea el patrón.
 
 ## ADR-018: El `contrycode` literal
 
@@ -605,7 +648,7 @@ del caso de uso está fijada por una prueba que usa un reloj que avanza en cada 
 | JaCoCo | Al menos 80 % de cobertura de líneas sobre `domain` y `application` | El valor medido está en el informe de JaCoCo de cada build. La infraestructura se ejercita con pruebas de corte y de contexto completo, pero no tiene umbral: un porcentaje sobre código de cableado invita a pruebas de configuración |
 | Spotless | Google Java Format 1.28.0, sin imports sin usar, sin espacios finales | `spotlessCheck` corre dentro de `check`; `./gradlew spotlessApply` lo corrige |
 | Error Prone | Análisis estático dentro del compilador de Java | Fijado en 2.42.0, la última línea que corre en JDK 17 (ADR-011). Junto con `-Xlint:all -Werror` en las fuentes principales |
-| ArchUnit (núcleo) | Reglas de capas y de dependencias | Las reglas listadas abajo |
+| ArchUnit (núcleo) | Reglas de capas y de dependencias | Las ocho reglas listadas abajo |
 | `.editorconfig` | UTF-8, LF, salto de línea final, indentación | Compartido por los editores |
 
 Las reglas de ArchUnit:
@@ -619,6 +662,8 @@ Las reglas de ArchUnit:
 5. Ninguna clase usa inyección en campos.
 6. Las clases `@Entity` residen en `infrastructure.persistence`.
 7. Ninguna clase de `web` usa una entidad JPA.
+8. Ninguna clase de `web` depende de las clases del paquete `application`; solo ve el puerto de entrada
+   (`application.port`).
 
 **Una regla que no puede fallar no es una regla.** Una segunda clase de pruebas entrega a cada regla
 una clase de fixture escrita para romperla (en un paquete de pruebas aparte) y exige que la regla falle
@@ -656,10 +701,13 @@ tiempo de build y una compilación más estricta, que es el propósito.
 | `UserId` | Identificador tipado alrededor de un UUID | Evita que un id se mezcle con otro string; se genera antes de que exista la fila |
 | `Email` | Value object: en minúsculas, acotado, con formato verificado, enmascarado para logs | Una sola definición de normalización y de unicidad |
 | `Phone` | Value object: número, código de ciudad, código de país | Mantiene juntos los tres strings con sus límites y su formato |
-| `PasswordPolicy`, `RegexPasswordPolicy` | Strategy de las reglas de contraseña; la expresión regular viene de la configuración | El enunciado exige que la regla sea configurable |
+| `Reason` | Enum de los motivos tipados de rechazo, en `domain.model` | El dominio dice qué regla se incumplió sin llevar texto ni el valor rechazado |
+| `Password` | Límites fijos de la contraseña (obligatoria, 72 bytes) y composición con el formato | Ninguna implementación del Strategy puede saltarse los límites (ADR-017) |
+| `PasswordPolicy`, `RegexPasswordPolicy` | Strategy del formato de la contraseña; la expresión regular viene de la configuración | El enunciado exige que el formato sea configurable (ADR-017) |
+| `PhoneInput` | Las tres partes de un teléfono tal como se enviaron, antes de validarlas | Permite al dominio validar una lista de teléfonos sin conocer el tipo del llamador |
 | `InvalidUserDataException`, `EmailAlreadyRegisteredException` | Rechazos de dominio tipados; sin texto para el cliente | El dominio dice qué salió mal, la capa web decide cómo decirlo |
 | `UserRepository`, `PasswordHasher`, `TokenIssuer` | Puertos de salida | El caso de uso se prueba sin base de datos, BCrypt ni JJWT (ADR-002) |
-| `RegisterUserUseCase`, `RegisterUserCommand` | Orquesta el registro y es dueño de la transacción | El único servicio de aplicación; el comando oculta la contraseña en `toString()` |
+| `RegisterUser`, `RegisterUserUseCase`, `RegisterUserCommand` | El puerto de entrada, su implementación y el comando; la implementación orquesta el registro y es dueña de la transacción | El único servicio de aplicación; el adaptador web depende de la interfaz (ADR-003); el comando oculta la contraseña en `toString()` |
 | `UserController`, `UserApi` | HTTP a comando a respuesta; la interfaz lleva las anotaciones OpenAPI | Mantiene el controlador en pocas líneas |
 | `RegisterUserRequest`, `PhoneRequest`, `UserResponse`, `PhoneResponse`, `ErrorResponse` | Records JSON | Contrato explícito en el cable; la respuesta no tiene componente de contraseña |
 | `UserWebMapper` | Mapeo estático entre records y comando o agregado | Un campo olvidado es un error de compilación; nunca lee el hash de la contraseña |
@@ -673,10 +721,33 @@ tiempo de build y una compilación más estricta, que es el propósito.
 | `ApplicationConfig`, `RegistrationProperties`, `OpenApiConfig` | Cableado del caso de uso, la política y el reloj; propiedades tipadas `app.registration.*`; metadatos de OpenAPI | Las clases de dominio y de aplicación no llevan anotación de estereotipo, así que el cableado está aquí |
 | `schema.sql` | Crea `users` y `phones` | ADR-013 |
 
+### Interfaces y clases abstractas
+
+Cada interfaz está en una frontera entre capas o es un punto de extensión con nombre. Ninguna se agregó
+a value objects, records, entidades, excepciones ni configuración.
+
+| Tipo | Implementaciones |
+|------|------------------|
+| `RegisterUser` (puerto de entrada, `application.port`) | `RegisterUserUseCase` |
+| `UserRepository` (puerto de salida) | `UserPersistenceAdapter`; `InMemoryUserRepository` en las pruebas |
+| `PasswordHasher` (puerto de salida) | `BCryptPasswordHasher`; un doble de prueba |
+| `TokenIssuer` (puerto de salida) | `JjwtTokenIssuer`; un doble de prueba |
+| `PasswordPolicy` (Strategy del formato) | `RegexPasswordPolicy` |
+| `PhoneInput` (entrada sin validar de un teléfono) | `RegisterUserCommand.PhoneData` |
+| `UserApi` (contrato HTTP y anotaciones OpenAPI) | `UserController` |
+| `UserJpaRepository` (Spring Data) | Generada por Spring Data en tiempo de ejecución |
+| `DomainException` (clase abstracta) | `InvalidUserDataException`, `EmailAlreadyRegisteredException` |
+
 ---
 
 ## Limitaciones conocidas
 
+- **La barra final responde 404.** `POST /api/v1/users/` (con barra final) no coincide con la ruta y
+  se responde con el 404 del contrato (`Recurso no encontrado`). El servicio no hace coincidir ambas
+  formas.
+- **Sin límite de tamaño del cuerpo.** La aplicación no fija un tamaño máximo para el cuerpo de la
+  solicitud más allá de los valores por defecto del servidor. Los campos tienen cotas (ADR-019), pero se
+  comprueban después de leer el cuerpo.
 - **Rechazos a nivel del contenedor.** Una solicitud que el contenedor de servlets rechaza antes de que
   corra código de la aplicación (una secuencia de porcentaje inválida en la ruta, una línea de
   solicitud mal formada, encabezados demasiado grandes) se responde con la página de error propia del

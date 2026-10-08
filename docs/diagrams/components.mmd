@@ -2,16 +2,17 @@ flowchart LR
   Client([Cliente HTTP])
 
   subgraph infra_in [infrastructure.web]
-    Web["UserController / UserApi<br/>GlobalExceptionHandler<br/>ApiErrorController"]
+    Web["UserController implements UserApi<br/>GlobalExceptionHandler<br/>ApiErrorController"]
   end
 
   subgraph app [application]
-    UC["RegisterUserUseCase<br/>RegisterUserCommand"]
+    InPort["application.port<br/>RegisterUser (puerto de entrada)<br/>RegisterUserCommand"]
+    UC["RegisterUserUseCase<br/>implementa RegisterUser"]
   end
 
   subgraph dom [domain]
-    Model["User, UserId, Email, Phone<br/>PasswordPolicy, RegexPasswordPolicy<br/>excepciones de dominio"]
-    Ports["Puertos<br/>UserRepository<br/>PasswordHasher<br/>TokenIssuer"]
+    Model["User, UserId, Email, Phone<br/>Reason, PhoneInput<br/>Password, PasswordPolicy<br/>excepciones de dominio"]
+    Ports["Puertos de salida<br/>UserRepository<br/>PasswordHasher<br/>TokenIssuer"]
   end
 
   subgraph infra_out [adaptadores de infrastructure]
@@ -23,7 +24,8 @@ flowchart LR
   H2[("H2 en memoria<br/>schema.sql")]
 
   Client -->|"POST /api/v1/users"| Web
-  Web --> UC
+  Web --> InPort
+  UC -.->|implementa| InPort
   UC --> Model
   UC --> Ports
   Pers -.->|implementa UserRepository| Ports
