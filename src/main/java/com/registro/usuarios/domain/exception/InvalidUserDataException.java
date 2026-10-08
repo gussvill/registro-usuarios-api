@@ -1,6 +1,5 @@
 package com.registro.usuarios.domain.exception;
 
-import com.registro.usuarios.domain.model.Reason;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Set;

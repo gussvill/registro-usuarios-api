@@ -229,7 +229,8 @@ falla en este orden: obligatorio, largo, formato. Los dos formatos (correo y con
 configuración en tiempo de ejecución.
 
 **Decisión.** Cada regla es una función pura del dominio que devuelve un motivo tipado, `Reason`, un enum del paquete
-`domain.model` (`Email.violation`, `User.nameViolation`, `Password.violation`,
+`domain.exception`, junto a la excepción que lo transporta, de modo que `domain.model` depende de
+`domain.exception` y nunca al revés (`Email.violation`, `User.nameViolation`, `Password.violation`,
 `User.phoneListViolations`, que a su vez usa `Phone.violations`). Las reglas de la lista de teléfonos
 (una lista ausente es válida, una lista con demasiadas entradas se rechaza sin mirar las entradas, una
 entrada nula tiene su propio motivo) viven en el dominio, no en el caso de uso. El caso de uso reúne los
@@ -656,7 +657,7 @@ del caso de uso está fijada por una prueba que usa un reloj que avanza en cada 
 | JaCoCo | Al menos 80 % de cobertura de líneas sobre `domain` y `application` | El valor medido está en el informe de JaCoCo de cada build. La infraestructura se ejercita con pruebas de corte y de contexto completo, pero no tiene umbral: un porcentaje sobre código de cableado invita a pruebas de configuración |
 | Spotless | Google Java Format 1.28.0, sin imports sin usar, sin espacios finales | `spotlessCheck` corre dentro de `check`; `./gradlew spotlessApply` lo corrige |
 | Error Prone | Análisis estático dentro del compilador de Java | Fijado en 2.42.0, la última línea que corre en JDK 17 (ADR-011). Junto con `-Xlint:all -Werror` en las fuentes principales |
-| ArchUnit (núcleo) | Reglas de capas y de dependencias | Las ocho reglas listadas abajo |
+| ArchUnit (núcleo) | Reglas de capas y de dependencias | Las nueve reglas listadas abajo |
 | `.editorconfig` | UTF-8, LF, salto de línea final, indentación | Compartido por los editores |
 
 Las reglas de ArchUnit:
@@ -672,11 +673,16 @@ Las reglas de ArchUnit:
 7. Ninguna clase de `web` usa una entidad JPA.
 8. Ninguna clase de `web` depende de las clases del paquete `application`; solo ve el puerto de entrada
    (`application.port`).
+9. Ningún paquete de producción forma un ciclo con otro: cada paquete es una porción y las
+   dependencias entre porciones no se cierran sobre sí mismas. La regla nació de un ciclo real,
+   `domain.model` y `domain.exception`, que se resolvió moviendo `Reason` a `domain.exception`.
 
 **Una regla que no puede fallar no es una regla.** Una segunda clase de pruebas entrega a cada regla
 una clase de fixture escrita para romperla (en un paquete de pruebas aparte) y exige que la regla falle
 nombrando esa clase. Un conjunto vacío de infractores pasaría en vacío, como ocurre con un patrón de
-paquete mal escrito; el propio fallo "no classes selected" de ArchUnit cubre ese caso también.
+paquete mal escrito; el propio fallo "no classes selected" de ArchUnit cubre ese caso también. La regla
+de ciclos es una función de la raíz del paquete y su fixture es un par de paquetes que se usan
+mutuamente, porque los fixtures de las demás reglas forman ciclos entre sí sin querer.
 
 La biblioteca núcleo de ArchUnit se usa desde pruebas ordinarias; `archunit-junit5` no, porque su motor
 apunta a la plataforma JUnit 5 y Boot 4.1.1 administra JUnit 6.
@@ -709,7 +715,7 @@ tiempo de build y una compilación más estricta, que es el propósito.
 | `UserId` | Identificador tipado alrededor de un UUID | Evita que un id se mezcle con otro string; se genera antes de que exista la fila |
 | `Email` | Value object: en minúsculas, acotado, con formato verificado, enmascarado para logs | Una sola definición de normalización y de unicidad |
 | `Phone` | Value object: número, código de ciudad, código de país | Mantiene juntos los tres strings con sus límites y su formato |
-| `Reason` | Enum de los motivos tipados de rechazo, en `domain.model` | El dominio dice qué regla se incumplió sin llevar texto ni el valor rechazado |
+| `Reason` | Enum de los motivos tipados de rechazo, en `domain.exception` | El dominio dice qué regla se incumplió sin llevar texto ni el valor rechazado |
 | `Password` | Límites fijos de la contraseña (obligatoria, 72 bytes) y composición con el formato | Ninguna implementación del Strategy puede saltarse los límites (ADR-017) |
 | `PasswordPolicy`, `RegexPasswordPolicy` | Strategy del formato de la contraseña; la expresión regular viene de la configuración | El enunciado exige que el formato sea configurable (ADR-017) |
 | `PhoneInput` | Las tres partes de un teléfono tal como se enviaron, antes de validarlas | Permite al dominio validar una lista de teléfonos sin conocer el tipo del llamador |

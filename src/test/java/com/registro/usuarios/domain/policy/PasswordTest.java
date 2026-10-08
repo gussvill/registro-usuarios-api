@@ -2,7 +2,7 @@ package com.registro.usuarios.domain.policy;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.registro.usuarios.domain.model.Reason;
+import com.registro.usuarios.domain.exception.Reason;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.concurrent.atomic.AtomicInteger;

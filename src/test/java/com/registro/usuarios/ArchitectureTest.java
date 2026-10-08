@@ -66,6 +66,11 @@ class ArchitectureTest {
   }
 
   @Test
+  void packagesAreFreeOfCycles() {
+    ArchitectureRules.packagesAreFreeOfCycles("com.registro.usuarios").check(PRODUCTION);
+  }
+
+  @Test
   void noClassUsesFieldInjection() {
     ArchitectureRules.NO_FIELD_INJECTION.check(PRODUCTION);
   }

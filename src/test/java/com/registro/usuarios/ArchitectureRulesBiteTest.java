@@ -80,6 +80,34 @@ class ArchitectureRulesBiteTest {
     assertThat(result.getFailureReport().toString()).contains(offender);
   }
 
+  /**
+   * La regla de ciclos es una función de la raíz (ver {@link
+   * ArchitectureRules#packagesAreFreeOfCycles}), así que no entra en la tabla de constantes: se
+   * ejecuta contra el par de paquetes cíclicos y debe nombrar a las dos clases.
+   */
+  @Test
+  void theCycleRuleRejectsTheCyclicPairAndNamesBothClasses() {
+    EvaluationResult result =
+        ArchitectureRules.packagesAreFreeOfCycles("com.registro.archfixture.cycle")
+            .evaluate(FIXTURES);
+
+    assertThat(result.hasViolation()).isTrue();
+    assertThat(result.getFailureReport().toString())
+        .contains("Cycle detected")
+        .contains("cycle.ledger.LedgerEntry")
+        .contains("cycle.billing.Invoice");
+  }
+
+  @Test
+  void theCycleRuleAcceptsAcyclicFixturePackages() {
+    // Los fixtures de las demás reglas no forman ciclos entre sus subpaquetes de infraestructura.
+    EvaluationResult result =
+        ArchitectureRules.packagesAreFreeOfCycles("com.registro.archfixture.infrastructure")
+            .evaluate(FIXTURES);
+
+    assertThat(result.hasViolation()).isFalse();
+  }
+
   @Test
   void theAllowListAcceptsTheTransactionAnnotationWhileRejectingOtherSpringTypes() {
     EvaluationResult result =

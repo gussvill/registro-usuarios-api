@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
 import com.registro.usuarios.domain.exception.InvalidUserDataException;
-import com.registro.usuarios.domain.model.Reason;
+import com.registro.usuarios.domain.exception.Reason;
 import java.util.Set;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 

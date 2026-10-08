@@ -105,6 +105,22 @@ final class ArchitectureRules {
           .areAnnotatedWith(Entity.class)
           .because("la capa web habla con records de petición y respuesta, nunca con entidades");
 
+  /**
+   * Dos paquetes que se necesitan mutuamente son en la práctica uno solo. Cada paquete bajo la raíz
+   * dada es una porción. Es una función de la raíz, y no una constante, porque los fixtures de las
+   * demás reglas forman ciclos entre sí sin querer (una clase de dominio que usa la aplicación y
+   * una de aplicación que usa el dominio): la prueba de mordida ejecuta la regla solo contra el par
+   * de paquetes escrito para romperla.
+   */
+  static ArchRule packagesAreFreeOfCycles(String rootPackage) {
+    return slices()
+        .matching(rootPackage + ".(**)")
+        .should()
+        .beFreeOfCycles()
+        .because(
+            "un paquete que depende de otro que depende de él no separa nada, y la dirección de las dependencias deja de significar algo");
+  }
+
   static final ArchRule NO_FIELD_INJECTION =
       GeneralCodingRules.NO_CLASSES_SHOULD_USE_FIELD_INJECTION;
 

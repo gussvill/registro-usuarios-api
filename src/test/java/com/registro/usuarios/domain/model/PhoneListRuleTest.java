@@ -3,6 +3,7 @@ package com.registro.usuarios.domain.model;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.registro.usuarios.domain.exception.Reason;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;

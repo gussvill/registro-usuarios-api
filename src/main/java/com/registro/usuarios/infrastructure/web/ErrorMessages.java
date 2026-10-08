@@ -1,8 +1,8 @@
 package com.registro.usuarios.infrastructure.web;
 
+import com.registro.usuarios.domain.exception.Reason;
 import com.registro.usuarios.domain.model.Email;
 import com.registro.usuarios.domain.model.Phone;
-import com.registro.usuarios.domain.model.Reason;
 import com.registro.usuarios.domain.model.User;
 import java.util.Set;
 import java.util.TreeSet;

@@ -1,4 +1,4 @@
-package com.registro.usuarios.domain.model;
+package com.registro.usuarios.domain.exception;
 
 /**
  * Por qué se rechazó un campo de un registro. Un campo tiene como máximo un motivo: la primera

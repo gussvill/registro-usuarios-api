@@ -1,6 +1,7 @@
 package com.registro.usuarios.domain.model;
 
 import com.registro.usuarios.domain.exception.InvalidUserDataException;
+import com.registro.usuarios.domain.exception.Reason;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Optional;

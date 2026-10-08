@@ -165,7 +165,7 @@ npx -y newman run postman/registro-usuarios-api.postman_collection.json   # cole
   se mide, pero no tiene umbral. El informe queda en `build/reports/jacoco/test/html/index.html`.
 - **Verificaciones estáticas:** Spotless con Google Java Format, Error Prone, `-Xlint:all -Werror` y
   reglas de ArchUnit (el dominio no importa ningún framework, las dependencias apuntan hacia adentro,
-  los adaptadores no dependen entre sí, sin inyección en campos). Una segunda clase de pruebas demuestra
+  los adaptadores no dependen entre sí, sin ciclos entre paquetes, sin inyección en campos). Una segunda clase de pruebas demuestra
   que cada regla falla cuando una clase de fixture la rompe.
 - **Script de aceptación:** hace solicitudes reales con `curl` (el ejemplo del enunciado, el duplicado,
   cuerpos inválidos y mal formados, 404, 405, 406, 415, Swagger UI y el documento OpenAPI) y termina con
