@@ -9,7 +9,7 @@ plugins {
 
 group = 'com.registro'
 version = '0.0.1-SNAPSHOT'
-description = 'User registration REST API'
+description = 'API REST de registro de usuarios'
 
 java {
 	toolchain {

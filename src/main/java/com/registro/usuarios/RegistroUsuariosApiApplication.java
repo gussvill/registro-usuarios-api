@@ -12,9 +12,9 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
  */
 @SpringBootApplication
 @ConfigurationPropertiesScan
-public class UserRegistrationApiApplication {
+public class RegistroUsuariosApiApplication {
 
   public static void main(String[] args) {
-    SpringApplication.run(UserRegistrationApiApplication.class, args);
+    SpringApplication.run(RegistroUsuariosApiApplication.class, args);
   }
 }
