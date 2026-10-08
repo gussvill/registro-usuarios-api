@@ -74,7 +74,7 @@ class JjwtTokenIssuer implements TokenIssuer {
   }
 
   private static SecretKey keyOf(String secret) {
-    byte[] bytes = secret == null ? new byte[0] : secret.getBytes(StandardCharsets.UTF_8);
+    byte[] bytes = secret.getBytes(StandardCharsets.UTF_8);
     if (bytes.length < MIN_SECRET_BYTES) {
       throw new IllegalStateException(
           SECRET_PROPERTY + " must be at least " + MIN_SECRET_BYTES + " bytes");
