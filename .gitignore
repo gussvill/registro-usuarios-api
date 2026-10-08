@@ -39,3 +39,8 @@ out/
 .env
 .env.*
 !.env.example
+
+### Postman (espacio de trabajo local) ###
+.postman/
+postman/collections/
+postman/globals/
