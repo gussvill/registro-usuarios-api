@@ -707,7 +707,25 @@ class RegistrationSmokeTest {
             null,
             valid,
             415,
-            "Tipo de contenido no soportado"));
+            "Tipo de contenido no soportado"),
+        Arguments.of(
+            "multipart without boundary on the registration route",
+            "POST",
+            "/api/v1/users",
+            "multipart/form-data",
+            null,
+            "x",
+            415,
+            "Tipo de contenido no soportado"),
+        Arguments.of(
+            "multipart without boundary on an unknown route",
+            "POST",
+            "/nope",
+            "multipart/form-data",
+            null,
+            "x",
+            404,
+            "Recurso no encontrado"));
   }
 
   @Test
