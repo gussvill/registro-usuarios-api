@@ -5,16 +5,19 @@
 #   scripts/acceptance.sh                              # http://localhost:8080
 #   BASE_URL=http://localhost:9090 scripts/acceptance.sh
 #
-# Needs only bash and curl. Run it against a FRESH instance: the database is in memory, and the
-# statement's example address can be registered only once. The script stops at the first failed
-# check, prints a summary and exits with a non-zero status.
+# Needs only bash and curl. It can be run any number of times against the same instance: the
+# registration checks use an address that is unique to each run. The script stops at the first
+# failed check, prints a summary and exits with a non-zero status.
 
 set -u
 
 BASE_URL="${BASE_URL:-http://localhost:8080}"
 WAIT_SECONDS="${WAIT_SECONDS:-30}"
 
-STATEMENT_BODY='{"name":"Juan Rodriguez","email":"juan@rodriguez.org","password":"hunter2","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+# The statement's example with a unique address, so a second run (or the README's curl) does not
+# find it already registered. The name, the password and the phones stay as the statement has them.
+RUN_EMAIL="acceptance-$(date +%s)-${RANDOM}${RANDOM}@rodriguez.org"
+STATEMENT_BODY='{"name":"Juan Rodriguez","email":"'"${RUN_EMAIL}"'","password":"hunter2","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
 
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
@@ -113,9 +116,6 @@ echo
 echo "Registration"
 
 post_json -d "$STATEMENT_BODY"
-if [ "$STATUS" = "409" ]; then
-  echo "  The statement's address is already registered: run this script against a fresh instance."
-fi
 expect_status 201 "statement body"
 expect_header_starts_with content-type application/json "statement body"
 for key in id name email phones created modified last_login token isactive; do
