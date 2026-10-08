@@ -23,13 +23,14 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Errors that do not go through the dispatcher servlet's handler: they are raised by the servlet
- * container and reach the application only through the error page. They are sent over a real socket
- * because an HTTP client library refuses to build a request with a malformed escape, and because
- * MockMvc does not perform the container's error dispatch.
+ * The error path and the errors the dispatcher answers, over a real port: whatever reaches the
+ * application's error page is the same JSON body, for every method and every {@code Accept} value.
+ * They are sent over a raw socket because MockMvc does not perform the container's error dispatch.
+ * Requests the servlet container rejects before any application code runs are outside the contract
+ * and are not tested here (see the known limitations).
  */
 @FullContextTest
-class ContainerErrorTest {
+class ErrorPathTest {
 
   private static final int TIMEOUT_MILLIS = 5_000;
   private static final JsonMapper JSON = new JsonMapper();
@@ -132,48 +133,6 @@ class ContainerErrorTest {
     assertThat(body.get("mensaje").asString()).isEqualTo(mensaje);
   }
 
-  // --- rejected by the container before any handler is chosen ---
-
-  @Test
-  void aPathWithInvalidPercentEncodingIs400WithTheExactJsonBody() throws IOException {
-    Wire wire = get("/api/v1/users/%zz");
-
-    assertContractShape(wire, 400, "La solicitud no es válida");
-    assertThat(wire.text()).isEqualTo("{\"mensaje\":\"La solicitud no es válida\"}");
-  }
-
-  @ParameterizedTest(name = "{0}")
-  @ValueSource(
-      strings = {
-        "/api/v1/users/%",
-        "/api/v1/users/%2",
-        "/api/v1/users/%zz/more",
-        "/%zz",
-        "/api/v1/users/%u0041",
-        "/api/v1/users/%00",
-        "/api/v1/users/%2f%2f",
-        "/api/v1/users/..%2f..%2fetc"
-      })
-  void otherMalformedPathsAreAlsoAJsonContractBody(String path) throws IOException {
-    Wire wire = get(path);
-
-    assertThat(wire.status()).isBetween(400, 499);
-    assertThat(wire.contentType()).startsWith("application/json");
-    JsonNode body = JSON.readTree(wire.text());
-    assertThat(new ArrayList<>(body.propertyNames())).containsExactly("mensaje");
-    assertThat(body.get("mensaje").asString()).isNotBlank();
-  }
-
-  @ParameterizedTest(name = "Accept: {0}")
-  @ValueSource(
-      strings = {"text/html", "application/xml", "text/plain", "*/*", "text/html,*/*;q=0.8"})
-  void theAnswerIsJsonWhateverTheClientAccepts(String accept) throws IOException {
-    Wire wire = request("GET", "/api/v1/users/%zz", Map.of("Accept", accept));
-
-    assertContractShape(wire, 400, "La solicitud no es válida");
-    assertThat(wire.text()).doesNotContainIgnoringCase("<html");
-  }
-
   // --- the application's own error page, hit directly ---
 
   @Test
@@ -235,12 +194,11 @@ class ContainerErrorTest {
   }
 
   @Test
-  void theHeadersOfTheContainerErrorsNameAnApplicationJsonTypeAndNeverHtmlOrPlainText()
+  void theHeadersOfTheErrorAnswersNameAnApplicationJsonTypeAndNeverHtmlOrPlainText()
       throws IOException {
-    List<Wire> wires =
-        List.of(get("/api/v1/users/%zz"), get("/error"), get("/nope"), get("/api/v1/users"));
+    List<Wire> wires = List.of(get("/error"), get("/nope"), get("/api/v1/users"));
 
-    assertThat(wires).hasSize(4);
+    assertThat(wires).hasSize(3);
     for (Wire wire : wires) {
       assertThat(wire.contentType()).doesNotContain("text/html").doesNotContain("text/plain");
       assertThat(wire.contentType()).startsWith("application/json");

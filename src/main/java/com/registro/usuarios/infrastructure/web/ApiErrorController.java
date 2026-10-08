@@ -11,10 +11,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Replaces Boot's error controller, which negotiates its content and can answer an HTML page or an
- * empty body. The servlet container forwards here the errors that never reached a handler (a
- * malformed escape in the path, a {@code sendError} from a filter), and the answer is the same
- * {@code {"mensaje": ...}} body as everywhere else. The JSON content type is set explicitly, so the
- * client's {@code Accept} header cannot change it.
+ * empty body. The servlet container forwards here the errors that never reached a handler (for
+ * example a {@code sendError} from a filter), and the answer is the same {@code {"mensaje": ...}}
+ * body as everywhere else. The JSON content type is set explicitly, so the client's {@code Accept}
+ * header cannot change it.
  */
 @Hidden
 @RestController

@@ -2,7 +2,7 @@ flowchart LR
   Client([HTTP client])
 
   subgraph infra_in [infrastructure.web]
-    Web["UserController / UserApi<br/>GlobalExceptionHandler<br/>ApiErrorController<br/>JsonErrorReportValve"]
+    Web["UserController / UserApi<br/>GlobalExceptionHandler<br/>ApiErrorController"]
   end
 
   subgraph app [application]

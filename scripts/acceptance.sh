@@ -177,12 +177,6 @@ expect_header_starts_with content-type application/json "Accept application/xml"
 expect_mensaje_only "Accept application/xml"
 pass "Accept: application/xml -> 406 with a JSON body"
 
-request -X GET --path-as-is "${BASE_URL}/api/v1/users/%zz"
-expect_status 400 "malformed percent escape"
-expect_header_starts_with content-type application/json "malformed percent escape"
-expect_body '{"mensaje":"La solicitud no es válida"}' "malformed percent escape"
-pass "GET /api/v1/users/%zz -> 400 with a JSON body"
-
 # --- documentation endpoints ---------------------------------------------------------------------------
 
 echo

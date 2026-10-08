@@ -70,7 +70,7 @@ curl -s -X POST http://localhost:8080/api/v1/users -H 'Content-Type: application
 | 201 | The user was registered | (the user, not an error) |
 | 400 | One or more fields break a rule | The messages of the broken fields, joined with `"; "` |
 | 400 | The body is not valid JSON, is empty or has a wrongly typed field | `El cuerpo de la solicitud no es válido` |
-| 400 | Another malformed request, for example a bad percent escape in the path | `La solicitud no es válida` |
+| 400 | Any other 400 raised inside the application | `La solicitud no es válida` |
 | 404 | Unknown route | `Recurso no encontrado` |
 | 405 | Wrong method on a known route (the `Allow` header is kept) | `Método no permitido` |
 | 406 | The `Accept` header cannot be satisfied | `Formato de respuesta no aceptable` |
@@ -167,8 +167,8 @@ creates or alters a table.
   depend on each other, no field injection). A second test class proves each rule fails when a
   fixture class breaks it.
 - **Acceptance script:** with the service running, `bash scripts/acceptance.sh` makes real requests with
-  `curl` (11 checks: the statement's example, the duplicate, invalid and malformed bodies, 404, 405,
-  406, 415, the malformed path escape, Swagger UI and the OpenAPI document) and exits non-zero at the
+  `curl` (the statement's example, the duplicate, invalid and malformed bodies, 404, 405, 406, 415,
+  Swagger UI and the OpenAPI document) and exits non-zero at the
   first failure. Use a fresh instance each time, because the example address can be registered only
   once; set `BASE_URL` to test another address.
 - **CI:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs `./gradlew build` and builds the
@@ -221,8 +221,9 @@ alternatives that were discarded, is in
 
 ## Known limitations
 
-- Requests that Tomcat's HTTP parser rejects before any application is chosen (a malformed request
-  line, oversized headers) are not covered by the `mensaje` contract or by tests.
+- Requests that the servlet container rejects before any application code runs (an invalid
+  percent-escape in the path, a malformed request line, oversized headers) are answered by the
+  container's own error page and are outside the JSON contract.
 - The default token secret is public and the token is stored in clear.
 - The default password pattern is weak on purpose.
 - The data is in memory and is lost on restart.

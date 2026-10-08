@@ -21,7 +21,7 @@ exercise statement.
 | [ADR-007](#adr-007-strict-json-string-typing) | Strict JSON string typing |
 | [ADR-008](#adr-008-the-mensaje-error-contract-instead-of-rfc-9457) | The `{"mensaje"}` error contract instead of RFC 9457 |
 | [ADR-009](#adr-009-status-mapping) | Status mapping |
-| [ADR-010](#adr-010-an-error-controller-and-a-tomcat-valve-for-errors-outside-the-dispatcher) | An error controller and a Tomcat valve for errors outside the dispatcher |
+| [ADR-010](#adr-010-an-error-controller-for-errors-forwarded-to-the-error-path) | An error controller for errors forwarded to the error path |
 | [ADR-011](#adr-011-spring-boot-411-and-java-17-against-the-statements-java-8) | Spring Boot 4.1.1 and Java 17 against the statement's "Java 8+" |
 | [ADR-012](#adr-012-gradle-as-the-build-tool) | Gradle as the build tool |
 | [ADR-013](#adr-013-h2-hibernate-and-a-versioned-schemasql-with-validate) | H2, Hibernate and a versioned `schema.sql` with `validate` |
@@ -264,7 +264,7 @@ keep their own formats.
 | Registered | 201 | (the user) |
 | One or more fields break a rule | 400 | the messages of the broken fields, distinct, sorted, joined with `"; "` |
 | Body unreadable, malformed, empty, wrongly typed | 400 | `El cuerpo de la solicitud no es válido` |
-| Any other framework 400 (for example a malformed escape in the path) | 400 | `La solicitud no es válida` |
+| Any other 400 raised inside the application | 400 | `La solicitud no es válida` |
 | Unknown route | 404 | `Recurso no encontrado` |
 | Method not allowed on a known route (`Allow` header kept) | 405 | `Método no permitido` |
 | `Accept` cannot be satisfied | 406 | `Formato de respuesta no aceptable` |
@@ -283,40 +283,37 @@ keep their own formats.
 - Any 4xx without a specific row answers `La solicitud no es válida` and keeps its status; a 413 or
   a 431 is not announced as an internal error.
 
-**Consequences.** The same mapping is shared by the advice, the error controller and the valve
-through `ErrorMessages.forStatus`, so the three cannot drift apart.
+**Consequences.** The same mapping is shared by the advice and the error controller through
+`ErrorMessages.forStatus`, so the two cannot drift apart.
 
-## ADR-010: An error controller and a Tomcat valve for errors outside the dispatcher
+## ADR-010: An error controller for errors forwarded to the error path
 
-**Context.** Some errors never reach Spring MVC: filter failures, `sendError` calls and requests
-Tomcat rejects while it is still reading the request line.
+**Context.** Some errors never reach a Spring MVC handler method: a filter that calls `sendError`,
+or any error the servlet container forwards to its error page. Boot's stock `/error` handler
+negotiates its content, so it can answer an HTML page or an empty body.
 
-**Decision.** Two small classes cover both sides of the application boundary.
+**Decision.** `ApiErrorController` replaces Boot's `/error` handler. Errors forwarded to `/error` get
+the same JSON body as every other error, for every method and every `Accept` value, with an explicit
+JSON content type. The controller is hidden from the OpenAPI document.
 
-1. `ApiErrorController` replaces Spring Boot's `/error` handler. Errors forwarded to `/error` get the
-   same JSON body, for every method and every `Accept` value. It is hidden from the OpenAPI
-   document.
-2. `JsonErrorReportValve`, installed by `ContainerErrorConfig`, replaces Tomcat's HTML error report
-   for responses that never entered the web application. The request `GET /api/v1/users/%zz` is the
-   case: Tomcat rejects the malformed percent escape before any application is selected, so the
-   `/error` forward never happens.
+**Alternatives discarded.**
 
-Spring Boot adds its own stock `ErrorReportValve` to the host, and the innermost valve writes first.
-The customizer therefore runs last (lowest precedence, set by the customizer's own order and not by
-an annotation on the bean method, which is ignored), removes every stock valve and registers its own
-class on the host. A test fails if the order is wrong.
-
-**Alternatives discarded.** The error controller alone: it leaves Tomcat's HTML report for anything
-that never enters the web application. `ErrorAttributes` only: see ADR-008.
+- A Tomcat error-report valve, to also answer in JSON the requests Tomcat rejects before any web
+  application is chosen (the request `GET /api/v1/users/%zz` was the case). It was removed: it is
+  specific to Tomcat, it depends on the order of the valves in Boot's host pipeline, and it could
+  only cover part of the container's rejections, because the HTTP parser answers a malformed
+  request line or oversized headers before any valve runs. Two classes, an ordering rule and
+  raw-socket tests bought a partial guarantee, so the contract states its boundary instead.
+- `ErrorAttributes` only: see ADR-008.
 
 **Consequences.**
 
-- The valve is specific to Tomcat, the embedded server of the starter in use.
-- The container-level cases are tested over a raw socket, because an HTTP client refuses to build a
-  URI with a malformed escape. The jar and the container image answer the `%zz` request with a JSON
-  body and the content type `application/json;charset=UTF-8`.
-- **Limit.** Rejections made by the HTTP parser itself (a malformed request line, oversized headers)
-  are answered by Tomcat and are not covered by the contract or by tests. See the known limitations.
+- **Limit.** A request that the servlet container rejects before any application code runs (an
+  invalid percent-escape in the path, a malformed request line, oversized headers) is answered by
+  the container's own error page, normally HTML, and is outside the `mensaje` contract. This is
+  recorded in the known limitations and the README.
+- The forwarded-error cases are tested over a raw socket, because MockMvc does not perform the
+  container's error dispatch.
 
 ## ADR-011: Spring Boot 4.1.1 and Java 17 against the statement's "Java 8+"
 
@@ -621,8 +618,8 @@ targets the JUnit 5 platform and Boot 4.1.1 manages JUnit 6.
 | `RegisterUserRequest`, `PhoneRequest`, `UserResponse`, `PhoneResponse`, `ErrorResponse` | JSON records | Explicit wire contract; the response has no password component |
 | `UserWebMapper` | Static mapping between records and command or aggregate | A forgotten field is a compile error; it never reads the password hash |
 | `GlobalExceptionHandler` | The single `@RestControllerAdvice` | One translation point for every error (ADR-008) |
-| `ErrorMessages` | The message catalogue and the status lookups | Client text in one place, shared by three error paths |
-| `ApiErrorController`, `JsonErrorReportValve`, `ContainerErrorConfig` | JSON bodies for errors outside the dispatcher | ADR-010 |
+| `ErrorMessages` | The message catalogue and the status lookups | Client text in one place, shared by the two error paths |
+| `ApiErrorController` | JSON body for errors forwarded to the error path | ADR-010 |
 | `JacksonConfig` | Strict string typing | ADR-007 |
 | `UserPersistenceAdapter`, `UserJpaRepository`, `UserJpaEntity`, `PhoneJpaEntity` | Implement `UserRepository` with JPA; translate a unique violation into the domain rejection | ADR-005 and the concurrency rule: the constraint, not the pre-check, guarantees uniqueness |
 | `BCryptPasswordHasher` | Implements `PasswordHasher` | ADR-015 |
@@ -634,11 +631,11 @@ targets the JUnit 5 platform and Boot 4.1.1 manages JUnit 6.
 
 ## Known limitations
 
-- **HTTP-parser-level rejections.** A malformed request line or oversized headers are rejected by
-  Tomcat's parser and answered by Tomcat. They are not covered by the `mensaje` contract or by
-  tests; the response may be an HTML page, an empty body or a closed connection. The error
-  controller and the valve cover everything that reaches the servlet container's host pipeline,
-  including a malformed escape in the path.
+- **Container-level rejections.** A request that the servlet container rejects before any
+  application code runs (an invalid percent-escape in the path, a malformed request line, oversized
+  headers) is answered by the container's own error page, normally HTML, and is outside the
+  `mensaje` contract (ADR-010). Everything that reaches the application, including errors forwarded
+  to the error path, is covered.
 - **Development-only secret and clear-text token.** The default `app.token.secret` is public. The
   token is stored in clear because the statement requires it to be persisted (ADR-016). Set
   `TOKEN_SECRET` for any real use.
