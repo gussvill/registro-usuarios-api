@@ -4,17 +4,18 @@ import com.registro.usuarios.domain.model.PhoneInput;
 import java.util.List;
 
 /**
- * Raw input of the registration use case, exactly as the caller received it. Nothing here is
- * validated: that is the use case's job, so every entry point gets the same rules.
+ * Entrada sin procesar del caso de uso de registro, tal como la recibió quien llama. Nada aquí está
+ * validado: eso es trabajo del caso de uso, de modo que todo punto de entrada aplica las mismas
+ * reglas.
  */
 public record RegisterUserCommand(
     String name, String email, String password, List<PhoneData> phones) {
 
-  /** One phone as submitted. */
+  /** Un teléfono tal como fue enviado. */
   public record PhoneData(String number, String cityCode, String countryCode)
       implements PhoneInput {}
 
-  /** The password is never printed, whether or not it is present. */
+  /** La contraseña nunca se imprime, esté presente o no. */
   @Override
   public String toString() {
     return "RegisterUserCommand[name="

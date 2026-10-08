@@ -26,10 +26,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.JsonNode;
 
 /**
- * Hostile and boundary inputs against the running application, with the real database. Every
- * request must be answered within five seconds and must never be a server error: a bad value is a
- * 400 with its exact message. The tests use their own email or remove the fixed one first, so they
- * do not depend on the other full-context tests.
+ * Entradas hostiles y de borde contra la aplicación en ejecución, con la base de datos real. Toda
+ * petición debe responderse en menos de cinco segundos y nunca ser un error de servidor: un valor
+ * incorrecto es un 400 con su mensaje exacto. Las pruebas usan su propio correo o eliminan primero
+ * el fijo, de modo que no dependen de las demás pruebas de contexto completo.
  */
 @FullContextTest
 class HostileInputTest {
@@ -50,16 +50,16 @@ class HostileInputTest {
     api = new RegistrationClient(port);
   }
 
-  // --- helpers ---
+  // --- utilidades ---
 
   private static String quote(String text) {
     return "\"" + text + "\"";
   }
 
   /**
-   * A registration body as text. Each override is a field name and its raw JSON; a {@code null} raw
-   * value removes the field. The email is unique unless overridden, so a body that unexpectedly
-   * succeeds never collides with another.
+   * Un cuerpo de registro como texto. Cada override es un nombre de campo y su JSON en bruto; un
+   * valor en bruto {@code null} elimina el campo. El correo es único salvo que se sobrescriba, de
+   * modo que un cuerpo que inesperadamente tenga éxito nunca colisione con otro.
    */
   private static String body(String... overrides) {
     Map<String, String> fields = new LinkedHashMap<>();
@@ -94,7 +94,7 @@ class HostileInputTest {
     return phone("\"1234567\"", "\"1\"", "\"57\"");
   }
 
-  /** Sends the body and fails if the answer takes longer than the bound. */
+  /** Envía el cuerpo y falla si la respuesta tarda más que el límite. */
   private Reply timed(String requestBody) {
     return assertTimeout(BOUND, () -> api.post(requestBody));
   }
@@ -102,14 +102,14 @@ class HostileInputTest {
   private void assertRejected(String requestBody, String mensaje) {
     Reply reply = timed(requestBody);
 
-    assertThat(reply.status()).as("status for %s", mensaje).isEqualTo(400);
+    assertThat(reply.status()).as("estado para %s", mensaje).isEqualTo(400);
     assertThat(reply.contentType()).startsWith("application/json");
     JsonNode answer = reply.json();
     assertThat(new ArrayList<>(answer.propertyNames())).containsExactly("mensaje");
     assertThat(answer.get("mensaje").asString()).isEqualTo(mensaje);
   }
 
-  // --- each hostile row with its exact message ---
+  // --- cada fila hostil con su mensaje exacto ---
 
   @ParameterizedTest(name = "{0}")
   @MethodSource("hostileRows")
@@ -123,20 +123,20 @@ class HostileInputTest {
     String tooLongEmail = "El correo no debe superar 254 caracteres";
     String tooLongPassword = "La contraseña es demasiado larga";
     return Stream.of(
-        // name
+        // nombre
         Arguments.of(
             "name: 10,000 characters", body("name", quote("a".repeat(10_000))), tooLongName),
         Arguments.of("name: number", body("name", "12345"), INVALID_BODY),
         Arguments.of("name: object", body("name", "{}"), INVALID_BODY),
         Arguments.of("name: null", body("name", "null"), "El nombre es obligatorio"),
-        // email
+        // correo
         Arguments.of(
             "email: 50,000 characters",
             body("email", quote("a".repeat(50_000) + "@x")),
             tooLongEmail),
         Arguments.of("email: array", body("email", "[\"a@dominio.cl\"]"), INVALID_BODY),
         Arguments.of("email: null", body("email", "null"), "El correo es obligatorio"),
-        // password
+        // contraseña
         Arguments.of(
             "password: 100,000 characters",
             body("password", quote("a".repeat(100_000))),
@@ -144,7 +144,7 @@ class HostileInputTest {
         Arguments.of("password: number", body("password", "1234567"), INVALID_BODY),
         Arguments.of("password: boolean", body("password", "true"), INVALID_BODY),
         Arguments.of("password: null", body("password", "null"), "La contraseña es obligatoria"),
-        // phones
+        // teléfonos
         Arguments.of("phones: string", body("phones", quote("x")), INVALID_BODY),
         Arguments.of("phones: object", body("phones", "{}"), INVALID_BODY),
         Arguments.of("phones: [null]", body("phones", "[null]"), "El teléfono no puede ser nulo"),
@@ -155,7 +155,7 @@ class HostileInputTest {
                 "[" + String.join(",", java.util.Collections.nCopies(11, validPhone())) + "]"),
             "No se permiten más de 10 teléfonos"),
         Arguments.of("phones: [5]", body("phones", "[5]"), INVALID_BODY),
-        // phone fields
+        // campos del teléfono
         Arguments.of(
             "number: 5,000 characters",
             body("phones", "[" + phone(quote("1".repeat(5_000)), "\"1\"", "\"57\"") + "]"),
@@ -172,7 +172,7 @@ class HostileInputTest {
             "contrycode: 11 characters",
             body("phones", "[" + phone("\"1234567\"", "\"1\"", quote("5".repeat(11))) + "]"),
             "El código de país no debe superar 10 caracteres"),
-        // body shape
+        // forma del cuerpo
         Arguments.of("shape: empty array", "[]", INVALID_BODY),
         Arguments.of("shape: literal null", "null", INVALID_BODY),
         Arguments.of("shape: 10,000 nested arrays", "[".repeat(10_000), INVALID_BODY),
@@ -190,7 +190,7 @@ class HostileInputTest {
             INVALID_BODY));
   }
 
-  // --- password bounds with the default pattern ---
+  // --- límites de la contraseña con el patrón por defecto ---
 
   @Test
   void aPasswordOf72CharactersIsAccepted() {
@@ -219,7 +219,7 @@ class HostileInputTest {
         body("password", quote("abc12")), "La contraseña no cumple el formato requerido");
   }
 
-  // --- required fields ---
+  // --- campos obligatorios ---
 
   @ParameterizedTest(name = "{0}")
   @MethodSource("requiredRows")
@@ -247,7 +247,7 @@ class HostileInputTest {
             "El correo no tiene un formato válido; El nombre es obligatorio"));
   }
 
-  // --- phones ---
+  // --- teléfonos ---
 
   @ParameterizedTest(name = "{0}")
   @MethodSource("phoneRows")
@@ -338,7 +338,7 @@ class HostileInputTest {
     assertThat(reply.json().get("phones")).isEmpty();
   }
 
-  // --- email ---
+  // --- correo ---
 
   @ParameterizedTest(name = "[{0}]")
   @ValueSource(
@@ -372,7 +372,7 @@ class HostileInputTest {
     assertThat(reply.json().get("email").asString()).isEqualTo(email);
   }
 
-  // --- maximum-length values are accepted and stored without truncation ---
+  // --- los valores de longitud máxima se aceptan y se guardan sin truncar ---
 
   @Test
   void valuesAtTheirMaximumLengthAreAcceptedAndStoredWithoutTruncation() {

@@ -2,7 +2,7 @@ package com.registro.archfixture.domain;
 
 import jakarta.persistence.Id;
 
-/** Breaks "the domain is free of frameworks": a Jakarta Persistence annotation. */
+/** Rompe "el dominio está libre de frameworks": una anotación de Jakarta Persistence. */
 public class JpaCoupledRecord {
 
   @Id

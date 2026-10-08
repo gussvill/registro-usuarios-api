@@ -38,15 +38,15 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 /**
- * The wiring without a web server or a database: the real configuration classes, the real token
- * issuer and hasher found by scanning their package, and an in-memory repository.
+ * El cableado sin servidor web ni base de datos: las clases de configuración reales, el emisor de
+ * tokens y el hasher reales encontrados al escanear su paquete, y un repositorio en memoria.
  */
-@SuppressWarnings("JavaUtilDate") // JJWT's parser clock is a java.util.Date supplier.
+@SuppressWarnings("JavaUtilDate") // El reloj del parser de JJWT es un proveedor de java.util.Date.
 class RegistrationConfigurationTest {
 
   private static final String SECRET = "test-only-secret-0123456789-abcdefghijklmnop";
 
-  /** Everything the application wires, minus the web and the database. */
+  /** Todo lo que la aplicación cablea, menos la web y la base de datos. */
   @Configuration(proxyBeanMethods = false)
   @Import({ApplicationConfig.class, OpenApiConfig.class})
   @EnableConfigurationProperties({RegistrationProperties.class, TokenProperties.class})
@@ -92,7 +92,7 @@ class RegistrationConfigurationTest {
     return messages;
   }
 
-  // --- binding of the four keys ---
+  // --- enlace de las cuatro claves ---
 
   @Test
   void theFourPropertyKeysBindToTheirTypedHolders() {
@@ -133,7 +133,7 @@ class RegistrationConfigurationTest {
             });
   }
 
-  // --- the patterns are configuration ---
+  // --- los patrones son configuración ---
 
   @Test
   void theEmailPatternPropertyChangesWhichAddressesAreAccepted() {
@@ -184,7 +184,7 @@ class RegistrationConfigurationTest {
             });
   }
 
-  // --- the token settings reach the issued token ---
+  // --- la configuración del token llega al token emitido ---
 
   @ParameterizedTest
   @CsvSource({"120s, 120", "3600s, 3600", "15m, 900"})
@@ -228,7 +228,7 @@ class RegistrationConfigurationTest {
             });
   }
 
-  // --- fail fast ---
+  // --- fallar rápido ---
 
   @Test
   void aSecretOf16BytesStopsTheStartupAndTheFailureNamesThePropertyButNotTheValue() {
@@ -337,7 +337,7 @@ class RegistrationConfigurationTest {
         .run(context -> assertThat(context).hasFailed());
   }
 
-  // --- the use case bean and the OpenAPI bean ---
+  // --- el bean del caso de uso y el bean de OpenAPI ---
 
   @Test
   void theOpenApiBeanCarriesTheTitleAndTheVersionOfTheApi() {
@@ -351,7 +351,7 @@ class RegistrationConfigurationTest {
             });
   }
 
-  // --- the defaults the application ships with ---
+  // --- los valores por defecto con los que se entrega la aplicación ---
 
   private static final Path PROPERTIES = Path.of("src/main/resources/application.properties");
 

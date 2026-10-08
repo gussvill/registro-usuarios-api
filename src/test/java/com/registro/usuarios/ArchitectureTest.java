@@ -9,7 +9,10 @@ import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import org.junit.jupiter.api.Test;
 
-/** The architecture rules, run on the compiled production classes (tests are not analysed). */
+/**
+ * Las reglas de arquitectura, ejecutadas sobre las clases compiladas de producción (las pruebas no
+ * se analizan).
+ */
 class ArchitectureTest {
 
   private static final JavaClasses PRODUCTION =

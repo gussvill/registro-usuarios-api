@@ -3,7 +3,7 @@ package com.registro.archfixture.infrastructure.web;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 
-/** Breaks "entities live in the persistence package": an entity in the web package. */
+/** Rompe "las entidades viven en el paquete de persistencia": una entidad en el paquete web. */
 @Entity
 public class MisplacedEntity {
 

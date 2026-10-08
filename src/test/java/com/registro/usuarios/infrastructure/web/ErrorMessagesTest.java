@@ -16,10 +16,10 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-/** The Spanish catalogue, pinned literally: the texts are part of the API contract. */
+/** El catálogo en español, fijado literalmente: los textos son parte del contrato de la API. */
 class ErrorMessagesTest {
 
-  /** One row per rule of the validation catalogue, exactly as the contract states it. */
+  /** Una fila por regla del catálogo de validación, exactamente como la establece el contrato. */
   private static final String[] CATALOGUE = {
     "NAME_REQUIRED, El nombre es obligatorio",
     "NAME_TOO_LONG, El nombre no debe superar 255 caracteres",
@@ -74,7 +74,8 @@ class ErrorMessagesTest {
 
   @Test
   void theOrderFollowsTheSpanishTextAndNotTheEnumDeclaration() {
-    // COUNTRY_CODE_REQUIRED is declared after PHONE_NUMBER_REQUIRED but its text sorts before.
+    // COUNTRY_CODE_REQUIRED se declara después de PHONE_NUMBER_REQUIRED, pero su texto ordena
+    // antes.
     assertThat(
             ErrorMessages.joined(
                 EnumSet.of(

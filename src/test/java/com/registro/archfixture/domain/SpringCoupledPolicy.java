@@ -2,6 +2,6 @@ package com.registro.archfixture.domain;
 
 import org.springframework.stereotype.Component;
 
-/** Breaks "the domain is free of frameworks": a Spring stereotype on a domain type. */
+/** Rompe "el dominio está libre de frameworks": un estereotipo de Spring en un tipo de dominio. */
 @Component
 public class SpringCoupledPolicy {}

@@ -2,7 +2,7 @@ package com.registro.archfixture.application;
 
 import com.registro.archfixture.infrastructure.web.CleanAdapter;
 
-/** Breaks the direction of dependencies: the application layer uses an adapter. */
+/** Rompe el sentido de las dependencias: la capa de aplicación usa un adaptador. */
 public class ReachesInfrastructure {
 
   public Object adapter() {

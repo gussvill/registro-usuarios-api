@@ -30,10 +30,10 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ObjectNode;
 
 /**
- * The password, its hash, the token and the signing secret never reach the logs, on the success
- * path and on the failure paths, with the application at DEBUG. A second group raises the web
- * framework to TRACE, where it prints the objects it reads and writes: that shows the records
- * redact what they carry.
+ * La contraseña, su hash, el token y el secreto de firma nunca llegan a los logs, ni en el camino
+ * de éxito ni en los de fallo, con la aplicación en DEBUG. Un segundo grupo sube el framework web a
+ * TRACE, donde imprime los objetos que lee y escribe: eso demuestra que los records ocultan lo que
+ * llevan.
  */
 @FullContextTest
 @ExtendWith(OutputCaptureExtension.class)
@@ -77,7 +77,7 @@ class LogSecrecyTest {
         .doesNotContainPattern(ANY_BCRYPT);
   }
 
-  // --- success ---
+  // --- éxito ---
 
   @Test
   void theSuccessPathLogsOnlyTheMaskedEmailAndNoSecret(CapturedOutput output) throws Exception {
@@ -99,7 +99,7 @@ class LogSecrecyTest {
         .doesNotContain(hash)
         .doesNotContain(FullContextTest.TOKEN_SECRET);
     assertNoSecret(output);
-    // The line exists (so the capture works), carries the id and the masked address only.
+    // La línea existe (así que la captura funciona) y lleva solo el id y la dirección enmascarada.
     assertThat(output.getAll())
         .contains("User registered")
         .contains(body.get("id").asString())
@@ -108,7 +108,7 @@ class LogSecrecyTest {
         .doesNotContain(email.substring(0, email.indexOf('@')));
   }
 
-  // --- failure paths ---
+  // --- caminos de fallo ---
 
   @Test
   void aDuplicateRegistrationLogsNoSecret(CapturedOutput output) throws Exception {
@@ -122,10 +122,10 @@ class LogSecrecyTest {
   }
 
   /**
-   * The race behind the pre-check: two requests both find the address free and the second insert
-   * reaches the unique constraint. Hibernate logs a failed statement together with the database's
-   * own message, which quotes the offending value; that logger is switched off so the address does
-   * not reach the server log.
+   * La condición de carrera detrás de la comprobación previa: dos peticiones encuentran libre la
+   * dirección y el segundo insert llega a la restricción de unicidad. Hibernate registra una
+   * sentencia fallida junto con el mensaje propio de la base de datos, que cita el valor ofensor;
+   * ese logger se desactiva para que la dirección no llegue al log del servidor.
    */
   @Test
   void aDuplicateThatReachesTheConstraintLogsNeitherTheAddressNorASecret(CapturedOutput output)
@@ -210,9 +210,10 @@ class LogSecrecyTest {
   }
 
   /**
-   * The unexpected-failure log keeps the class and the frames of every cause, never a message: a
-   * database message can quote the offending value. Here a trigger refuses the phone row after the
-   * user row is in and quotes the row in its message; the marker is the city code of that phone.
+   * El log de fallo inesperado conserva la clase y los frames de cada causa, nunca un mensaje: el
+   * mensaje de una base de datos puede citar el valor ofensor. Aquí un trigger rechaza la fila del
+   * teléfono después de que la fila del usuario ya está dentro y cita la fila en su mensaje; el
+   * marcador es el código de ciudad de ese teléfono.
    */
   @Test
   void aFailureWhoseMessageQuotesTheRequestDoesNotPutTheQuotedValueInTheLog(CapturedOutput output)
@@ -246,7 +247,7 @@ class LogSecrecyTest {
     }
   }
 
-  // --- the framework at TRACE prints what it reads and writes ---
+  // --- el framework en TRACE imprime lo que lee y escribe ---
 
   @Test
   void theRequestAndTheResponseAreRedactedWhenTheWebFrameworkLogsThemAtTrace(CapturedOutput output)

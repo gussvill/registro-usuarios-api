@@ -6,9 +6,9 @@ import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 /**
- * The Spanish message catalogue of the error contract. The domain only knows typed reasons; the
- * client-facing text is presentation and lives here. The literals are NFC-composed in a UTF-8
- * source file, so an accented letter is a single code point.
+ * El catálogo de mensajes en español del contrato de errores. El dominio solo conoce motivos
+ * tipados; el texto destinado al cliente es presentación y vive aquí. Los literales están en forma
+ * NFC en un archivo fuente UTF-8, de modo que una letra acentuada es un único punto de código.
  */
 final class ErrorMessages {
 
@@ -26,7 +26,7 @@ final class ErrorMessages {
 
   private ErrorMessages() {}
 
-  /** The catalogue text of one validation rule. A new reason without a text does not compile. */
+  /** El texto del catálogo de una regla de validación. Un motivo nuevo sin texto no compila. */
   static String of(Reason reason) {
     return switch (reason) {
       case NAME_REQUIRED -> "El nombre es obligatorio";
@@ -53,8 +53,8 @@ final class ErrorMessages {
   }
 
   /**
-   * The distinct messages of the reasons, in ascending natural string order, joined with {@code ";
-   * "}. The order is that of the Spanish text, not of the enum, because the contract fixes it.
+   * Los mensajes distintos de los motivos, en orden natural ascendente de cadena, unidos con {@code
+   * "; "}. El orden es el del texto en español y no el del enum, porque el contrato lo fija.
    */
   static String joined(Set<Reason> reasons) {
     return reasons.stream()
@@ -65,8 +65,8 @@ final class ErrorMessages {
   }
 
   /**
-   * The message for a status that did not come from a typed rejection. Used by the advice, by the
-   * error controller and by anything else that must answer without application context.
+   * El mensaje para un estado que no proviene de un rechazo tipado. Lo usan el advice, el
+   * controlador de errores y cualquier otro que deba responder sin contexto de aplicación.
    */
   static String forStatus(int status) {
     return switch (status) {

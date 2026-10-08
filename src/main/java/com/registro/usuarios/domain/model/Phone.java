@@ -8,19 +8,22 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * A phone number with its city and country codes. The three parts are kept as strings, exactly as
- * received, so leading zeros and a leading {@code +} survive. The number and the city code are
- * ASCII digits only; the country code is ASCII digits with an optional leading {@code +}.
+ * Un número de teléfono con su código de ciudad y de país. Las tres partes se conservan como
+ * cadenas, tal como se recibieron, de modo que se preservan los ceros iniciales y un {@code +}
+ * inicial. El número y el código de ciudad son solo dígitos ASCII; el código de país son dígitos
+ * ASCII con un {@code +} inicial opcional.
  */
 public record Phone(String number, String cityCode, String countryCode) {
 
   public static final int NUMBER_MAX_LENGTH = 20;
   public static final int CODE_MAX_LENGTH = 10;
 
-  /** The number and the city code: one or more ASCII digits. */
+  /** El número y el código de ciudad: uno o más dígitos ASCII. */
   public static final String DIGITS_PATTERN = "^[0-9]+$";
 
-  /** The country code: one or more ASCII digits, optionally preceded by a single {@code +}. */
+  /**
+   * El código de país: uno o más dígitos ASCII, opcionalmente precedidos por un único {@code +}.
+   */
   public static final String COUNTRY_CODE_PATTERN = "^\\+?[0-9]+$";
 
   private static final Pattern DIGITS = Pattern.compile(DIGITS_PATTERN);
@@ -34,8 +37,9 @@ public record Phone(String number, String cityCode, String countryCode) {
   }
 
   /**
-   * Every field that breaks a rule, at most one reason per field: the first failing rule of
-   * required, then length, then format. The result is a new read-only set on each call.
+   * Todos los campos que incumplen una regla, como máximo un motivo por campo: la primera regla
+   * incumplida entre obligatorio, longitud y formato. El resultado es un conjunto nuevo de solo
+   * lectura en cada llamada.
    */
   public static Set<Reason> violations(String number, String cityCode, String countryCode) {
     EnumSet<Reason> reasons = EnumSet.noneOf(Reason.class);

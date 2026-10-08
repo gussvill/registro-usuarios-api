@@ -5,17 +5,18 @@ import com.registro.usuarios.domain.exception.InvalidUserDataException;
 import com.registro.usuarios.domain.model.User;
 
 /**
- * Inbound port: what the application offers to whoever drives it. An entry point (today the web
- * adapter) depends on this abstraction, which the application layer owns, and never on the class
- * that implements it.
+ * Puerto de entrada: lo que la aplicación ofrece a quien la dirige. Un punto de entrada (hoy el
+ * adaptador web) depende de esta abstracción, que pertenece a la capa de aplicación, y nunca de la
+ * clase que la implementa ({@code RegisterUserUseCase}).
  */
 public interface RegisterUser {
 
   /**
-   * Registers a new user.
+   * Registra un nuevo usuario.
    *
-   * @throws InvalidUserDataException if any field breaks a rule; every broken field is reported
-   * @throws EmailAlreadyRegisteredException if the email is taken
+   * @throws InvalidUserDataException si algún campo incumple una regla; se informan todos los
+   *     campos incorrectos
+   * @throws EmailAlreadyRegisteredException si el correo ya está en uso
    */
   User register(RegisterUserCommand command);
 }

@@ -14,14 +14,14 @@ import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * The bounds that hold whatever the configured format: required, and at most {@link
- * Password#MAX_BYTES} UTF-8 bytes.
+ * Los límites que se cumplen sea cual sea el formato configurado: obligatoria y como máximo {@link
+ * Password#MAX_BYTES} bytes UTF-8.
  */
 class PasswordTest {
 
   private static final PasswordPolicy ANYTHING = new RegexPasswordPolicy(Pattern.compile("^.+$"));
 
-  /** Counts how many times the format rule is consulted. */
+  /** Cuenta cuántas veces se consulta la regla de formato. */
   private static final class CountingPolicy implements PasswordPolicy {
     private final AtomicInteger calls = new AtomicInteger();
     private final boolean verdict;
@@ -85,7 +85,8 @@ class PasswordTest {
 
   @Test
   void supplementaryCharactersAreCountedInBytesNotInUtf16Units() {
-    // U+1F511 is two UTF-16 units and four UTF-8 bytes: 19 of them are 38 units but 76 bytes.
+    // U+1F511 son dos unidades UTF-16 y cuatro bytes UTF-8: 19 de ellos son 38 unidades pero 76
+    // bytes.
     String keys = "🔑".repeat(19);
 
     assertThat(keys).hasSize(38);

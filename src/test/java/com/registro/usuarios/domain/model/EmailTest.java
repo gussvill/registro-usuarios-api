@@ -14,7 +14,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class EmailTest {
 
-  /** Same shape as the production default; the pattern is a parameter of the domain rule. */
+  /**
+   * Misma forma que el valor por defecto de producción; el patrón es un parámetro de la regla de
+   * dominio.
+   */
   private static final Pattern FORMAT =
       Pattern.compile("^[a-z0-9._%+-]+@[a-z0-9-]+(\\.[a-z0-9-]+)*\\.[a-z]{2,}$");
 
@@ -127,7 +130,7 @@ class EmailTest {
 
   @Test
   void lengthIsMeasuredOnTheLowerCasedValue() {
-    // U+0130 lower-cases to two characters ('i' + combining dot) under Locale.ROOT.
+    // U+0130 se pasa a minúsculas en dos caracteres ('i' + punto combinante) con Locale.ROOT.
     String raw = "İ".repeat(Email.MAX_LENGTH / 2 + 1);
 
     assertThat(raw).hasSizeLessThan(Email.MAX_LENGTH);

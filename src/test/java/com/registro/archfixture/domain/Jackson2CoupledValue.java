@@ -2,7 +2,10 @@ package com.registro.archfixture.domain;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/** Breaks "the domain is free of frameworks": a Jackson annotation (the group id of both lines). */
+/**
+ * Rompe "el dominio está libre de frameworks": una anotación de Jackson (el group id de ambas
+ * líneas).
+ */
 public class Jackson2CoupledValue {
 
   @JsonProperty("value")

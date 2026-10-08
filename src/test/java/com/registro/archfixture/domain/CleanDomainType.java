@@ -1,6 +1,6 @@
 package com.registro.archfixture.domain;
 
-/** Breaks nothing: the control that a rule's report does not name an innocent class. */
+/** No rompe nada: es el control de que el informe de una regla no nombra una clase inocente. */
 public class CleanDomainType {
 
   public String name() {

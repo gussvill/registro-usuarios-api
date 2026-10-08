@@ -1,9 +1,9 @@
 package com.registro.usuarios.domain.model;
 
 /**
- * Why a field of a registration was rejected. A field has at most one reason: the first failing
- * rule, in the order required, then length, then format. A reason is a typed fact about the input:
- * it carries neither the rejected value nor any client-facing text.
+ * Por qué se rechazó un campo de un registro. Un campo tiene como máximo un motivo: la primera
+ * regla incumplida, en este orden: obligatorio, longitud y formato. Un motivo es un hecho tipado
+ * sobre la entrada: no lleva ni el valor rechazado ni texto destinado al cliente.
  */
 public enum Reason {
   NAME_REQUIRED,

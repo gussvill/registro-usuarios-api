@@ -52,10 +52,11 @@ import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
 /**
- * The running application, end to end: the walking skeleton that proves the dependency set boots
- * together on the pinned Spring Boot line, and the registration scenarios over real HTTP against
- * the real database. Every test uses its own email (or removes the fixed one first), so the tests
- * neither depend on their order nor on an empty database shared with the other full-context tests.
+ * La aplicación en ejecución, de punta a punta: el walking skeleton que demuestra que el conjunto
+ * de dependencias arranca junto sobre la línea fijada de Spring Boot, y los escenarios de registro
+ * sobre HTTP real contra la base de datos real. Cada prueba usa su propio correo (o elimina primero
+ * el fijo), de modo que las pruebas no dependen de su orden ni de una base de datos vacía
+ * compartida con las demás pruebas de contexto completo.
  */
 @FullContextTest
 class RegistrationSmokeTest {
@@ -253,7 +254,7 @@ class RegistrationSmokeTest {
   }
 
   // ---------------------------------------------------------------------------------------------
-  // Registration over real HTTP
+  // Registro sobre HTTP real
   // ---------------------------------------------------------------------------------------------
 
   private static final Pattern CANONICAL_UUID =
@@ -262,7 +263,7 @@ class RegistrationSmokeTest {
   private static final String FIXED_INSTANT = FullContextTest.FIXED_INSTANT.toString();
 
   private static void assertContractBody(Reply reply, int status, String mensaje) {
-    assertThat(reply.status()).as("status").isEqualTo(status);
+    assertThat(reply.status()).as("estado").isEqualTo(status);
     assertThat(reply.contentType()).startsWith("application/json");
     JsonNode body = reply.json();
     assertThat(keys(body)).containsExactly("mensaje");
@@ -323,7 +324,7 @@ class RegistrationSmokeTest {
     assertThat(reply.body()).doesNotContain("hunter2").doesNotContain("$2a$");
   }
 
-  // JJWT's parser clock and claim accessors are expressed in java.util.Date.
+  // El reloj del parser de JJWT y los accesores de claims se expresan en java.util.Date.
   @SuppressWarnings("JavaUtilDate")
   @Test
   void theTokenIssuedByJackson3ResponseIsVerifiedByJjwtAndCarriesTheDocumentedClaims()
@@ -364,7 +365,7 @@ class RegistrationSmokeTest {
         .isInstanceOf(SignatureException.class);
   }
 
-  // JJWT's parser clock and claim accessors are expressed in java.util.Date.
+  // El reloj del parser de JJWT y los accesores de claims se expresan en java.util.Date.
   @SuppressWarnings("JavaUtilDate")
   @Test
   void theStoredRowEqualsTheResponseAndTheEmailIsStoredAndSignedLowerCased() throws Exception {
@@ -517,7 +518,7 @@ class RegistrationSmokeTest {
     assertThat(reply.contentType()).startsWith("application/json");
   }
 
-  // --- duplicates ---
+  // --- duplicados ---
 
   @Test
   void repeatingTheStatementBodyIs409WithTheExactBodyAndOneRow() throws Exception {
@@ -582,7 +583,7 @@ class RegistrationSmokeTest {
           }
         }
 
-        assertThat(statuses).as("round " + round).containsExactlyInAnyOrder(201, 409);
+        assertThat(statuses).as("ronda " + round).containsExactlyInAnyOrder(201, 409);
         assertThat(countUsersWithEmail(email)).isEqualTo(1);
       }
     } finally {
@@ -590,7 +591,7 @@ class RegistrationSmokeTest {
     }
   }
 
-  // --- the error contract end to end ---
+  // --- el contrato de errores de punta a punta ---
 
   @ParameterizedTest(name = "{0}")
   @MethodSource("errorRows")

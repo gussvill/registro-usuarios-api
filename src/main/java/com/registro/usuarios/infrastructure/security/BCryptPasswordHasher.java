@@ -5,11 +5,12 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
 
 /**
- * Implements the {@link PasswordHasher} port with BCrypt from {@code spring-security-crypto}, which
- * salts every hash. Only the crypto module is used, not the security filter chain.
+ * Implementa el puerto {@link PasswordHasher} con BCrypt de {@code spring-security-crypto}, que
+ * aplica sal a cada hash. Solo se usa el módulo de criptografía, no la cadena de filtros de
+ * seguridad.
  *
- * <p>The 72-byte limit of BCrypt is enforced by the domain before a password gets here, so this
- * adapter does not check it again.
+ * <p>El límite de 72 bytes de BCrypt lo impone el dominio antes de que una contraseña llegue aquí,
+ * así que este adaptador no lo comprueba de nuevo.
  */
 @Component
 class BCryptPasswordHasher implements PasswordHasher {
@@ -18,12 +19,14 @@ class BCryptPasswordHasher implements PasswordHasher {
 
   private final BCryptPasswordEncoder encoder;
 
-  /** Production strength. */
+  /** Fuerza de producción. */
   BCryptPasswordHasher() {
     this(DEFAULT_STRENGTH);
   }
 
-  /** A lower cost for tests, where BCrypt's deliberate slowness would only add waiting. */
+  /**
+   * Un costo menor para las pruebas, donde la lentitud deliberada de BCrypt solo añadiría espera.
+   */
   BCryptPasswordHasher(int strength) {
     this.encoder = new BCryptPasswordEncoder(strength);
   }

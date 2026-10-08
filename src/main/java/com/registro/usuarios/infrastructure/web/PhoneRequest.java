@@ -6,8 +6,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 
 /**
- * A phone as submitted. The JSON name of the country code is spelled as in the exercise statement,
- * on purpose, and differs from the Java name.
+ * Un teléfono tal como se envía. El nombre JSON del código de país se escribe como en el enunciado
+ * del ejercicio, a propósito, y difiere del nombre en Java.
  */
 @Schema(description = "Un teléfono del usuario")
 record PhoneRequest(

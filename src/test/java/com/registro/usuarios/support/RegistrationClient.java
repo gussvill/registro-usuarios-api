@@ -16,12 +16,13 @@ import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
 /**
- * A small HTTP client for the full-context tests: real requests to the random port, bodies and
- * answers as UTF-8 text, and a hard timeout so that a stuck request can never hang the suite.
+ * Un cliente HTTP pequeño para las pruebas de contexto completo: peticiones reales al puerto
+ * aleatorio, cuerpos y respuestas como texto UTF-8, y un timeout estricto para que una petición
+ * atascada nunca pueda colgar la suite.
  */
 public final class RegistrationClient {
 
-  /** The literal body of the exercise statement. */
+  /** El cuerpo literal del enunciado del ejercicio. */
   public static final String STATEMENT_BODY =
       "{\"name\":\"Juan Rodriguez\",\"email\":\"juan@rodriguez.org\",\"password\":\"hunter2\","
           + "\"phones\":[{\"number\":\"1234567\",\"citycode\":\"1\",\"contrycode\":\"57\"}]}";
@@ -35,7 +36,7 @@ public final class RegistrationClient {
           .connectTimeout(Duration.ofSeconds(5))
           .build();
 
-  /** What came back: status, content type, headers and the body decoded as UTF-8. */
+  /** Lo que volvió: estado, tipo de contenido, encabezados y el cuerpo decodificado como UTF-8. */
   public record Reply(int status, String contentType, HttpHeaders headers, String body) {
 
     public JsonNode json() {
@@ -53,12 +54,12 @@ public final class RegistrationClient {
     this.baseUrl = "http://localhost:" + port;
   }
 
-  /** An address that has never been registered, valid under the default email pattern. */
+  /** Una dirección que nunca se ha registrado, válida con el patrón de correo por defecto. */
   public static String uniqueEmail() {
     return "u" + UUID.randomUUID() + "@dominio.cl";
   }
 
-  /** A valid registration body for the given email, with one phone. */
+  /** Un cuerpo de registro válido para el correo dado, con un teléfono. */
   public static ObjectNode validBody(String email) {
     ObjectNode body = JSON.createObjectNode();
     body.put("name", "Juan Rodriguez");
@@ -73,7 +74,8 @@ public final class RegistrationClient {
   }
 
   /**
-   * Removes a user and its phones, so a test that needs a fixed address does not depend on order.
+   * Elimina un usuario y sus teléfonos, para que una prueba que necesita una dirección fija no
+   * dependa del orden.
    */
   public static void forget(JdbcTemplate jdbc, String email) {
     jdbc.update(
@@ -81,7 +83,7 @@ public final class RegistrationClient {
     jdbc.update("DELETE FROM users WHERE email = ?", email);
   }
 
-  /** POST /api/v1/users as JSON, with no Accept header. */
+  /** POST /api/v1/users como JSON, sin encabezado Accept. */
   public Reply post(String body) throws IOException, InterruptedException {
     return send("POST", "/api/v1/users", "application/json", null, body);
   }

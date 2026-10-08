@@ -4,7 +4,10 @@ import com.registro.usuarios.domain.model.Email;
 import com.registro.usuarios.domain.model.UserId;
 import java.time.Instant;
 
-/** Outbound port: issues the access token of a newly registered user. */
+/**
+ * Puerto de salida: emite el token de acceso de un usuario recién registrado. Lo implementa {@code
+ * JjwtTokenIssuer}.
+ */
 public interface TokenIssuer {
 
   String issue(UserId subject, Email email, Instant issuedAt);

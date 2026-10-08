@@ -42,7 +42,10 @@ class RegisterUserUseCaseTest {
   private static final PasswordPolicy PASSWORD_POLICY =
       new RegexPasswordPolicy(Pattern.compile("^(?=.*[A-Za-z])(?=.*[0-9])\\S{7,72}$"));
 
-  /** Nanosecond precision on purpose: the use case must truncate to what the column stores. */
+  /**
+   * Precisión de nanosegundos a propósito: el caso de uso debe truncar a lo que almacena la
+   * columna.
+   */
   private static final Instant CLOCK_INSTANT = Instant.parse("2026-01-15T10:30:00.123456789Z");
 
   private static final Instant EXPECTED_INSTANT = Instant.parse("2026-01-15T10:30:00.123456Z");
@@ -207,7 +210,7 @@ class RegisterUserUseCaseTest {
     assertThat(Modifier.isFinal(register.getModifiers())).isFalse();
   }
 
-  // ---- violation collection (all rules, all fields, one rejection) ----
+  // ---- recolección de violaciones (todas las reglas, todos los campos, un rechazo) ----
 
   private static RegisterUserCommand command(
       String name, String email, String password, List<PhoneData> phones) {
@@ -222,7 +225,10 @@ class RegisterUserUseCaseTest {
     return new PhoneData(number, cityCode, countryCode);
   }
 
-  /** Runs the registration, expects exactly these reasons and checks no side effect happened. */
+  /**
+   * Ejecuta el registro, espera exactamente estos motivos y comprueba que no hubo ningún efecto
+   * secundario.
+   */
   private void assertRejectedWith(RegisterUserCommand command, Reason... expected) {
     assertRejectedWith(useCase, command, expected);
   }
@@ -484,7 +490,8 @@ class RegisterUserUseCaseTest {
   }
 
   /**
-   * A clock that moves on every reading, so a second reading would show up as a different value.
+   * Un reloj que avanza en cada lectura, de modo que una segunda lectura se vea como un valor
+   * distinto.
    */
   private static final class AdvancingClock extends Clock {
     private Instant next;

@@ -1,16 +1,16 @@
-# Build output and local state
+# Salida del build y estado local
 build/
 .gradle/
 .idea/
 .vscode/
 
-# Version control, CI and working files that the image does not need
+# Control de versiones, CI y archivos de trabajo que la imagen no necesita
 .git/
 .github/
 docs/
 scripts/
 *.md
 
-# Never copy secrets into the build context
+# Nunca copiar secretos al contexto de build
 .env
 .env.*

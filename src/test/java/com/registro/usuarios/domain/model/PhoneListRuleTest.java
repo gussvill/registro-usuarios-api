@@ -10,7 +10,8 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * The rules for a submitted list of phones as a whole: who may be absent, how many, which entry.
+ * Las reglas de una lista de teléfonos enviada como conjunto: quién puede estar ausente, cuántos,
+ * qué entrada.
  */
 class PhoneListRuleTest {
 

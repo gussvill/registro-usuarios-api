@@ -6,11 +6,12 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * The rules for a password that hold whatever the configured format: it is required and fits in
- * {@link #MAX_BYTES} UTF-8 bytes, the limit BCrypt works with.
+ * Las reglas de una contraseña que se cumplen sea cual sea el formato configurado: es obligatoria y
+ * cabe en {@link #MAX_BYTES} bytes UTF-8, el límite con el que trabaja BCrypt.
  *
- * <p>These limits live in a final class with a static function, not in {@link PasswordPolicy}, so
- * that no implementation of the replaceable format rule can bypass them.
+ * <p>Estos límites viven en una clase final con una función estática, y no en {@link
+ * PasswordPolicy}, para que ninguna implementación de la regla de formato reemplazable pueda
+ * eludirlos.
  */
 public final class Password {
 
@@ -19,16 +20,17 @@ public final class Password {
   private Password() {}
 
   /**
-   * The first failing rule: required, then length, then the format of {@code format}. A value
-   * longer than {@link #MAX_BYTES} is rejected without encoding it, and never reaches the format
-   * rule.
+   * La primera regla incumplida: obligatoria, longitud y luego el formato de {@code format}. Un
+   * valor más largo que {@link #MAX_BYTES} se rechaza sin codificarlo y nunca llega a la regla de
+   * formato.
    */
   public static Optional<Reason> violation(String rawPassword, PasswordPolicy format) {
     Objects.requireNonNull(format, "format");
     if (rawPassword == null || rawPassword.isBlank()) {
       return Optional.of(Reason.PASSWORD_REQUIRED);
     }
-    // A UTF-16 unit takes at least one byte in UTF-8, so more units than bytes allowed is enough.
+    // Una unidad UTF-16 ocupa al menos un byte en UTF-8, así que basta con que haya más unidades
+    // que bytes permitidos.
     if (rawPassword.length() > MAX_BYTES
         || rawPassword.getBytes(StandardCharsets.UTF_8).length > MAX_BYTES) {
       return Optional.of(Reason.PASSWORD_TOO_LONG);

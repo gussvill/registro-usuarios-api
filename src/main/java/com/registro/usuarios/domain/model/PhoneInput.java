@@ -1,8 +1,9 @@
 package com.registro.usuarios.domain.model;
 
 /**
- * The three parts of a phone as a caller submitted them, before any rule has judged them. It lets
- * the domain check a list of submitted phones without knowing which type the caller keeps them in.
+ * Las tres partes de un teléfono tal como las envió quien llama, antes de que ninguna regla las
+ * juzgue. Permite al dominio comprobar una lista de teléfonos enviados sin saber en qué tipo los
+ * guarda quien llama. Lo implementa {@code RegisterUserCommand.PhoneData}.
  */
 public interface PhoneInput {
 

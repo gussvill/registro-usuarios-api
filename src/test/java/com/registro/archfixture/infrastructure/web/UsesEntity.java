@@ -2,7 +2,7 @@ package com.registro.archfixture.infrastructure.web;
 
 import com.registro.archfixture.infrastructure.persistence.StoredEntity;
 
-/** Breaks "entities do not cross the web layer": a web class that uses a JPA entity. */
+/** Rompe "las entidades no cruzan la capa web": una clase web que usa una entidad JPA. */
 public class UsesEntity {
 
   public StoredEntity leak() {

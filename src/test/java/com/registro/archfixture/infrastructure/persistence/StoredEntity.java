@@ -3,7 +3,7 @@ package com.registro.archfixture.infrastructure.persistence;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 
-/** A well placed entity: the target of a forbidden dependency from the web fixture. */
+/** Una entidad bien ubicada: el destino de una dependencia prohibida desde el fixture web. */
 @Entity
 public class StoredEntity {
 

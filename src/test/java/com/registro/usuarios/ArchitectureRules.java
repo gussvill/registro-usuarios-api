@@ -11,13 +11,14 @@ import com.tngtech.archunit.library.GeneralCodingRules;
 import jakarta.persistence.Entity;
 
 /**
- * The layering decisions of the design, as rules. They select by package pattern (not by the exact
- * production package), so the same rule can be run against the fixtures written to break it; the
- * production test imports only {@code com.registro.usuarios}.
+ * Las decisiones de capas del diseño, expresadas como reglas. Seleccionan por patrón de paquete (no
+ * por el paquete exacto de producción), de modo que la misma regla pueda ejecutarse contra los
+ * fixtures escritos para romperla; la prueba de producción solo importa {@code
+ * com.registro.usuarios}.
  */
 final class ArchitectureRules {
 
-  /** The domain compiles with the JDK alone: no container, ORM, JSON, JWT or OpenAPI library. */
+  /** El dominio compila solo con el JDK: sin contenedor, ORM, JSON, JWT ni biblioteca OpenAPI. */
   static final ArchRule DOMAIN_IS_FREE_OF_FRAMEWORKS =
       noClasses()
           .that()
@@ -32,9 +33,12 @@ final class ArchitectureRules {
                   "tools.jackson..",
                   "io.jsonwebtoken..",
                   "io.swagger.."))
-          .because("business rules must be testable without any framework on the classpath");
+          .because(
+              "las reglas de negocio deben poder probarse sin ningún framework en el classpath");
 
-  /** The application layer may read exactly one thing from Spring: the transaction annotation. */
+  /**
+   * La capa de aplicación puede leer exactamente una cosa de Spring: la anotación de transacción.
+   */
   static final ArchRule APPLICATION_USES_ONLY_THE_DOMAIN_AND_THE_TRANSACTION_ANNOTATION =
       classes()
           .that()
@@ -46,9 +50,12 @@ final class ArchitectureRules {
                   "com.registro..application..",
                   "java..",
                   "org.springframework.transaction.annotation.."))
-          .because("the use case is fenced by an allow-list, not by a list of what is forbidden");
+          .because(
+              "el caso de uso se acota con una lista de permitidos, no con una lista de lo prohibido");
 
-  /** Dependencies point inwards: infrastructure to application to domain, never the reverse. */
+  /**
+   * Las dependencias apuntan hacia adentro: infraestructura a aplicación a dominio, nunca al revés.
+   */
   static final ArchRule DEPENDENCIES_POINT_INWARDS =
       layeredArchitecture()
           .consideringOnlyDependenciesInLayers()
@@ -65,17 +72,19 @@ final class ArchitectureRules {
           .whereLayer("Infrastructure")
           .mayNotBeAccessedByAnyLayer();
 
-  /** One adapter never uses another: web, persistence, security and config stay apart. */
+  /** Un adaptador nunca usa a otro: web, persistencia, seguridad y config permanecen separados. */
   static final ArchRule ADAPTERS_DO_NOT_DEPEND_ON_EACH_OTHER =
       slices()
           .matching("com.registro..infrastructure.(*)..")
           .should()
           .notDependOnEachOther()
-          .because("every adapter talks to the domain, so a replaced adapter drags no other along");
+          .because(
+              "cada adaptador habla con el dominio, así que reemplazar un adaptador no arrastra a ningún otro");
 
   /**
-   * The web adapter reaches the use case through its inbound port, which lives in a sub-package of
-   * the application layer; the classes directly in the application package are implementations.
+   * El adaptador web llega al caso de uso a través de su puerto de entrada, que vive en un
+   * subpaquete de la capa de aplicación; las clases directamente en el paquete de aplicación son
+   * implementaciones.
    */
   static final ArchRule WEB_DEPENDS_ON_THE_INBOUND_PORT_NOT_ON_THE_IMPLEMENTATION =
       noClasses()
@@ -84,9 +93,9 @@ final class ArchitectureRules {
           .should()
           .dependOnClassesThat()
           .resideInAPackage("com.registro..application")
-          .because("the web layer depends on an abstraction owned by the application layer");
+          .because("la capa web depende de una abstracción que pertenece a la capa de aplicación");
 
-  /** A persistence entity never crosses the web layer. */
+  /** Una entidad de persistencia nunca cruza la capa web. */
   static final ArchRule WEB_DOES_NOT_USE_JPA_ENTITIES =
       noClasses()
           .that()
@@ -94,7 +103,7 @@ final class ArchitectureRules {
           .should()
           .dependOnClassesThat()
           .areAnnotatedWith(Entity.class)
-          .because("the web layer speaks in request and response records, never in entities");
+          .because("la capa web habla con records de petición y respuesta, nunca con entidades");
 
   static final ArchRule NO_FIELD_INJECTION =
       GeneralCodingRules.NO_CLASSES_SHOULD_USE_FIELD_INJECTION;
@@ -105,7 +114,7 @@ final class ArchitectureRules {
           .areAnnotatedWith(Entity.class)
           .should()
           .resideInAPackage("com.registro..infrastructure.persistence..")
-          .because("the aggregate is not annotated: the entity is a persistence detail");
+          .because("el agregado no lleva anotaciones: la entidad es un detalle de persistencia");
 
   private ArchitectureRules() {}
 }

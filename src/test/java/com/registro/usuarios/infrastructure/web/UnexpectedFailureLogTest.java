@@ -4,7 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
-/** The text the catch-all handler logs: classes and frames, never an exception message. */
+/**
+ * El texto que registra el manejador de último recurso: clases y frames, nunca un mensaje de
+ * excepción.
+ */
 class UnexpectedFailureLogTest {
 
   @Test

@@ -14,9 +14,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Wires the application layer. The use case and the password policy carry no stereotype annotation,
- * so this class is where they become beans. A pattern that is not a valid regular expression stops
- * the startup with a message that names the property.
+ * Configura la capa de aplicación. El caso de uso y la política de contraseña no llevan anotación
+ * de estereotipo, así que en esta clase se convierten en beans. Un patrón que no sea una expresión
+ * regular válida detiene el arranque con un mensaje que nombra la propiedad.
  */
 @Configuration(proxyBeanMethods = false)
 class ApplicationConfig {

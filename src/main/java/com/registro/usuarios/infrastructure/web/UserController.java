@@ -6,7 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.RestController;
 
-/** HTTP in, use case, HTTP out. It decides nothing: the rules are in the domain. */
+/** HTTP de entrada, caso de uso, HTTP de salida. No decide nada: las reglas están en el dominio. */
 @RestController
 class UserController implements UserApi {
 
@@ -21,7 +21,7 @@ class UserController implements UserApi {
   @Override
   public UserResponse register(RegisterUserRequest request) {
     User user = registerUser.register(UserWebMapper.toCommand(request));
-    // The only success line: the identifier and the masked address, never a secret.
+    // La única línea de éxito: el identificador y la dirección enmascarada, nunca un secreto.
     LOG.info("User registered: id={}, email={}", user.id().value(), user.email().masked());
     return UserWebMapper.toResponse(user);
   }

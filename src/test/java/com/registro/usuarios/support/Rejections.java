@@ -8,7 +8,10 @@ import com.registro.usuarios.domain.model.Reason;
 import java.util.Set;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 
-/** Test helper that runs an action expected to be rejected and returns the typed reasons. */
+/**
+ * Utilidad de pruebas que ejecuta una acción que se espera rechazada y devuelve los motivos
+ * tipados.
+ */
 public final class Rejections {
 
   private Rejections() {}

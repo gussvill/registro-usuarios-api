@@ -3,7 +3,7 @@ package com.registro.archfixture.application;
 import com.registro.archfixture.domain.CleanDomainType;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Allowed: the application layer may use the domain and the transaction annotation. */
+/** Permitido: la capa de aplicación puede usar el dominio y la anotación de transacción. */
 public class TransactionalUseCase {
 
   @Transactional

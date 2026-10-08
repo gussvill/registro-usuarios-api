@@ -10,15 +10,15 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Aggregate root of a registered user, immutable once built.
+ * Raíz de agregado de un usuario registrado, inmutable una vez construido.
  *
- * <p>The only way to create one is {@link #registration()}, whose {@link Builder} names every value
- * (three adjacent strings are easy to swap in a positional constructor) and checks the invariants
- * in {@link Builder#build()}. The server-owned fields are not settable: registering sets the three
- * timestamps to one instant and the user as active.
+ * <p>La única forma de crear uno es {@link #registration()}, cuyo {@link Builder} nombra cada valor
+ * (tres cadenas contiguas son fáciles de intercambiar en un constructor posicional) y comprueba las
+ * invariantes en {@link Builder#build()}. Los campos que pertenecen al servidor no se pueden
+ * asignar: registrar fija las tres marcas de tiempo en un mismo instante y el usuario como activo.
  *
- * <p>{@link #toString()} prints the identifier only, so the hash, the token and the email can never
- * reach a log line through this type.
+ * <p>{@link #toString()} imprime solo el identificador, de modo que el hash, el token y el correo
+ * nunca puedan llegar a una línea de log a través de este tipo.
  */
 public final class User {
 
@@ -49,12 +49,12 @@ public final class User {
     this.active = true;
   }
 
-  /** Starts the registration of a new user. */
+  /** Inicia el registro de un nuevo usuario. */
   public static Builder registration() {
     return new Builder();
   }
 
-  /** The first failing rule for a name: required, then length. */
+  /** La primera regla incumplida para un nombre: obligatorio y luego longitud. */
   public static Optional<Reason> nameViolation(String name) {
     if (name == null || name.isBlank()) {
       return Optional.of(Reason.NAME_REQUIRED);
@@ -62,16 +62,20 @@ public final class User {
     return name.length() > NAME_MAX_LENGTH ? Optional.of(Reason.NAME_TOO_LONG) : Optional.empty();
   }
 
-  /** The rule for the size of the phone list, checked before any entry is inspected. */
+  /**
+   * La regla del tamaño de la lista de teléfonos, comprobada antes de inspeccionar cualquier
+   * entrada.
+   */
   public static Optional<Reason> phoneCountViolation(int count) {
     return count > MAX_PHONES ? Optional.of(Reason.PHONES_TOO_MANY) : Optional.empty();
   }
 
   /**
-   * Every rule that a submitted list of phones breaks. An absent list is allowed (no phones). A
-   * list with too many entries is rejected as a whole, without looking at its entries. Otherwise
-   * each entry is judged: a null entry gives {@link Reason#PHONE_NULL}, any other the reasons of
-   * {@link Phone#violations}. The result is a new read-only set of distinct reasons.
+   * Todas las reglas que incumple una lista de teléfonos enviada. Una lista ausente está permitida
+   * (sin teléfonos). Una lista con demasiadas entradas se rechaza en su conjunto, sin mirar sus
+   * entradas. En otro caso se juzga cada entrada: una entrada nula da {@link Reason#PHONE_NULL},
+   * cualquier otra los motivos de {@link Phone#violations}. El resultado es un conjunto nuevo de
+   * solo lectura de motivos distintos.
    */
   public static Set<Reason> phoneListViolations(List<? extends PhoneInput> phones) {
     if (phones == null) {
@@ -108,7 +112,7 @@ public final class User {
     return passwordHash;
   }
 
-  /** The phones in the order they were submitted; the list cannot be modified. */
+  /** Los teléfonos en el orden en que se enviaron; la lista no se puede modificar. */
   public List<Phone> phones() {
     return phones;
   }
@@ -148,7 +152,7 @@ public final class User {
     return "User[id=" + id.value() + "]";
   }
 
-  /** Collects the named parts of a registration and validates them as a whole in {@link #build}. */
+  /** Reúne las partes nombradas de un registro y las valida en conjunto en {@link #build}. */
   public static final class Builder {
 
     private UserId id;
@@ -191,17 +195,17 @@ public final class User {
       return this;
     }
 
-    /** The single instant of the registration: created, modified and last login. */
+    /** El instante único del registro: creación, modificación y último acceso. */
     public Builder registeredAt(Instant registeredAt) {
       this.registeredAt = registeredAt;
       return this;
     }
 
     /**
-     * Builds the user.
+     * Construye el usuario.
      *
-     * @throws IllegalStateException if a part that the caller must always supply is missing
-     * @throws InvalidUserDataException if the name or the number of phones breaks a rule
+     * @throws IllegalStateException si falta una parte que quien llama siempre debe aportar
+     * @throws InvalidUserDataException si el nombre o la cantidad de teléfonos incumple una regla
      */
     public User build() {
       requirePresent(id != null, "id");

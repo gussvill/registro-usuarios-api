@@ -1,4 +1,4 @@
 package com.registro.archfixture.infrastructure.web;
 
-/** Breaks nothing: the control that a rule's report does not name an innocent adapter. */
+/** No rompe nada: es el control de que el informe de una regla no nombra un adaptador inocente. */
 public class CleanAdapter {}

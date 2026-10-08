@@ -2,7 +2,7 @@ package com.registro.archfixture.domain;
 
 import com.registro.archfixture.application.TransactionalUseCase;
 
-/** Breaks the direction of dependencies: the domain uses the application layer. */
+/** Rompe el sentido de las dependencias: el dominio usa la capa de aplicación. */
 public class ReachesApplication {
 
   public Object useCase() {

@@ -8,9 +8,10 @@ import tools.jackson.databind.cfg.CoercionInputShape;
 import tools.jackson.databind.type.LogicalType;
 
 /**
- * By default Jackson turns {@code "name": 123} into the string {@code "123"}. The contract says a
- * non-string scalar for a string field is a wrongly typed body, so the coercion of numbers and
- * booleans into text is switched off for every textual property, phone fields included.
+ * Por defecto Jackson convierte {@code "name": 123} en la cadena {@code "123"}. El contrato dice
+ * que un escalar que no es cadena en un campo de texto es un cuerpo con tipo incorrecto, por lo que
+ * se desactiva la coerción de números y booleanos a texto en toda propiedad textual, incluidos los
+ * campos de teléfono.
  */
 @Configuration(proxyBeanMethods = false)
 class JacksonConfig {

@@ -6,9 +6,9 @@ import java.util.Arrays;
 import org.h2.api.Trigger;
 
 /**
- * An H2 trigger that refuses every row and quotes the whole row in the message of its exception,
- * the way a database can quote a rejected value ("value too long for column ..."). Tests install it
- * to prove that such a message never reaches the server log.
+ * Un trigger de H2 que rechaza toda fila y cita la fila completa en el mensaje de su excepción,
+ * como puede hacerlo una base de datos al citar un valor rechazado ("value too long for column
+ * ..."). Las pruebas lo instalan para demostrar que ese mensaje nunca llega al log del servidor.
  */
 public final class QuotingTrigger implements Trigger {
 

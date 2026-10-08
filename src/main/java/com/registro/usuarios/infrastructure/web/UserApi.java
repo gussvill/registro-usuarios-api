@@ -14,8 +14,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
 /**
- * The HTTP contract of user registration: the mapping and the OpenAPI description live here, so
- * that the controller only has to translate and delegate.
+ * El contrato HTTP del registro de usuarios: el mapeo y la descripción OpenAPI viven aquí, para que
+ * el controlador solo tenga que traducir y delegar. Lo implementa {@code UserController}.
  */
 @Tag(name = "Usuarios", description = "Registro de usuarios")
 interface UserApi {

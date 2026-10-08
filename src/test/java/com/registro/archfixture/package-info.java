@@ -1,6 +1,7 @@
 /**
- * Classes written to break the architecture rules, one or more per rule. They sit outside the
- * application's base package so that component scanning, entity scanning and the production
- * architecture test never see them; only {@code ArchitectureRulesBiteTest} imports them.
+ * Clases escritas para romper las reglas de arquitectura, una o más por regla. Están fuera del
+ * paquete base de la aplicación para que el escaneo de componentes, el escaneo de entidades y la
+ * prueba de arquitectura de producción nunca las vean; solo {@code ArchitectureRulesBiteTest} las
+ * importa.
  */
 package com.registro.archfixture;

@@ -10,7 +10,7 @@ class BCryptPasswordHasherTest {
 
   private static final Pattern BCRYPT_SHAPE = Pattern.compile("^\\$2[aby]\\$\\d{2}\\$.{53}$");
 
-  /** Strength 4 is the minimum BCrypt accepts: the algorithm is the same, only the cost differs. */
+  /** La fuerza 4 es el mínimo que acepta BCrypt: el algoritmo es el mismo, solo cambia el costo. */
   private final BCryptPasswordHasher hasher = new BCryptPasswordHasher(4);
 
   private final BCryptPasswordEncoder verifier = new BCryptPasswordEncoder();

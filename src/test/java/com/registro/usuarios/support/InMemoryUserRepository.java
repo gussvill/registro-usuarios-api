@@ -11,11 +11,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Second adapter of {@link UserRepository}, used by the use case tests. The aggregate is immutable,
- * so keeping the instance is the same as keeping a copy of it.
+ * Segundo adaptador de {@link UserRepository}, usado por las pruebas del caso de uso. El agregado
+ * es inmutable, así que conservar la instancia equivale a conservar una copia de él.
  *
- * <p>Like the real storage it refuses a second user with the same email, which lets a test model
- * the race where the existence check says "free" and the insert then fails.
+ * <p>Como el almacenamiento real, rechaza un segundo usuario con el mismo correo, lo que permite a
+ * una prueba modelar la carrera en que la comprobación de existencia dice "libre" y luego el insert
+ * falla.
  */
 public final class InMemoryUserRepository implements UserRepository {
 
@@ -34,7 +35,7 @@ public final class InMemoryUserRepository implements UserRepository {
     users.put(user.id(), user);
   }
 
-  /** What has been stored, in insertion order. */
+  /** Lo que se ha guardado, en orden de inserción. */
   public List<User> saved() {
     return new ArrayList<>(users.values());
   }

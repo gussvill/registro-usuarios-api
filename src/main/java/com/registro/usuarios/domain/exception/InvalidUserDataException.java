@@ -6,8 +6,8 @@ import java.util.EnumSet;
 import java.util.Set;
 
 /**
- * One or more fields of a registration were rejected. It carries typed {@link Reason}s, never the
- * rejected values and never client-facing text: turning a reason into a message is presentation.
+ * Uno o más campos de un registro fueron rechazados. Lleva {@link Reason}s tipados, nunca los
+ * valores rechazados ni texto destinado al cliente: convertir un motivo en mensaje es presentación.
  */
 public final class InvalidUserDataException extends DomainException {
 
@@ -20,7 +20,7 @@ public final class InvalidUserDataException extends DomainException {
     this.reasons = EnumSet.copyOf(reasons);
   }
 
-  /** The distinct reasons, as a read-only view. */
+  /** Los motivos distintos, como vista de solo lectura. */
   public Set<Reason> reasons() {
     return Collections.unmodifiableSet(reasons);
   }

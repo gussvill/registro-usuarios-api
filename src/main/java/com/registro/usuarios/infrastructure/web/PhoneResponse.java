@@ -3,7 +3,10 @@ package com.registro.usuarios.infrastructure.web;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 
-/** A stored phone. The JSON name of the country code is spelled as in the exercise statement. */
+/**
+ * Un teléfono almacenado. El nombre JSON del código de país se escribe como en el enunciado del
+ * ejercicio.
+ */
 @Schema(description = "Un teléfono almacenado del usuario")
 record PhoneResponse(
     @Schema(example = "1234567") String number,

@@ -17,9 +17,9 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 
 /**
- * Shared configuration of every full-context test, so that they all reuse one cached application
- * context: a random port, an isolated in-memory database, a known token secret and expiration, and
- * a fixed clock.
+ * Configuración compartida de toda prueba de contexto completo, para que todas reutilicen un único
+ * contexto de aplicación en caché: un puerto aleatorio, una base de datos en memoria aislada, un
+ * secreto y una expiración de token conocidos, y un reloj fijo.
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
@@ -34,13 +34,16 @@ import org.springframework.context.annotation.Primary;
 @Import(FullContextTest.FixedClockConfiguration.class)
 public @interface FullContextTest {
 
-  /** Known signing secret (at least 32 bytes) used by tests that verify issued tokens. */
+  /**
+   * Secreto de firma conocido (al menos 32 bytes) que usan las pruebas que verifican los tokens
+   * emitidos.
+   */
   String TOKEN_SECRET = "test-only-secret-0123456789-abcdefghijklmnop";
 
-  /** The instant reported by the {@link Clock} bean inside full-context tests. */
+  /** El instante que informa el bean {@link Clock} dentro de las pruebas de contexto completo. */
   Instant FIXED_INSTANT = Instant.parse("2026-01-15T10:30:00Z");
 
-  /** Replaces the production clock with a fixed one. */
+  /** Reemplaza el reloj de producción por uno fijo. */
   @TestConfiguration(proxyBeanMethods = false)
   class FixedClockConfiguration {
 

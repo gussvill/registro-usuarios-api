@@ -8,9 +8,10 @@ import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import java.util.List;
 
 /**
- * Body of {@code POST /api/v1/users}. It carries no validation annotation: every rule lives in the
- * domain, so that it is the same whoever calls the use case. The limits below only document them.
- * Properties that are not listed, such as a client-supplied {@code id}, are ignored.
+ * Cuerpo de {@code POST /api/v1/users}. No lleva anotaciones de validación: todas las reglas viven
+ * en el dominio, de modo que son las mismas sin importar quién invoque el caso de uso. Los límites
+ * de abajo solo las documentan. Las propiedades que no figuran, como un {@code id} enviado por el
+ * cliente, se ignoran.
  */
 @Schema(description = "Datos del usuario que se registra")
 record RegisterUserRequest(
@@ -36,7 +37,7 @@ record RegisterUserRequest(
     @Schema(description = "Teléfonos del usuario, hasta 10. Puede omitirse.")
         List<PhoneRequest> phones) {
 
-  /** The password is never printed, whether or not it is present. */
+  /** La contraseña nunca se imprime, esté presente o no. */
   @Override
   public String toString() {
     return "RegisterUserRequest[name="

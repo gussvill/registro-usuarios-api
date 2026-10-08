@@ -23,11 +23,12 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * The error path and the errors the dispatcher answers, over a real port: whatever reaches the
- * application's error page is the same JSON body, for every method and every {@code Accept} value.
- * They are sent over a raw socket because MockMvc does not perform the container's error dispatch.
- * Requests the servlet container rejects before any application code runs are outside the contract
- * and are not tested here (see the known limitations).
+ * La ruta de error y los errores que responde el dispatcher, sobre un puerto real: todo lo que
+ * llega a la página de error de la aplicación es el mismo cuerpo JSON, para todo método y todo
+ * valor de {@code Accept}. Se envían por un socket crudo porque MockMvc no realiza el despacho de
+ * error del contenedor. Las peticiones que el contenedor de servlets rechaza antes de ejecutar
+ * código de la aplicación quedan fuera del contrato y no se prueban aquí (véanse las limitaciones
+ * conocidas).
  */
 @FullContextTest
 class ErrorPathTest {
@@ -38,7 +39,10 @@ class ErrorPathTest {
   @Value("${local.server.port}")
   private int port;
 
-  /** What came back on the wire: status, headers by lower-cased name, and the decoded body. */
+  /**
+   * Lo que volvió por el cable: estado, encabezados por nombre en minúsculas y el cuerpo
+   * decodificado.
+   */
   private record Wire(int status, Map<String, String> headers, String text) {
 
     String contentType() {
@@ -46,7 +50,9 @@ class ErrorPathTest {
     }
   }
 
-  /** Sends one HTTP/1.1 request with the given raw request target and reads the whole answer. */
+  /**
+   * Envía una petición HTTP/1.1 con el destino de petición crudo dado y lee la respuesta completa.
+   */
   private Wire request(String method, String target, Map<String, String> extraHeaders)
       throws IOException {
     StringBuilder head =
@@ -74,7 +80,7 @@ class ErrorPathTest {
 
   private static Wire parse(byte[] raw) throws IOException {
     int split = indexOf(raw, "\r\n\r\n".getBytes(StandardCharsets.ISO_8859_1), 0);
-    assertThat(split).as("a complete HTTP response head").isPositive();
+    assertThat(split).as("una cabecera de respuesta HTTP completa").isPositive();
     String[] lines = new String(raw, 0, split, StandardCharsets.ISO_8859_1).split("\r\n", -1);
     int status = Integer.parseInt(lines[0].split(" ", 3)[1]);
     Map<String, String> headers = new LinkedHashMap<>();
@@ -124,16 +130,16 @@ class ErrorPathTest {
     return -1;
   }
 
-  /** On the wire: a JSON content type and a body that is only "mensaje". */
+  /** Por el cable: un tipo de contenido JSON y un cuerpo que es solo "mensaje". */
   private static void assertContractShape(Wire wire, int status, String mensaje) {
-    assertThat(wire.status()).as("status").isEqualTo(status);
+    assertThat(wire.status()).as("estado").isEqualTo(status);
     assertThat(wire.contentType()).startsWith("application/json");
     JsonNode body = JSON.readTree(wire.text());
     assertThat(new ArrayList<>(body.propertyNames())).containsExactly("mensaje");
     assertThat(body.get("mensaje").asString()).isEqualTo(mensaje);
   }
 
-  // --- the application's own error page, hit directly ---
+  // --- la propia página de error de la aplicación, invocada directamente ---
 
   @Test
   void aDirectRequestToTheErrorPathWithoutAnErrorIsA404JsonContractBody() throws IOException {
@@ -160,7 +166,7 @@ class ErrorPathTest {
     assertThat(wire.text()).doesNotContainIgnoringCase("whitelabel").doesNotContain("<");
   }
 
-  // --- the dispatcher's own errors, over a real port ---
+  // --- los errores propios del dispatcher, sobre un puerto real ---
 
   @Test
   void anUnknownPathOverARealPortIs404Json() throws IOException {
@@ -188,7 +194,8 @@ class ErrorPathTest {
   void anErrorBodyOverARealPortKeepsItsAccentsAsUtf8Bytes() throws IOException {
     Wire wire = get("/api/v1/users");
 
-    // Decoded as UTF-8 from the wire bytes: an escape or a replacement character would differ.
+    // Decodificado como UTF-8 desde los bytes del cable: un escape o un carácter de reemplazo
+    // serían distintos.
     assertThat(wire.text().getBytes(StandardCharsets.UTF_8))
         .isEqualTo("{\"mensaje\":\"Método no permitido\"}".getBytes(StandardCharsets.UTF_8));
   }

@@ -41,9 +41,9 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Every category of the error contract, asserted on status, content type and the exact body: one
- * JSON object with the single key {@code mensaje}, in Spanish, UTF-8, with nothing internal. The
- * use case is a mock, so each test provokes the category at the web layer only.
+ * Cada categoría del contrato de errores, verificada en estado, tipo de contenido y cuerpo exacto:
+ * un objeto JSON con la única clave {@code mensaje}, en español, UTF-8, sin nada interno. El caso
+ * de uso es un mock, así que cada prueba provoca la categoría solo en la capa web.
  */
 @WebMvcTest(UserController.class)
 @Import({JacksonConfig.class, GlobalExceptionHandler.class})
@@ -62,7 +62,7 @@ class ErrorContractTest {
   @MockitoBean private RegisterUser useCase;
   private final JsonMapper json = new JsonMapper();
 
-  // --- helpers ---
+  // --- utilidades ---
 
   private MvcResult send(MockHttpServletRequestBuilder request) throws Exception {
     return mvc.perform(request).andReturn();
@@ -72,27 +72,30 @@ class ErrorContractTest {
     return send(post("/api/v1/users").contentType(MediaType.APPLICATION_JSON).content(body));
   }
 
-  /** The raw response bytes decoded as UTF-8, whatever charset the response declares. */
+  /**
+   * Los bytes crudos de la respuesta decodificados como UTF-8, sea cual sea el charset que declare
+   * la respuesta.
+   */
   private static String text(MvcResult result) throws Exception {
     return new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8);
   }
 
-  /** Status, JSON content type and the one-key body, then the message. */
+  /** Estado, tipo de contenido JSON y cuerpo de una sola clave, y luego el mensaje. */
   private void assertError(MvcResult result, int status, String mensaje) throws Exception {
     MockHttpServletResponse response = result.getResponse();
-    assertThat(response.getStatus()).as("status").isEqualTo(status);
-    assertThat(response.getContentType()).as("content type").isNotNull();
+    assertThat(response.getStatus()).as("estado").isEqualTo(status);
+    assertThat(response.getContentType()).as("tipo de contenido").isNotNull();
     MediaType type = MediaType.parseMediaType(response.getContentType());
     assertThat(type.getType()).isEqualTo("application");
     assertThat(type.getSubtype()).isEqualTo("json");
 
     JsonNode body = json.readTree(text(result));
-    assertThat(body.isObject()).as("body is an object: " + text(result)).isTrue();
+    assertThat(body.isObject()).as("el cuerpo es un objeto: " + text(result)).isTrue();
     assertThat(new ArrayList<>(body.propertyNames())).containsExactly("mensaje");
     assertThat(body.get("mensaje").isString()).isTrue();
     assertThat(body.get("mensaje").asString()).isEqualTo(mensaje);
     for (String key : FRAMEWORK_KEYS) {
-      assertThat(body.has(key)).as("framework key " + key).isFalse();
+      assertThat(body.has(key)).as("clave del framework " + key).isFalse();
     }
   }
 
@@ -101,7 +104,7 @@ class ErrorContractTest {
         .thenThrow(new InvalidUserDataException(EnumSet.copyOf(List.of(reasons))));
   }
 
-  // --- validation failures raised by the use case ---
+  // --- fallos de validación lanzados por el caso de uso ---
 
   @Test
   void aSingleViolationIsTheExactBody() throws Exception {
@@ -203,7 +206,7 @@ class ErrorContractTest {
     assertThat(text(result)).doesNotContain("Invalid user data").doesNotContain("juan@");
   }
 
-  // --- duplicate email ---
+  // --- correo duplicado ---
 
   @Test
   void aDuplicateEmailIsTheExact409Body() throws Exception {
@@ -217,7 +220,7 @@ class ErrorContractTest {
 
   @Test
   void aDuplicateTranslatedFromTheConstraintCarriesNoDatabaseText() throws Exception {
-    // The adapter translates the constraint violation into this exception and drops the cause.
+    // El adaptador traduce la violación de la restricción a esta excepción y descarta la causa.
     when(useCase.register(any())).thenThrow(new EmailAlreadyRegisteredException());
 
     String body = text(register(STATEMENT_BODY));
@@ -229,7 +232,7 @@ class ErrorContractTest {
         .doesNotContain("SQL");
   }
 
-  // --- malformed and wrongly typed bodies ---
+  // --- cuerpos mal formados o con tipos incorrectos ---
 
   @ParameterizedTest(name = "{0}")
   @MethodSource("bodiesThatAreNotAUsableObject")
@@ -287,7 +290,7 @@ class ErrorContractTest {
 
   @Test
   void aWrongTypeBeatsTheValidationOfTheOtherFields() throws Exception {
-    // "email" is missing as well, yet only the body message is returned.
+    // Falta también "email", pero solo se devuelve el mensaje del cuerpo.
     rejectWith(Reason.EMAIL_REQUIRED);
 
     MvcResult result = register("{\"name\":123}");
@@ -338,7 +341,7 @@ class ErrorContractTest {
     assertThat(command.getValue().name()).isNull();
   }
 
-  // --- routing, method, media types ---
+  // --- enrutamiento, método, tipos de medio ---
 
   @Test
   void anUnknownPathIs404() throws Exception {
@@ -402,7 +405,7 @@ class ErrorContractTest {
     assertError(result, 415, "Tipo de contenido no soportado");
   }
 
-  // --- unexpected failures ---
+  // --- fallos inesperados ---
 
   @Test
   void anUnexpectedFailureIsAGenericBodyWithNothingInternal() throws Exception {
@@ -445,7 +448,7 @@ class ErrorContractTest {
     assertError(register(STATEMENT_BODY), 500, INTERNAL);
   }
 
-  // --- encoding ---
+  // --- codificación ---
 
   @Test
   void accentedMessagesAreUtf8BytesNotEscapesOrReplacementCharacters() throws Exception {
@@ -457,7 +460,7 @@ class ErrorContractTest {
     byte[] expected =
         "{\"mensaje\":\"La contraseña es obligatoria\"}".getBytes(StandardCharsets.UTF_8);
     assertThat(raw).isEqualTo(expected);
-    // "n with tilde" is the two bytes C3 B1; no \\u00f1 escape and no U+FFFD (EF BF BD).
+    // "n con tilde" son los dos bytes C3 B1; sin escape \\u00f1 ni U+FFFD (EF BF BD).
     assertThat(new String(raw, StandardCharsets.ISO_8859_1)).contains("Ã±");
     assertThat(new String(raw, StandardCharsets.UTF_8))
         .doesNotContain("\\u00f1")

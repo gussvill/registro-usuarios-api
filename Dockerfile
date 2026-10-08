@@ -1,38 +1,38 @@
-# Base images are named by an exact version tag, never by a moving one such as "17-jre" or "latest".
-# A tag can still be pushed again: for a release, append the digest reported by
-# `docker buildx imagetools inspect <image>:<tag>` as <image>:<tag>@sha256:<digest>.
+# Las imágenes base se nombran con una etiqueta de versión exacta, nunca con una móvil como "17-jre" o "latest".
+# Una etiqueta aún puede volver a publicarse: para una release, añada el digest que informa
+# `docker buildx imagetools inspect <image>:<tag>` como <image>:<tag>@sha256:<digest>.
 
-# Stage 1: build the jar with the Gradle wrapper of the repository and split it into layers.
+# Etapa 1: compila el jar con el wrapper de Gradle del repositorio y lo divide en capas.
 FROM eclipse-temurin:17.0.20.1_1-jdk-noble AS builder
 WORKDIR /builder
-# The wrapper and the build scripts first, then one layer that downloads the dependencies
-# (`resolveDependencies` resolves every configuration, including the runtime and test classpaths):
-# the Gradle distribution and the dependency jars stay cached until one of these files changes, so a
-# change under src/ does not download them again.
+# Primero el wrapper y los scripts de build, luego una capa que descarga las dependencias
+# (`resolveDependencies` resuelve toda configuración, incluidos los classpath de runtime y de pruebas):
+# la distribución de Gradle y los jars de dependencias quedan en caché hasta que cambie uno de estos
+# archivos, de modo que un cambio bajo src/ no los vuelve a descargar.
 COPY gradlew settings.gradle build.gradle ./
 COPY gradle/ gradle/
 RUN ./gradlew --no-daemon resolveDependencies
 COPY src/ src/
-# Tests run in the CI workflow and in `./gradlew build`; the image build only packages.
+# Las pruebas se ejecutan en el workflow de CI y en `./gradlew build`; la construcción de la imagen solo empaqueta.
 RUN ./gradlew --no-daemon bootJar -x test \
     && java -Djarmode=tools -jar build/libs/app.jar extract --layers --destination extracted
 
-# Stage 2: runtime image with a JRE only.
+# Etapa 2: imagen de runtime solo con un JRE.
 FROM eclipse-temurin:17.0.20.1_1-jre-noble
 WORKDIR /application
 RUN groupadd --system app && useradd --system --gid app --no-create-home app
-# Least-changing layers first, so a code change only replaces the last one.
+# Primero las capas que menos cambian, para que un cambio de código solo reemplace la última.
 COPY --from=builder /builder/extracted/dependencies/ ./
 COPY --from=builder /builder/extracted/spring-boot-loader/ ./
 COPY --from=builder /builder/extracted/snapshot-dependencies/ ./
 COPY --from=builder /builder/extracted/application/ ./
 USER app
 EXPOSE 8080
-# Heap as a share of the container limit instead of a fixed -Xmx that drifts from it.
+# El heap como porcentaje del límite del contenedor, en lugar de un -Xmx fijo que se desvía de él.
 ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
-# No signing secret is baked into the image. Without TOKEN_SECRET the application generates a random
-# key at start-up and its tokens do not survive a restart; to keep them valid, pass a secret of at
-# least 32 bytes:
+# No se incluye ningún secreto de firma en la imagen. Sin TOKEN_SECRET la aplicación genera una clave
+# aleatoria al arrancar y sus tokens no sobreviven a un reinicio; para mantenerlos válidos, pase un
+# secreto de al menos 32 bytes:
 #   docker run -e TOKEN_SECRET=... -p 8080:8080 <image>
-# No HEALTHCHECK instruction on purpose: whoever runs the container decides how to probe it.
+# Sin instrucción HEALTHCHECK a propósito: quien ejecuta el contenedor decide cómo sondearlo.
 ENTRYPOINT ["java", "-jar", "app.jar"]

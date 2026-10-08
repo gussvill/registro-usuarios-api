@@ -8,11 +8,11 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * An email address, normalised so that equality by value is case-insensitive.
+ * Una dirección de correo, normalizada para que la igualdad por valor no distinga mayúsculas.
  *
- * <p>The value is lower-cased with {@link Locale#ROOT} and never trimmed. The format is a {@link
- * Pattern} supplied by the caller (it is configuration), applied to the lower-cased value with
- * {@code matches()} so that the whole input must be consumed.
+ * <p>El valor se pasa a minúsculas con {@link Locale#ROOT} y nunca se recorta. El formato es un
+ * {@link Pattern} que aporta quien llama (es configuración), aplicado al valor en minúsculas con
+ * {@code matches()} para que se consuma toda la entrada.
  */
 public final class Email {
 
@@ -25,8 +25,9 @@ public final class Email {
   }
 
   /**
-   * The first failing rule, in the order required, then length, then format. The length is checked
-   * before the pattern so an oversized value never reaches the regular expression engine.
+   * La primera regla incumplida, en este orden: obligatorio, longitud y formato. La longitud se
+   * comprueba antes que el patrón para que un valor demasiado largo nunca llegue al motor de
+   * expresiones regulares.
    */
   public static Optional<Reason> violation(String raw, Pattern format) {
     Objects.requireNonNull(format, "format");
@@ -43,7 +44,7 @@ public final class Email {
     return Optional.empty();
   }
 
-  /** Builds a valid email or rejects with the reason of {@link #violation}. */
+  /** Construye un correo válido o lo rechaza con el motivo de {@link #violation}. */
   public static Email of(String raw, Pattern format) {
     violation(raw, format)
         .ifPresent(
@@ -57,7 +58,7 @@ public final class Email {
     return value;
   }
 
-  /** Safe for logs: keeps the domain and hides the local part. */
+  /** Seguro para los logs: conserva el dominio y oculta la parte local. */
   public String masked() {
     int at = value.indexOf('@');
     return at < 0 ? "***" : "***" + value.substring(at);
@@ -77,7 +78,9 @@ public final class Email {
     return value.hashCode();
   }
 
-  /** Never prints the full address, so an accidental log line stays harmless. */
+  /**
+   * Nunca imprime la dirección completa, de modo que una línea de log accidental sea inofensiva.
+   */
   @Override
   public String toString() {
     return masked();

@@ -10,11 +10,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Replaces Boot's error controller, which negotiates its content and can answer an HTML page or an
- * empty body. The servlet container forwards here the errors that never reached a handler (for
- * example a {@code sendError} from a filter), and the answer is the same {@code {"mensaje": ...}}
- * body as everywhere else. The JSON content type is set explicitly, so the client's {@code Accept}
- * header cannot change it.
+ * Reemplaza el controlador de errores de Boot, que negocia su contenido y puede responder una
+ * página HTML o un cuerpo vacío. El contenedor de servlets reenvía aquí los errores que nunca
+ * llegaron a un manejador (por ejemplo un {@code sendError} desde un filtro), y la respuesta es el
+ * mismo cuerpo {@code {"mensaje": ...}} que en el resto de la API. El tipo de contenido JSON se
+ * fija de forma explícita, de modo que el encabezado {@code Accept} del cliente no pueda cambiarlo.
  */
 @Hidden
 @RestController
@@ -35,7 +35,8 @@ class ApiErrorController implements ErrorController {
   private static int statusOf(HttpServletRequest request) {
     Object attribute = request.getAttribute(RequestDispatcher.ERROR_STATUS_CODE);
     if (attribute == null) {
-      // Nothing was forwarded: a direct request to the error path is a request for a missing page.
+      // No se reenvió nada: una petición directa a la ruta de error es una petición de una página
+      // inexistente.
       return NO_ERROR_STATUS;
     }
     return attribute instanceof Integer status ? status : UNREADABLE_STATUS;

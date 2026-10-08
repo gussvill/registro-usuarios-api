@@ -15,9 +15,10 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
- * The versioned {@code schema.sql} is the single source of the database structure. These tests run
- * against the real script with Hibernate only validating it: the entities must fit the tables, and
- * the database itself, not the application, must enforce uniqueness and the foreign key.
+ * El {@code schema.sql} versionado es la única fuente de la estructura de la base de datos. Estas
+ * pruebas se ejecutan contra el script real con Hibernate solo validándolo: las entidades deben
+ * encajar en las tablas, y la propia base de datos, no la aplicación, debe imponer la unicidad y la
+ * clave foránea.
  */
 @DataJpaTest
 class SchemaConstraintsTest {
@@ -42,7 +43,8 @@ class SchemaConstraintsTest {
     assertThat(entityManagerFactory.getProperties())
         .containsEntry("hibernate.hbm2ddl.auto", "validate");
 
-    // With no entity mapped, "validate" would validate nothing: name the two that must be checked.
+    // Sin ninguna entidad mapeada, "validate" no validaría nada: se nombran las dos que deben
+    // comprobarse.
     assertThat(entityManagerFactory.getMetamodel().getEntities())
         .extracting(EntityType::getName)
         .containsExactlyInAnyOrder(

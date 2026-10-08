@@ -16,10 +16,10 @@ import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
 /**
- * A registration is one transaction: when the phones cannot be stored, the user is not stored
- * either. A temporary CHECK constraint on the {@code phones} table makes the phone insert fail
- * after the user insert has already been flushed, which is the order that would leave a partial
- * user behind if the rollback did not work.
+ * Un registro es una transacción: cuando los teléfonos no se pueden guardar, tampoco se guarda el
+ * usuario. Una restricción CHECK temporal sobre la tabla {@code phones} hace fallar el insert del
+ * teléfono después de que el insert del usuario ya se volcó (flush), que es el orden que dejaría un
+ * usuario parcial si el rollback no funcionara.
  */
 @FullContextTest
 class AtomicRegistrationTest {
@@ -48,7 +48,10 @@ class AtomicRegistrationTest {
     jdbc.execute("ALTER TABLE phones DROP CONSTRAINT IF EXISTS ck_test_refused_number");
   }
 
-  /** A phone number no other test stores, so the assertions do not depend on the test order. */
+  /**
+   * Un número de teléfono que ninguna otra prueba guarda, para que las aserciones no dependan del
+   * orden de las pruebas.
+   */
   private static String uniqueNumber() {
     return Long.toString(NUMBERS.incrementAndGet());
   }

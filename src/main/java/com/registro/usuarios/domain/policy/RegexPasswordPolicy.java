@@ -3,7 +3,9 @@ package com.registro.usuarios.domain.policy;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
-/** A password format defined by a regular expression, which is operator configuration. */
+/**
+ * Un formato de contraseña definido por una expresión regular, que es configuración del operador.
+ */
 public final class RegexPasswordPolicy implements PasswordPolicy {
 
   private final Pattern pattern;

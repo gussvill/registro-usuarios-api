@@ -6,15 +6,15 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
 /**
- * Settings of the issued tokens, bound from {@code app.token.*}.
+ * Configuración de los tokens emitidos, enlazada desde {@code app.token.*}.
  *
- * <p>The secret is optional. When it is absent or empty the token issuer generates an ephemeral key
- * at start-up; when it is set it must be at least 32 bytes, which the token issuer enforces when it
- * is created, so an application with a weak secret does not start. {@link #toString()} redacts the
- * secret so that a log line or a failure report never prints it.
+ * <p>El secreto es opcional. Cuando está ausente o vacío, el emisor de tokens genera una clave
+ * efímera al arrancar; cuando se define debe tener al menos 32 bytes, lo cual el emisor de tokens
+ * comprueba al crearse, de modo que una aplicación con un secreto débil no arranca. {@link
+ * #toString()} oculta el secreto para que una línea de log o un informe de fallo nunca lo imprima.
  *
- * @param secret key material of the HS256 signature, or null or empty to use an ephemeral key
- * @param expiration how long a token is valid after it is issued
+ * @param secret material de la clave de la firma HS256, o nulo o vacío para usar una clave efímera
+ * @param expiration cuánto tiempo es válido un token después de emitirse
  */
 @ConfigurationProperties(prefix = "app.token")
 @Validated

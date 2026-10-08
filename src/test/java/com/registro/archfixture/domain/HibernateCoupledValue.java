@@ -2,6 +2,6 @@ package com.registro.archfixture.domain;
 
 import org.hibernate.annotations.Immutable;
 
-/** Breaks "the domain is free of frameworks": a Hibernate annotation. */
+/** Rompe "el dominio está libre de frameworks": una anotación de Hibernate. */
 @Immutable
 public class HibernateCoupledValue {}

@@ -18,16 +18,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
- * Implements the {@link TokenIssuer} port with JJWT: an HS256 JWT whose subject is the user id and
- * whose {@code email} claim is the normalised address.
+ * Implementa el puerto {@link TokenIssuer} con JJWT: un JWT HS256 cuyo subject es el id del usuario
+ * y cuyo claim {@code email} es la dirección normalizada.
  *
- * <p>When a secret is configured, the key is its raw bytes. A secret shorter than 32 bytes is
- * refused when the issuer is created, so the application fails to start instead of answering every
- * registration with an error. The message names the property and never the value. When no secret is
- * configured (it is absent or empty) a random 256-bit key is generated at start-up, one INFO line
- * says so, and the key is never logged: the tokens it signs do not survive a restart. No usable
- * secret ships with the application. The expiration must be a positive duration, otherwise every
- * token would be born expired.
+ * <p>Cuando hay un secreto configurado, la clave son sus bytes en bruto. Un secreto de menos de 32
+ * bytes se rechaza al crear el emisor, de modo que la aplicación falla al arrancar en lugar de
+ * responder con un error a cada registro. El mensaje nombra la propiedad y nunca el valor. Cuando
+ * no hay secreto configurado (está ausente o vacío) se genera una clave aleatoria de 256 bits al
+ * arrancar, una línea INFO lo indica y la clave nunca se registra en el log: los tokens que firma
+ * no sobreviven a un reinicio. Ninguna aplicación se entrega con un secreto utilizable. La
+ * expiración debe ser una duración positiva; de lo contrario, cada token nacería expirado.
  */
 @Component
 class JjwtTokenIssuer implements TokenIssuer {
@@ -82,7 +82,7 @@ class JjwtTokenIssuer implements TokenIssuer {
     return new SecretKeySpec(bytes, "HmacSHA256");
   }
 
-  // JJWT's builder takes java.util.Date; it is converted from an Instant at this single point.
+  // El builder de JJWT recibe java.util.Date; se convierte desde un Instant en este único punto.
   @SuppressWarnings("JavaUtilDate")
   @Override
   public String issue(UserId subject, Email email, Instant issuedAt) {

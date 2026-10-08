@@ -5,7 +5,7 @@ import io.swagger.v3.oas.models.info.Info;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/** Title, description and version of the generated OpenAPI document, written in Spanish. */
+/** Título, descripción y versión del documento OpenAPI generado, escritos en español. */
 @Configuration(proxyBeanMethods = false)
 class OpenApiConfig {
 

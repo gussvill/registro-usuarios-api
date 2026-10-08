@@ -24,8 +24,9 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
- * The adapter against the real script and an in-memory database. Reads go through plain SQL, so the
- * assertions describe what is really stored and not what the entity mapping believes.
+ * El adaptador contra el script real y una base de datos en memoria. Las lecturas pasan por SQL
+ * simple, de modo que las aserciones describen lo que realmente se guarda y no lo que cree el mapeo
+ * de la entidad.
  */
 @DataJpaTest(properties = "spring.jpa.properties.hibernate.generate_statistics=true")
 @Import(UserPersistenceAdapter.class)
@@ -181,7 +182,8 @@ class UserPersistenceAdapterTest {
 
   @Test
   void aDifferentDataErrorIsNotMistakenForADuplicate() {
-    // 1,025 characters do not fit the 1,024-character token column: a data error, not a duplicate.
+    // 1.025 caracteres no caben en la columna de token de 1.024 caracteres: un error de datos, no
+    // un duplicado.
     User tooLarge = user("juan@rodriguez.org").token("t".repeat(1025)).build();
 
     assertThatThrownBy(() -> adapter.save(tooLarge))
@@ -201,7 +203,7 @@ class UserPersistenceAdapterTest {
 
     adapter.save(user);
 
-    // One INSERT for the user and one per phone. A merge would add a SELECT for the user.
+    // Un INSERT para el usuario y uno por teléfono. Un merge añadiría un SELECT para el usuario.
     assertThat(statistics.getPrepareStatementCount()).isEqualTo(3);
     assertThat(statistics.getEntityLoadCount()).isZero();
   }

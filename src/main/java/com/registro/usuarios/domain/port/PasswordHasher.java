@@ -1,6 +1,9 @@
 package com.registro.usuarios.domain.port;
 
-/** Outbound port: one-way, salted hashing of a password. */
+/**
+ * Puerto de salida: hash unidireccional y con sal de una contraseña. Lo implementa {@code
+ * BCryptPasswordHasher}.
+ */
 public interface PasswordHasher {
 
   String hash(String rawPassword);

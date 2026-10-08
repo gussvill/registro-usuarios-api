@@ -25,12 +25,12 @@ import java.util.regex.Pattern;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Implements the {@link RegisterUser} port. It orchestrates and decides nothing: the rules live in
- * the domain.
+ * Implementa el puerto {@link RegisterUser}. Orquesta y no decide nada: las reglas viven en el
+ * dominio.
  *
- * <p>This is the transaction boundary, which is the one concession to the framework in this layer.
- * The class stays non-final and {@link #register} public because the annotation works through a
- * proxy. The class carries no stereotype annotation; the wiring decides how it is created.
+ * <p>Es el límite transaccional, la única concesión al framework en esta capa. La clase no es final
+ * y {@link #register} es público porque la anotación funciona mediante un proxy. La clase no lleva
+ * anotación de estereotipo; la configuración decide cómo se crea.
  */
 public class RegisterUserUseCase implements RegisterUser {
 
@@ -69,8 +69,9 @@ public class RegisterUserUseCase implements RegisterUser {
       throw new EmailAlreadyRegisteredException();
     }
     String passwordHash = hasher.hash(command.password());
-    // One reading of the clock, in the precision the columns store: the token, the response and
-    // the stored row must show the same instant.
+    // Una sola lectura del reloj, con la precisión que almacenan las columnas: el token, la
+    // respuesta y
+    // la fila guardada deben mostrar el mismo instante.
     Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
     UserId id = UserId.generate();
     String token = tokens.issue(id, email, now);
@@ -88,7 +89,10 @@ public class RegisterUserUseCase implements RegisterUser {
     return user;
   }
 
-  /** The union of what each domain rule says, one reason per rule, distinct by construction. */
+  /**
+   * La unión de lo que dice cada regla del dominio, un motivo por regla, distintos por
+   * construcción.
+   */
   private Set<Reason> violationsOf(RegisterUserCommand command) {
     EnumSet<Reason> violations = EnumSet.noneOf(Reason.class);
     User.nameViolation(command.name()).ifPresent(violations::add);
@@ -98,7 +102,10 @@ public class RegisterUserUseCase implements RegisterUser {
     return violations;
   }
 
-  /** Only called once the phones are known to be valid. An absent list means no phones. */
+  /**
+   * Solo se invoca cuando ya se sabe que los teléfonos son válidos. Una lista ausente significa que
+   * no hay teléfonos.
+   */
   private static List<Phone> phonesOf(List<PhoneData> phones) {
     if (phones == null) {
       return List.of();

@@ -19,11 +19,11 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * A rule that cannot fail protects nothing. Every rule is run against a fixture written to break
- * it, and the report must name the class that breaks it: a rule that fails for another reason (an
- * empty package, a mistyped pattern) does not count as proven. The fixtures live in the test tree
- * under a root package other than the application's, so neither component scanning nor {@link
- * ArchitectureTest} ever sees them.
+ * Una regla que no puede fallar no protege nada. Cada regla se ejecuta contra un fixture escrito
+ * para romperla, y el informe debe nombrar la clase que la rompe: una regla que falla por otro
+ * motivo (un paquete vacío, un patrón mal escrito) no cuenta como probada. Los fixtures viven en el
+ * árbol de pruebas bajo un paquete raíz distinto del de la aplicación, de modo que ni el escaneo de
+ * componentes ni {@link ArchitectureTest} los ven nunca.
  */
 class ArchitectureRulesBiteTest {
 
@@ -34,7 +34,9 @@ class ArchitectureRulesBiteTest {
     return Arguments.of(ruleName, offender);
   }
 
-  /** The rule is looked up by the name of its constant, so a renamed rule breaks this table. */
+  /**
+   * La regla se busca por el nombre de su constante, así que renombrar una regla rompe esta tabla.
+   */
   private static ArchRule rule(String constantName) {
     try {
       Field field = ArchitectureRules.class.getDeclaredField(constantName);
@@ -74,7 +76,7 @@ class ArchitectureRulesBiteTest {
   void theRuleRejectsItsFixtureAndNamesIt(String ruleName, String offender) {
     EvaluationResult result = rule(ruleName).evaluate(FIXTURES);
 
-    assertThat(result.hasViolation()).as("%s should fail on %s", ruleName, offender).isTrue();
+    assertThat(result.hasViolation()).as("%s debería fallar en %s", ruleName, offender).isTrue();
     assertThat(result.getFailureReport().toString()).contains(offender);
   }
 
@@ -100,11 +102,12 @@ class ArchitectureRulesBiteTest {
 
   @Test
   void noViolationOriginatesFromAnInnocentFixture() {
-    // A clean class may be the target of a forbidden dependency, but it is never the culprit: the
-    // origin is the first <...> of each detail line.
+    // Una clase limpia puede ser destino de una dependencia prohibida, pero nunca la culpable: el
+    // origen
+    // es el primer <...> de cada línea de detalle.
     for (String name : ruleNames()) {
       List<String> details = rule(name).evaluate(FIXTURES).getFailureReport().getDetails();
-      assertThat(details).as("%s: the violations to inspect", name).isNotEmpty();
+      assertThat(details).as("%s: las violaciones a inspeccionar", name).isNotEmpty();
       for (String detail : details) {
         String origin = detail.substring(detail.indexOf('<'), detail.indexOf('>') + 1);
         assertThat(origin)

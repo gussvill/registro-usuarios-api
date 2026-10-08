@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 #
-# Acceptance checks for a running instance of the user registration API.
+# Verificaciones de aceptación para una instancia en ejecución de la API de registro de usuarios.
 #
 #   scripts/acceptance.sh                              # http://localhost:8080
 #   BASE_URL=http://localhost:9090 scripts/acceptance.sh
 #
-# Needs only bash and curl. It can be run any number of times against the same instance: the
-# registration checks use an address that is unique to each run. The script stops at the first
-# failed check, prints a summary and exits with a non-zero status.
+# Solo necesita bash y curl. Se puede ejecutar cualquier cantidad de veces contra la misma instancia: las
+# verificaciones de registro usan una dirección única en cada ejecución. El script se detiene en la primera
+# verificación fallida, imprime un resumen y termina con un estado distinto de cero.
 
 set -u
 
 BASE_URL="${BASE_URL:-http://localhost:8080}"
 WAIT_SECONDS="${WAIT_SECONDS:-30}"
 
-# The statement's example with a unique address, so a second run (or the README's curl) does not
-# find it already registered. The name, the password and the phones stay as the statement has them.
+# El ejemplo del enunciado con una dirección única, para que una segunda ejecución (o el curl del README) no
+# la encuentre ya registrada. El nombre, la contraseña y los teléfonos quedan como en el enunciado.
 RUN_EMAIL="acceptance-$(date +%s)-${RANDOM}${RANDOM}@rodriguez.org"
 STATEMENT_BODY='{"name":"Juan Rodriguez","email":"'"${RUN_EMAIL}"'","password":"hunter2","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
 
@@ -27,20 +27,20 @@ STATUS=""
 BODY=""
 HEADERS=""
 
-# --- helpers ---------------------------------------------------------------------------------
+# --- utilidades ------------------------------------------------------------------------------
 
 summary() {
   echo
-  echo "Summary: ${PASSED} check(s) passed against ${BASE_URL}"
+  echo "Resumen: ${PASSED} verificación(es) aprobada(s) contra ${BASE_URL}"
 }
 
 fail() {
-  echo "  FAIL  $1"
-  echo "        status:  ${STATUS}"
-  echo "        headers: $(printf '%s' "$HEADERS" | tr '\r\n' '  ')"
-  echo "        body:    ${BODY}"
+  echo "  FALLO $1"
+  echo "        estado:      ${STATUS}"
+  echo "        encabezados: $(printf '%s' "$HEADERS" | tr '\r\n' '  ')"
+  echo "        cuerpo:      ${BODY}"
   summary
-  echo "Result: FAILED"
+  echo "Resultado: FALLÓ"
   exit 1
 }
 
@@ -49,7 +49,7 @@ pass() {
   echo "  ok    $1"
 }
 
-# request <curl arguments...>: stores the status, the headers and the body of one call.
+# request <argumentos de curl...>: guarda el estado, los encabezados y el cuerpo de una llamada.
 request() {
   STATUS="$(curl -s -o "$WORK_DIR/body" -D "$WORK_DIR/headers" -w '%{http_code}' "$@")"
   BODY="$(cat "$WORK_DIR/body")"
@@ -60,114 +60,114 @@ post_json() {
   request -X POST "${BASE_URL}/api/v1/users" -H 'Content-Type: application/json' "$@"
 }
 
-expect_status() { # <expected> <label>
-  [ "$STATUS" = "$1" ] || fail "$2: expected status $1"
+expect_status() { # <esperado> <etiqueta>
+  [ "$STATUS" = "$1" ] || fail "$2: se esperaba el estado $1"
 }
 
-expect_header_starts_with() { # <header> <prefix> <label>
+expect_header_starts_with() { # <encabezado> <prefijo> <etiqueta>
   local value
   value="$(printf '%s' "$HEADERS" | tr -d '\r' | grep -i "^$1:" | head -n 1 | cut -d: -f2- | sed 's/^ *//')"
   case "$value" in
     "$2"*) ;;
-    *) fail "$3: header $1 is '${value}', expected it to start with '$2'" ;;
+    *) fail "$3: el encabezado $1 es '${value}', se esperaba que empezara con '$2'" ;;
   esac
 }
 
-expect_body() { # <exact body> <label>
-  [ "$BODY" = "$1" ] || fail "$2: expected body $1"
+expect_body() { # <cuerpo exacto> <etiqueta>
+  [ "$BODY" = "$1" ] || fail "$2: se esperaba el cuerpo $1"
 }
 
-expect_body_contains() { # <fragment> <label>
+expect_body_contains() { # <fragmento> <etiqueta>
   case "$BODY" in
     *"$1"*) ;;
-    *) fail "$2: body does not contain $1" ;;
+    *) fail "$2: el cuerpo no contiene $1" ;;
   esac
 }
 
-expect_body_lacks() { # <fragment> <label>
+expect_body_lacks() { # <fragmento> <etiqueta>
   case "$BODY" in
-    *"$1"*) fail "$2: body must not contain $1" ;;
+    *"$1"*) fail "$2: el cuerpo no debe contener $1" ;;
     *) ;;
   esac
 }
 
-# A body that is exactly one {"mensaje": "..."} object.
-expect_mensaje_only() { # <label>
-  printf '%s' "$BODY" | grep -Eq '^\{"mensaje":"[^"]+"\}$' || fail "$1: body is not a single mensaje object"
+# Un cuerpo que es exactamente un objeto {"mensaje": "..."}.
+expect_mensaje_only() { # <etiqueta>
+  printf '%s' "$BODY" | grep -Eq '^\{"mensaje":"[^"]+"\}$' || fail "$1: el cuerpo no es un único objeto mensaje"
 }
 
-# --- wait for the application ------------------------------------------------------------------
+# --- esperar a la aplicación -------------------------------------------------------------------
 
-echo "Acceptance checks against ${BASE_URL}"
+echo "Verificaciones de aceptación contra ${BASE_URL}"
 waited=0
 until curl -s -o /dev/null "${BASE_URL}/v3/api-docs"; do
   if [ "$waited" -ge "$WAIT_SECONDS" ]; then
-    echo "The application did not answer at ${BASE_URL} within ${WAIT_SECONDS} seconds."
-    echo "Result: FAILED"
+    echo "La aplicación no respondió en ${BASE_URL} dentro de ${WAIT_SECONDS} segundos."
+    echo "Resultado: FALLÓ"
     exit 1
   fi
   sleep 1
   waited=$((waited + 1))
 done
 
-# --- registration ------------------------------------------------------------------------------
+# --- registro ----------------------------------------------------------------------------------
 
 echo
-echo "Registration"
+echo "Registro"
 
 post_json -d "$STATEMENT_BODY"
-expect_status 201 "statement body"
-expect_header_starts_with content-type application/json "statement body"
+expect_status 201 "cuerpo del enunciado"
+expect_header_starts_with content-type application/json "cuerpo del enunciado"
 for key in id name email phones created modified last_login token isactive; do
-  expect_body_contains "\"${key}\":" "statement body, key ${key}"
+  expect_body_contains "\"${key}\":" "cuerpo del enunciado, clave ${key}"
 done
-expect_body_contains '"isactive":true' "statement body"
-expect_body_contains '"contrycode":"57"' "statement body"
-expect_body_lacks "password" "statement body"
-expect_body_lacks "hunter2" "statement body"
+expect_body_contains '"isactive":true' "cuerpo del enunciado"
+expect_body_contains '"contrycode":"57"' "cuerpo del enunciado"
+expect_body_lacks "password" "cuerpo del enunciado"
+expect_body_lacks "hunter2" "cuerpo del enunciado"
 printf '%s' "$BODY" | grep -Eq '"token":"[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+"' \
-  || fail "statement body: token is not a three-part JWT"
-pass "statement body -> 201 with id, created, modified, last_login, token, isactive and no password"
+  || fail "cuerpo del enunciado: el token no es un JWT de tres partes"
+pass "cuerpo del enunciado -> 201 con id, created, modified, last_login, token, isactive y sin contraseña"
 
 post_json -d "$STATEMENT_BODY"
-expect_status 409 "repeated registration"
-expect_body '{"mensaje":"El correo ya registrado"}' "repeated registration"
-pass "repeated registration -> 409 {\"mensaje\":\"El correo ya registrado\"}"
+expect_status 409 "registro repetido"
+expect_body '{"mensaje":"El correo ya registrado"}' "registro repetido"
+pass "registro repetido -> 409 {\"mensaje\":\"El correo ya registrado\"}"
 
-# --- hostile and invalid input -------------------------------------------------------------------
+# --- entradas hostiles e inválidas ---------------------------------------------------------------
 
 echo
-echo "Invalid input"
+echo "Entradas inválidas"
 
 post_json -d '{"name":"","email":"bad","password":"x"}'
-expect_status 400 "invalid fields"
-expect_mensaje_only "invalid fields"
-pass "invalid fields -> 400 with a single mensaje"
+expect_status 400 "campos inválidos"
+expect_mensaje_only "campos inválidos"
+pass "campos inválidos -> 400 con un único mensaje"
 
 post_json -d '{"name":'
-expect_status 400 "malformed JSON"
-expect_body '{"mensaje":"El cuerpo de la solicitud no es válido"}' "malformed JSON"
-pass "malformed JSON -> 400"
+expect_status 400 "JSON mal formado"
+expect_body '{"mensaje":"El cuerpo de la solicitud no es válido"}' "JSON mal formado"
+pass "JSON mal formado -> 400"
 
-# --- errors the framework produces ------------------------------------------------------------------
+# --- errores que produce el framework ------------------------------------------------------------
 
 echo
-echo "Framework errors"
+echo "Errores del framework"
 
 request -X GET "${BASE_URL}/api/v1/users"
-expect_status 405 "GET on the registration route"
-expect_header_starts_with allow POST "GET on the registration route"
-expect_mensaje_only "GET on the registration route"
-pass "GET /api/v1/users -> 405 with Allow: POST"
+expect_status 405 "GET sobre la ruta de registro"
+expect_header_starts_with allow POST "GET sobre la ruta de registro"
+expect_mensaje_only "GET sobre la ruta de registro"
+pass "GET /api/v1/users -> 405 con Allow: POST"
 
 request -X GET "${BASE_URL}/nope"
-expect_status 404 "unknown route"
-expect_mensaje_only "unknown route"
+expect_status 404 "ruta desconocida"
+expect_mensaje_only "ruta desconocida"
 pass "GET /nope -> 404"
 
 request -X POST "${BASE_URL}/api/v1/users" -H 'Content-Type: text/plain' -d 'plain text'
-expect_status 415 "text/plain body"
-expect_mensaje_only "text/plain body"
+expect_status 415 "cuerpo text/plain"
+expect_mensaje_only "cuerpo text/plain"
 pass "POST text/plain -> 415"
 
 request -X POST "${BASE_URL}/api/v1/users" -H 'Content-Type: application/json' -H 'Accept: application/xml' \
@@ -175,21 +175,21 @@ request -X POST "${BASE_URL}/api/v1/users" -H 'Content-Type: application/json' -
 expect_status 406 "Accept application/xml"
 expect_header_starts_with content-type application/json "Accept application/xml"
 expect_mensaje_only "Accept application/xml"
-pass "Accept: application/xml -> 406 with a JSON body"
+pass "Accept: application/xml -> 406 con un cuerpo JSON"
 
-# --- documentation endpoints ---------------------------------------------------------------------------
+# --- endpoints de documentación ------------------------------------------------------------------
 
 echo
-echo "Documentation"
+echo "Documentación"
 
 request -L -X GET "${BASE_URL}/swagger-ui.html"
 expect_status 200 "Swagger UI"
 pass "GET /swagger-ui.html -> 200"
 
 request -X GET "${BASE_URL}/v3/api-docs"
-expect_status 200 "OpenAPI document"
-expect_body_contains '"openapi"' "OpenAPI document"
+expect_status 200 "documento OpenAPI"
+expect_body_contains '"openapi"' "documento OpenAPI"
 pass "GET /v3/api-docs -> 200"
 
 summary
-echo "Result: OK"
+echo "Resultado: OK"

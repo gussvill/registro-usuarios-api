@@ -2,7 +2,7 @@ package com.registro.archfixture.domain;
 
 import io.jsonwebtoken.Jwts;
 
-/** Breaks "the domain is free of frameworks": the JWT library. */
+/** Rompe "el dominio está libre de frameworks": la biblioteca JWT. */
 public class JjwtCoupledIssuer {
 
   public String issue() {

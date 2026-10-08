@@ -8,10 +8,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Translates between the JSON records and the application types. Manual on purpose: both sides are
- * records, so a forgotten field is a compile error. The request is passed on exactly as received,
- * with absent values left absent, because deciding what is acceptable is the domain's job. The
- * response is built from the aggregate and never reads the password hash.
+ * Traduce entre los records JSON y los tipos de la aplicación. Manual a propósito: ambos lados son
+ * records, así que un campo olvidado es un error de compilación. La petición se pasa tal como se
+ * recibió, con los valores ausentes sin tocar, porque decidir qué es aceptable es trabajo del
+ * dominio. La respuesta se construye a partir del agregado y nunca lee el hash de la contraseña.
  */
 final class UserWebMapper {
 
@@ -39,7 +39,10 @@ final class UserWebMapper {
     return new PhoneResponse(phone.number(), phone.cityCode(), phone.countryCode());
   }
 
-  /** A null list and a null entry stay null: the domain reports them as input errors. */
+  /**
+   * Una lista nula y una entrada nula siguen siendo nulas: el dominio las informa como errores de
+   * entrada.
+   */
   private static List<PhoneData> phonesOf(List<PhoneRequest> phones) {
     if (phones == null) {
       return null;

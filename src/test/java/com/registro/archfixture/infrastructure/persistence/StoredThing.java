@@ -1,4 +1,4 @@
 package com.registro.archfixture.infrastructure.persistence;
 
-/** A plain persistence class, the target of a forbidden dependency. */
+/** Una clase de persistencia simple, destino de una dependencia prohibida. */
 public class StoredThing {}

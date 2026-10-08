@@ -22,9 +22,9 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.dao.DataIntegrityViolationException;
 
 /**
- * Which storage failures mean "the email is taken" and which do not, decided with hand-built
- * exceptions so that every kind of constraint violation is covered, not only the one the database
- * happens to raise in the other test class.
+ * Qué fallos de almacenamiento significan "el correo está en uso" y cuáles no, decididos con
+ * excepciones construidas a mano para cubrir todo tipo de violación de restricción, y no solo la
+ * que la base de datos llega a producir en la otra clase de pruebas.
  */
 class UserPersistenceAdapterFailureTest {
 

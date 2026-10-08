@@ -2,7 +2,7 @@ package com.registro.archfixture.infrastructure.web;
 
 import org.springframework.beans.factory.annotation.Autowired;
 
-/** Breaks "no field injection". */
+/** Rompe "sin inyección por campo". */
 public class FieldInjected {
 
   @Autowired

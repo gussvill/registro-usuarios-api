@@ -16,9 +16,9 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 /**
- * The single translation point from exceptions to the {@code {"mensaje": ...}} body. Extending
- * {@link ResponseEntityExceptionHandler} routes every standard Spring MVC exception through {@link
- * #handleExceptionInternal}, so the shape is replaced in one place.
+ * El único punto de traducción de excepciones al cuerpo {@code {"mensaje": ...}}. Al extender
+ * {@link ResponseEntityExceptionHandler}, toda excepción estándar de Spring MVC pasa por {@link
+ * #handleExceptionInternal}, de modo que la forma se reemplaza en un solo lugar.
  */
 @RestControllerAdvice
 class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
@@ -38,9 +38,9 @@ class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   /**
-   * Anything not mapped above. The log gets the classes and the stack frames of the failure and of
-   * its causes, and never a message, because a message can quote the request (a database reports
-   * the value it refused). The client gets fixed text.
+   * Cualquier cosa no mapeada arriba. El log recibe las clases y los frames de pila del fallo y de
+   * sus causas, y nunca un mensaje, porque un mensaje puede citar la petición (una base de datos
+   * informa el valor que rechazó). El cliente recibe un texto fijo.
    */
   @ExceptionHandler(Exception.class)
   ResponseEntity<Object> unexpected(Exception failure) {
@@ -50,8 +50,9 @@ class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   /**
-   * The failure rendered as its class, then one {@code Caused by:} block per cause, each followed
-   * by its stack frames, in the usual layout of a stack trace but with no exception message.
+   * El fallo representado como su clase, luego un bloque {@code Caused by:} por cada causa, cada
+   * uno seguido de sus frames de pila, con el formato habitual de un stack trace pero sin mensaje
+   * de excepción.
    */
   static String withoutMessages(Throwable failure) {
     StringBuilder text = new StringBuilder(failure.getClass().getName());
@@ -71,7 +72,9 @@ class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
   }
 
-  /** The parser text can quote the payload, so it is neither logged nor returned. */
+  /**
+   * El texto del parser puede citar el contenido enviado, por eso no se registra ni se devuelve.
+   */
   @Override
   protected ResponseEntity<Object> handleHttpMessageNotReadable(
       HttpMessageNotReadableException failure,
@@ -81,7 +84,7 @@ class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     return answer(HttpStatus.BAD_REQUEST, headers, ErrorMessages.INVALID_BODY);
   }
 
-  /** Discards the framework's ProblemDetail: every standard exception ends up here. */
+  /** Descarta el ProblemDetail del framework: toda excepción estándar termina aquí. */
   @Override
   protected ResponseEntity<Object> handleExceptionInternal(
       Exception failure,
@@ -93,8 +96,9 @@ class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   /**
-   * The only place an error response is built. The explicit JSON content type makes Spring skip
-   * content negotiation, which would otherwise fail again for a client that does not accept JSON.
+   * El único lugar donde se construye una respuesta de error. El tipo de contenido JSON explícito
+   * hace que Spring omita la negociación de contenido, que de otro modo volvería a fallar para un
+   * cliente que no acepta JSON.
    */
   private static ResponseEntity<Object> answer(
       HttpStatusCode status, HttpHeaders headers, String mensaje) {

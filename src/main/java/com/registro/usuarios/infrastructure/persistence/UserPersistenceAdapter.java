@@ -10,13 +10,13 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Repository;
 
 /**
- * Implements the {@link UserRepository} port with Spring Data JPA.
+ * Implementa el puerto {@link UserRepository} con Spring Data JPA.
  *
- * <p>The unique constraint on the email is the real guarantee of uniqueness: the use case's
- * pre-check cannot stop two concurrent requests that both find the address free. The insert is
- * flushed here, inside the adapter, so that this race fails at this point and is reported as the
- * same domain rejection as the pre-check. Any other storage failure is not a duplicate and is
- * rethrown untouched.
+ * <p>La restricción de unicidad del correo es la garantía real de unicidad: la comprobación previa
+ * del caso de uso no puede detener dos peticiones concurrentes que encuentran libre la misma
+ * dirección. El insert se vuelca (flush) aquí, dentro del adaptador, para que esa condición de
+ * carrera falle en este punto y se informe como el mismo rechazo de dominio que la comprobación
+ * previa. Cualquier otro fallo de almacenamiento no es un duplicado y se relanza sin tocarlo.
  */
 @Repository
 class UserPersistenceAdapter implements UserRepository {
@@ -44,7 +44,9 @@ class UserPersistenceAdapter implements UserRepository {
     }
   }
 
-  /** Only the unique constraint means a duplicate: the table has no other unique column. */
+  /**
+   * Solo la restricción de unicidad significa un duplicado: la tabla no tiene otra columna única.
+   */
   private static boolean isUniqueViolation(Throwable failure) {
     for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
       if (cause instanceof ConstraintViolationException violation

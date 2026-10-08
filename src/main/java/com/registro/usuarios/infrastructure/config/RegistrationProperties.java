@@ -5,12 +5,13 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
 /**
- * Registration rules that are operator configuration, bound from {@code app.registration.*}. Both
- * are regular expressions: the email pattern is applied to the lower-cased address and the password
- * pattern to the password as received. Lengths are checked before either pattern runs.
+ * Reglas de registro que son configuración del operador, enlazadas desde {@code
+ * app.registration.*}. Ambas son expresiones regulares: el patrón del correo se aplica a la
+ * dirección en minúsculas y el de la contraseña a la contraseña tal como se recibió. Las longitudes
+ * se comprueban antes de ejecutar cualquiera de los patrones.
  *
- * @param emailPattern format of an email address
- * @param passwordPattern format of a password
+ * @param emailPattern formato de una dirección de correo
+ * @param passwordPattern formato de una contraseña
  */
 @ConfigurationProperties(prefix = "app.registration")
 @Validated

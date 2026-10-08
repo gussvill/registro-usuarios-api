@@ -19,15 +19,17 @@ import java.util.UUID;
 import org.springframework.data.domain.Persistable;
 
 /**
- * Persistence model of a user, deliberately separate from the domain aggregate. It is written from
- * the aggregate and never read back into it, because registration has no read path.
+ * Modelo de persistencia de un usuario, deliberadamente separado del agregado de dominio. Se
+ * escribe a partir del agregado y nunca se vuelve a leer hacia él, porque el registro no tiene
+ * camino de lectura.
  *
- * <p>The identifier is assigned by the application, so Spring Data cannot tell a new row from an
- * existing one by looking at it. {@link Persistable} with a transient flag says so explicitly and
- * makes {@code save} persist directly instead of issuing a {@code SELECT} to decide on a merge.
+ * <p>El identificador lo asigna la aplicación, así que Spring Data no puede distinguir una fila
+ * nueva de una existente con solo mirarla. {@link Persistable} con un indicador transitorio lo dice
+ * de forma explícita y hace que {@code save} persista directamente en lugar de emitir un {@code
+ * SELECT} para decidir un merge.
  *
- * <p>{@link #toString()} prints the identifier only, so the hash, the token and the email cannot
- * reach a log line through this type.
+ * <p>{@link #toString()} imprime solo el identificador, de modo que el hash, el token y el correo
+ * no puedan llegar a una línea de log a través de este tipo.
  */
 @Entity
 @Table(name = "users")
@@ -70,7 +72,7 @@ class UserJpaEntity implements Persistable<UUID> {
 
   @Transient private boolean isNew = true;
 
-  /** Required by JPA. */
+  /** Requerido por JPA. */
   protected UserJpaEntity() {}
 
   private UserJpaEntity(User user) {
@@ -85,7 +87,10 @@ class UserJpaEntity implements Persistable<UUID> {
     this.lastLoginAt = user.lastLogin();
   }
 
-  /** Write-only mapping: the aggregate in, the entity out, phones in submitted order. */
+  /**
+   * Mapeo de solo escritura: entra el agregado, sale la entidad, con los teléfonos en el orden en
+   * que se enviaron.
+   */
   static UserJpaEntity from(User user) {
     UserJpaEntity entity = new UserJpaEntity(user);
     user.phones()

@@ -3,16 +3,20 @@ package com.registro.usuarios.domain.port;
 import com.registro.usuarios.domain.model.Email;
 import com.registro.usuarios.domain.model.User;
 
-/** Outbound port: where registered users are kept. Only what the registration needs. */
+/**
+ * Puerto de salida: dónde se guardan los usuarios registrados. Solo lo que necesita el registro. Lo
+ * implementa {@code UserPersistenceAdapter}.
+ */
 public interface UserRepository {
 
   boolean existsByEmail(Email email);
 
   /**
-   * Stores a new user.
+   * Guarda un nuevo usuario.
    *
-   * @throws com.registro.usuarios.domain.exception.EmailAlreadyRegisteredException if the storage
-   *     rejects the email as a duplicate, even when {@link #existsByEmail} said it was free
+   * @throws com.registro.usuarios.domain.exception.EmailAlreadyRegisteredException si el
+   *     almacenamiento rechaza el correo por duplicado, incluso cuando {@link #existsByEmail} dijo
+   *     que estaba libre
    */
   void save(User user);
 }

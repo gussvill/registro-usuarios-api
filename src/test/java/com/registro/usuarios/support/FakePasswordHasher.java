@@ -5,8 +5,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Deterministic, instantaneous stand-in for BCrypt. Its output never contains the raw password, so
- * a test can prove the raw value was not stored.
+ * Sustituto determinista e instantáneo de BCrypt. Su salida nunca contiene la contraseña en claro,
+ * de modo que una prueba pueda demostrar que el valor en claro no se guardó.
  */
 public final class FakePasswordHasher implements PasswordHasher {
 
@@ -18,12 +18,12 @@ public final class FakePasswordHasher implements PasswordHasher {
     return expectedHashOf(rawPassword);
   }
 
-  /** The hash this fake returns for a password, without recording a call. */
+  /** El hash que devuelve este fake para una contraseña, sin registrar una llamada. */
   public static String expectedHashOf(String rawPassword) {
     return "fake-hash$" + Integer.toHexString(rawPassword.hashCode());
   }
 
-  /** The raw passwords it has been asked to hash, in call order. */
+  /** Las contraseñas en claro que se le pidió hashear, en orden de llamada. */
   public List<String> hashed() {
     return List.copyOf(hashed);
   }

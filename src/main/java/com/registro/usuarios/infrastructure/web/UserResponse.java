@@ -8,9 +8,9 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * The registered user. It has no component for the password or its hash, so neither can be written
- * by mistake. The JSON names of the last login and of the active flag are those of the exercise
- * statement. The phones are always an array.
+ * El usuario registrado. No tiene componente para la contraseña ni su hash, de modo que ninguno
+ * puede escribirse por error. Los nombres JSON del último acceso y del indicador de activo son los
+ * del enunciado del ejercicio. Los teléfonos son siempre un arreglo.
  */
 @Schema(description = "El usuario registrado y los datos generados para él")
 @JsonPropertyOrder({
@@ -49,7 +49,10 @@ record UserResponse(
         @JsonProperty("isactive")
         boolean active) {
 
-  /** The token is a credential: the web framework prints response objects when it traces. */
+  /**
+   * El token es una credencial: el framework web imprime los objetos de respuesta cuando hace
+   * trazas.
+   */
   @Override
   public String toString() {
     return "UserResponse[id="

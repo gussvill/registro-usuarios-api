@@ -1,4 +1,4 @@
-// Lets Gradle download a JDK 17 when the build asks for the Java 17 toolchain and none is installed.
+// Permite que Gradle descargue un JDK 17 cuando el build pide el toolchain de Java 17 y no hay ninguno instalado.
 plugins {
 	id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
 }

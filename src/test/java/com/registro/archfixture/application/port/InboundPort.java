@@ -1,6 +1,6 @@
 package com.registro.archfixture.application.port;
 
-/** The abstraction a web adapter is allowed to depend on. */
+/** La abstracción de la que un adaptador web puede depender. */
 public interface InboundPort {
 
   String run(String input);

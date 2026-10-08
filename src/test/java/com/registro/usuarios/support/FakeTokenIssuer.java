@@ -7,10 +7,10 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Stand-in for the JWT issuer that records what it was asked to sign. */
+/** Sustituto del emisor JWT que registra lo que se le pidió firmar. */
 public final class FakeTokenIssuer implements TokenIssuer {
 
-  /** One call to {@link #issue}. */
+  /** Una llamada a {@link #issue}. */
   public record Issue(UserId subject, Email email, Instant issuedAt) {}
 
   private final List<Issue> issues = new ArrayList<>();

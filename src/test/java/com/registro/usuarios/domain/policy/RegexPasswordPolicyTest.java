@@ -10,7 +10,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class RegexPasswordPolicyTest {
 
-  /** Same shape as the production default: a letter, a digit, 7 to 72 non-space characters. */
+  /**
+   * Misma forma que el valor por defecto de producción: una letra, un dígito, de 7 a 72 caracteres
+   * sin espacios.
+   */
   private static final Pattern DEFAULT = Pattern.compile("^(?=.*[A-Za-z])(?=.*[0-9])\\S{7,72}$");
 
   @ParameterizedTest

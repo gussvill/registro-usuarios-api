@@ -32,8 +32,11 @@ import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.LoggerFactory;
 
-/** The issuer verified the way a consumer would: parse the token back with the shared secret. */
-// JJWT's parser clock and claim accessors are expressed in java.util.Date.
+/**
+ * El emisor verificado como lo haría un consumidor: se parsea el token de vuelta con el secreto
+ * compartido.
+ */
+// El reloj del parser de JJWT y los accesores de claims se expresan en java.util.Date.
 @SuppressWarnings("JavaUtilDate")
 class JjwtTokenIssuerTest {
 
@@ -52,7 +55,10 @@ class JjwtTokenIssuerTest {
     return new JjwtTokenIssuer(new TokenProperties(secret, expiration));
   }
 
-  /** Verifies the signature and judges expiry at the moment of issue, as a consumer would. */
+  /**
+   * Verifica la firma y juzga la expiración en el momento de la emisión, como lo haría un
+   * consumidor.
+   */
   private static Jws<Claims> parse(String token, String secret, Instant now) {
     return Jwts.parser()
         .verifyWith(keyOf(secret))
@@ -168,9 +174,12 @@ class JjwtTokenIssuerTest {
         .hasMessageContaining("32 bytes");
   }
 
-  // --- no configured secret: an ephemeral key, never a shipped one ---
+  // --- sin secreto configurado: una clave efímera, nunca una incluida en la entrega ---
 
-  /** A random source that always yields the same bytes, so a test knows the generated key. */
+  /**
+   * Una fuente aleatoria que siempre devuelve los mismos bytes, para que una prueba conozca la
+   * clave generada.
+   */
   private static final class KnownRandom extends SecureRandom {
     private static final long serialVersionUID = 1L;
     static final byte BYTE = 0x41;

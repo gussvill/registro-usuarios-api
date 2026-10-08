@@ -2,7 +2,10 @@ package com.registro.archfixture.domain;
 
 import tools.jackson.databind.json.JsonMapper;
 
-/** Breaks "the domain is free of frameworks": a Jackson 3 class in the tools.jackson namespace. */
+/**
+ * Rompe "el dominio está libre de frameworks": una clase de Jackson 3 en el espacio de nombres
+ * tools.jackson.
+ */
 public class Jackson3CoupledMapper {
 
   @SuppressWarnings("unused")

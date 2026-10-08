@@ -36,10 +36,11 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * The JSON contract of the success response, with the use case replaced by a mock: exactly the
- * documented keys, the literal names of the statement, ISO-8601 instants, and no secret anywhere.
- * What happens to a request the use case rejects belongs to the error contract ({@code
- * ErrorContractTest}). The strict string typing is imported, as in production.
+ * El contrato JSON de la respuesta de éxito, con el caso de uso reemplazado por un mock:
+ * exactamente las claves documentadas, los nombres literales del enunciado, instantes ISO-8601 y
+ * ningún secreto en ninguna parte. Lo que ocurre con una petición que el caso de uso rechaza
+ * pertenece al contrato de errores ({@code ErrorContractTest}). La tipificación estricta de cadenas
+ * se importa, como en producción.
  */
 @WebMvcTest(UserController.class)
 @Import(JacksonConfig.class)
@@ -307,8 +308,9 @@ class UserControllerTest {
         .andExpect(header().doesNotExist("Location"));
   }
 
-  // The status of requests the endpoint does not consume or produce belongs to its mapping. The
-  // body of those answers belongs to the error contract and is not asserted here.
+  // El estado de las peticiones que el endpoint no consume ni produce pertenece a su mapeo. El
+  // cuerpo
+  // de esas respuestas pertenece al contrato de errores y no se verifica aquí.
 
   @Test
   void aBodyThatIsNotJsonIsNotConsumed() throws Exception {

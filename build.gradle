@@ -42,15 +42,23 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
-// Downloads every resolvable configuration (compile, runtime, test, annotation processors, Error Prone,
-// JaCoCo). The Dockerfile runs it before copying the sources, so the downloaded jars stay in a cached
-// image layer until a build file changes.
+// Descarga toda configuración resoluble (compile, runtime, test, procesadores de anotaciones, Error Prone,
+// JaCoCo). El Dockerfile lo ejecuta antes de copiar las fuentes, de modo que los jars descargados quedan en
+// una capa de imagen en caché hasta que cambie un archivo de build.
 tasks.register('resolveDependencies') {
 	group = 'help'
 	description = 'Resolves and downloads the dependencies of every configuration.'
 	doLast {
 		configurations.matching { it.canBeResolved }.each { it.resolve() }
 	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	options.encoding = 'UTF-8'
+}
+
+tasks.withType(Javadoc).configureEach {
+	options.encoding = 'UTF-8'
 }
 
 tasks.named('compileJava') {
@@ -78,10 +86,10 @@ tasks.named('jacocoTestReport') {
 	}
 }
 
-// Coverage gate: the business rules (domain and application) must stay well covered.
-// Infrastructure is exercised by slice and full-context tests but is deliberately not gated.
-// The rule element is BUNDLE, whose name cannot be filtered with 'includes', so the analysed
-// class files are narrowed to the two packages instead.
+// Umbral de cobertura: las reglas de negocio (dominio y aplicación) deben mantenerse bien cubiertas.
+// La infraestructura se ejercita con pruebas de slice y de contexto completo, pero deliberadamente no
+// se somete al umbral. El elemento de la regla es BUNDLE, cuyo nombre no se puede filtrar con
+// 'includes', así que en su lugar se acotan los archivos de clase analizados a los dos paquetes.
 tasks.named('jacocoTestCoverageVerification') {
 	dependsOn tasks.named('test')
 	classDirectories.setFrom(files(classDirectories.files.collect {
