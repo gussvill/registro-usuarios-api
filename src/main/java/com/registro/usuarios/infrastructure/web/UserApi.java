@@ -1,17 +1,17 @@
 package com.registro.usuarios.infrastructure.web;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.ResponseStatus;
 
 /**
  * El contrato HTTP del registro de usuarios: el mapeo y la descripción OpenAPI viven aquí, para que
@@ -29,8 +29,10 @@ interface UserApi {
       description =
           "Registra un usuario con sus teléfonos y responde con los datos almacenados, un"
               + " identificador generado, los instantes de creación y un JWT firmado. La"
-              + " contraseña se guarda solo como hash BCrypt con sal y nunca se devuelve. Todo"
-              + " error responde un objeto JSON con un único campo \"mensaje\".",
+              + " contraseña se guarda solo como hash BCrypt con sal y nunca se devuelve. La"
+              + " respuesta 201 lleva el encabezado Cache-Control: no-store porque contiene un"
+              + " token al portador. Todo error responde un objeto JSON con un único campo"
+              + " \"mensaje\".",
       requestBody =
           @io.swagger.v3.oas.annotations.parameters.RequestBody(
               required = true,
@@ -46,6 +48,13 @@ interface UserApi {
     @ApiResponse(
         responseCode = "201",
         description = "Usuario registrado",
+        headers =
+            @Header(
+                name = "Cache-Control",
+                description =
+                    "Siempre no-store: la respuesta lleva un token al portador y no debe"
+                        + " almacenarse en ninguna caché",
+                schema = @Schema(type = "string", example = "no-store")),
         content =
             @Content(
                 mediaType = MediaType.APPLICATION_JSON_VALUE,
@@ -121,6 +130,5 @@ interface UserApi {
       path = "/api/v1/users",
       consumes = MediaType.APPLICATION_JSON_VALUE,
       produces = MediaType.APPLICATION_JSON_VALUE)
-  @ResponseStatus(HttpStatus.CREATED)
-  UserResponse register(@RequestBody RegisterUserRequest request);
+  ResponseEntity<UserResponse> register(@RequestBody RegisterUserRequest request);
 }

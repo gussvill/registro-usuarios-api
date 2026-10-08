@@ -118,6 +118,7 @@ echo "Registro"
 post_json -d "$STATEMENT_BODY"
 expect_status 201 "cuerpo del enunciado"
 expect_header_starts_with content-type application/json "cuerpo del enunciado"
+expect_header_starts_with cache-control no-store "cuerpo del enunciado"
 for key in id name email phones created modified last_login token isactive; do
   expect_body_contains "\"${key}\":" "cuerpo del enunciado, clave ${key}"
 done
@@ -127,7 +128,7 @@ expect_body_lacks "password" "cuerpo del enunciado"
 expect_body_lacks "hunter2" "cuerpo del enunciado"
 printf '%s' "$BODY" | grep -Eq '"token":"[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+"' \
   || fail "cuerpo del enunciado: el token no es un JWT de tres partes"
-pass "cuerpo del enunciado -> 201 con id, created, modified, last_login, token, isactive y sin contraseña"
+pass "cuerpo del enunciado -> 201 con Cache-Control: no-store, id, created, modified, last_login, token, isactive y sin contraseña"
 
 post_json -d "$STATEMENT_BODY"
 expect_status 409 "registro repetido"

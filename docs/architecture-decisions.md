@@ -504,7 +504,9 @@ suba a él, o se incorpore a la imagen, es un secreto que todos conocen.
 
 **Decisión.** El token se almacena tal como se emite, en `users.token VARCHAR(1024)`. Una prueba
 comprueba que el token más largo posible (un correo de 254 caracteres) cabe. El token no se valida en
-ninguna solicitud, de modo que nada del servicio depende del valor almacenado.
+ninguna solicitud, de modo que nada del servicio depende del valor almacenado. La respuesta `201`, que
+entrega el token al cliente, lleva `Cache-Control: no-store` (el controlador devuelve un
+`ResponseEntity`); las respuestas de error no lo llevan, porque no contienen ningún secreto.
 
 El secreto y la expiración son propiedades: `app.token.secret` (variable de entorno `TOKEN_SECRET`) y
 `app.token.expiration` (15 minutos por defecto; debe ser positiva y de 24 horas como máximo). **No se distribuye ningún

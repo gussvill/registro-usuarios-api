@@ -362,6 +362,33 @@ class RegistrationSmokeTest {
     assertThat(reply.body()).doesNotContain("hunter2").doesNotContain("$2a$");
   }
 
+  @Test
+  void theCreatedResponseIsMarkedNoStoreBecauseItCarriesTheBearerToken() throws Exception {
+    RegistrationClient.forget(jdbc, "juan@rodriguez.org");
+
+    Reply reply =
+        api.send(
+            "POST",
+            "/api/v1/users",
+            "application/json",
+            "application/json",
+            RegistrationClient.STATEMENT_BODY);
+
+    assertThat(reply.status()).isEqualTo(201);
+    assertThat(reply.header("Cache-Control")).isEqualTo("no-store");
+  }
+
+  @Test
+  void theOpenApiDocumentsTheNoStoreHeaderOfTheCreatedResponse()
+      throws IOException, InterruptedException {
+    JsonNode header =
+        openApi().at("/paths/~1api~1v1~1users/post/responses/201/headers/Cache-Control");
+
+    assertThat(header.isMissingNode()).isFalse();
+    assertThat(header.get("description").asString()).contains("no-store");
+    assertThat(header.at("/schema/type").asString()).isEqualTo("string");
+  }
+
   // El reloj del parser de JJWT y los accesores de claims se expresan en java.util.Date.
   @SuppressWarnings("JavaUtilDate")
   @Test

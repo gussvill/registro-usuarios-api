@@ -111,6 +111,21 @@ class UserControllerTest {
   }
 
   @Test
+  void theCreatedResponseCarriesTheBearerTokenSoItIsNotCacheable() throws Exception {
+    when(useCase.register(any()))
+        .thenReturn(
+            user(
+                "juan@rodriguez.org",
+                Instant.parse("2026-01-15T10:30:00Z"),
+                new Phone("1234567", "1", "57")));
+
+    mvc.perform(
+            post("/api/v1/users").contentType(MediaType.APPLICATION_JSON).content(STATEMENT_BODY))
+        .andExpect(status().isCreated())
+        .andExpect(header().string("Cache-Control", "no-store"));
+  }
+
+  @Test
   void eachPhoneHasExactlyNumberCitycodeAndContrycode() throws Exception {
     when(useCase.register(any()))
         .thenReturn(

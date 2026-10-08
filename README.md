@@ -45,7 +45,8 @@ cada llamada; aquí el token está abreviado):
 
 `created`, `modified` y `last_login` son el mismo instante. El token es HS256 con los claims `sub` (el
 id del usuario), `email`, `iat` y `exp` (15 minutos después de `iat` por defecto). La contraseña nunca
-se devuelve.
+se devuelve. La respuesta `201` lleva el encabezado `Cache-Control: no-store`, porque contiene un token
+al portador y ninguna caché debe guardarla.
 
 Si se envía la misma solicitud otra vez, la respuesta es `409`:
 
