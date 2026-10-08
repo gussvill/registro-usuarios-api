@@ -2,7 +2,7 @@ package com.registro.usuarios.infrastructure.web;
 
 import com.registro.usuarios.domain.model.Email;
 import com.registro.usuarios.domain.model.User;
-import com.registro.usuarios.domain.policy.PasswordPolicy;
+import com.registro.usuarios.domain.policy.Password;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import java.util.List;
@@ -31,7 +31,7 @@ record RegisterUserRequest(
             example = "hunter2",
             format = "password",
             requiredMode = RequiredMode.REQUIRED,
-            maxLength = PasswordPolicy.MAX_BYTES)
+            maxLength = Password.MAX_BYTES)
         String password,
     @Schema(description = "Phones of the user, at most 10. May be absent.")
         List<PhoneRequest> phones) {

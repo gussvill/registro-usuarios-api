@@ -8,6 +8,7 @@ import com.registro.usuarios.domain.model.Phone;
 import com.registro.usuarios.domain.model.Reason;
 import com.registro.usuarios.domain.model.User;
 import com.registro.usuarios.domain.model.UserId;
+import com.registro.usuarios.domain.policy.Password;
 import com.registro.usuarios.domain.policy.PasswordPolicy;
 import com.registro.usuarios.domain.port.PasswordHasher;
 import com.registro.usuarios.domain.port.TokenIssuer;
@@ -94,7 +95,7 @@ public class RegisterUserUseCase {
     EnumSet<Reason> violations = EnumSet.noneOf(Reason.class);
     User.nameViolation(command.name()).ifPresent(violations::add);
     Email.violation(command.email(), emailFormat).ifPresent(violations::add);
-    passwordPolicy.violation(command.password()).ifPresent(violations::add);
+    Password.violation(command.password(), passwordPolicy).ifPresent(violations::add);
     violations.addAll(User.phoneListViolations(command.phones()));
     return violations;
   }

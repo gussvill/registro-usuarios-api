@@ -3,6 +3,8 @@ package com.registro.usuarios.domain.policy;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.registro.usuarios.domain.model.Reason;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
@@ -13,9 +15,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * The bounds that hold whatever the configured format: required, and at most {@link
- * PasswordPolicy#MAX_BYTES} UTF-8 bytes.
+ * Password#MAX_BYTES} UTF-8 bytes.
  */
-class PasswordPolicyTest {
+class PasswordTest {
 
   private static final PasswordPolicy ANYTHING = new RegexPasswordPolicy(Pattern.compile("^.+$"));
 
@@ -36,8 +38,16 @@ class PasswordPolicyTest {
   }
 
   @Test
+  void aPolicyOnlyDecidesTheFormatSoTheFixedLimitsCannotBeOverridden() {
+    assertThat(PasswordPolicy.class.getDeclaredMethods())
+        .extracting(Method::getName)
+        .containsExactly("isSatisfiedBy");
+    assertThat(Modifier.isFinal(Password.class.getModifiers())).isTrue();
+  }
+
+  @Test
   void theByteLimitIsSeventyTwo() {
-    assertThat(PasswordPolicy.MAX_BYTES).isEqualTo(72);
+    assertThat(Password.MAX_BYTES).isEqualTo(72);
   }
 
   @ParameterizedTest
@@ -46,18 +56,18 @@ class PasswordPolicyTest {
   void aMissingOrBlankPasswordIsRequiredAndTheFormatIsNotConsulted(String password) {
     CountingPolicy format = new CountingPolicy(false);
 
-    assertThat(format.violation(password)).contains(Reason.PASSWORD_REQUIRED);
+    assertThat(Password.violation(password, format)).contains(Reason.PASSWORD_REQUIRED);
     assertThat(format.calls).hasValue(0);
   }
 
   @Test
   void seventyTwoAsciiCharactersAreAcceptedWhateverThePattern() {
-    assertThat(ANYTHING.violation("a".repeat(72))).isEmpty();
+    assertThat(Password.violation("a".repeat(72), ANYTHING)).isEmpty();
   }
 
   @Test
   void seventyThreeAsciiCharactersAreTooLongEvenWithAPermissivePattern() {
-    assertThat(ANYTHING.violation("a".repeat(73))).contains(Reason.PASSWORD_TOO_LONG);
+    assertThat(Password.violation("a".repeat(73), ANYTHING)).contains(Reason.PASSWORD_TOO_LONG);
   }
 
   @Test
@@ -65,12 +75,12 @@ class PasswordPolicyTest {
     String password = "é".repeat(40);
 
     assertThat(password).hasSize(40);
-    assertThat(ANYTHING.violation(password)).contains(Reason.PASSWORD_TOO_LONG);
+    assertThat(Password.violation(password, ANYTHING)).contains(Reason.PASSWORD_TOO_LONG);
   }
 
   @Test
   void thirtySixAccentedCharactersAreExactlySeventyTwoBytesAndAccepted() {
-    assertThat(ANYTHING.violation("é".repeat(36))).isEmpty();
+    assertThat(Password.violation("é".repeat(36), ANYTHING)).isEmpty();
   }
 
   @Test
@@ -79,7 +89,7 @@ class PasswordPolicyTest {
     String keys = "🔑".repeat(19);
 
     assertThat(keys).hasSize(38);
-    assertThat(ANYTHING.violation(keys)).contains(Reason.PASSWORD_TOO_LONG);
+    assertThat(Password.violation(keys, ANYTHING)).contains(Reason.PASSWORD_TOO_LONG);
   }
 
   @Test
@@ -87,7 +97,7 @@ class PasswordPolicyTest {
   void aHundredThousandCharacterPasswordIsRejectedBeforeTheFormatRuleRuns() {
     CountingPolicy format = new CountingPolicy(true);
 
-    assertThat(format.violation("a".repeat(100_000))).contains(Reason.PASSWORD_TOO_LONG);
+    assertThat(Password.violation("a".repeat(100_000), format)).contains(Reason.PASSWORD_TOO_LONG);
     assertThat(format.calls).hasValue(0);
   }
 
@@ -95,7 +105,8 @@ class PasswordPolicyTest {
   void lengthIsCheckedBeforeFormat() {
     CountingPolicy rejectingFormat = new CountingPolicy(false);
 
-    assertThat(rejectingFormat.violation("a".repeat(73))).contains(Reason.PASSWORD_TOO_LONG);
+    assertThat(Password.violation("a".repeat(73), rejectingFormat))
+        .contains(Reason.PASSWORD_TOO_LONG);
     assertThat(rejectingFormat.calls).hasValue(0);
   }
 
@@ -104,8 +115,8 @@ class PasswordPolicyTest {
     CountingPolicy accepting = new CountingPolicy(true);
     CountingPolicy rejecting = new CountingPolicy(false);
 
-    assertThat(accepting.violation("hunter2")).isEmpty();
-    assertThat(rejecting.violation("hunter2")).contains(Reason.PASSWORD_FORMAT);
+    assertThat(Password.violation("hunter2", accepting)).isEmpty();
+    assertThat(Password.violation("hunter2", rejecting)).contains(Reason.PASSWORD_FORMAT);
     assertThat(accepting.calls).hasValue(1);
     assertThat(rejecting.calls).hasValue(1);
   }
