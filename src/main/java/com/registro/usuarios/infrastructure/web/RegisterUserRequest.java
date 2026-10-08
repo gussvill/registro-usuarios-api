@@ -12,28 +12,28 @@ import java.util.List;
  * domain, so that it is the same whoever calls the use case. The limits below only document them.
  * Properties that are not listed, such as a client-supplied {@code id}, are ignored.
  */
-@Schema(description = "Data of the user to register")
+@Schema(description = "Datos del usuario que se registra")
 record RegisterUserRequest(
     @Schema(
-            description = "Full name",
+            description = "Nombre completo",
             example = "Juan Rodriguez",
             requiredMode = RequiredMode.REQUIRED,
             maxLength = User.NAME_MAX_LENGTH)
         String name,
     @Schema(
-            description = "Email address, stored in lower case. Must be unused.",
+            description = "Correo electrónico, almacenado en minúsculas. No debe estar registrado.",
             example = "juan@rodriguez.org",
             requiredMode = RequiredMode.REQUIRED,
             maxLength = Email.MAX_LENGTH)
         String email,
     @Schema(
-            description = "Password, at most 72 UTF-8 bytes. The format is configurable.",
+            description = "Contraseña, de a lo sumo 72 bytes UTF-8. El formato es configurable.",
             example = "hunter2",
             format = "password",
             requiredMode = RequiredMode.REQUIRED,
             maxLength = Password.MAX_BYTES)
         String password,
-    @Schema(description = "Phones of the user, at most 10. May be absent.")
+    @Schema(description = "Teléfonos del usuario, hasta 10. Puede omitirse.")
         List<PhoneRequest> phones) {
 
   /** The password is never printed, whether or not it is present. */

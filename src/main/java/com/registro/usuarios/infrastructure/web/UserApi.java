@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
  * The HTTP contract of user registration: the mapping and the OpenAPI description live here, so
  * that the controller only has to translate and delegate.
  */
-@Tag(name = "Users", description = "Registration of users")
+@Tag(name = "Usuarios", description = "Registro de usuarios")
 interface UserApi {
 
   String STATEMENT_EXAMPLE =
@@ -25,12 +25,12 @@ interface UserApi {
           + "\"phones\":[{\"number\":\"1234567\",\"citycode\":\"1\",\"contrycode\":\"57\"}]}";
 
   @Operation(
-      summary = "Register a user",
+      summary = "Registrar un usuario",
       description =
-          "Registers a user with its phones and answers with the stored data, a generated"
-              + " identifier, the creation instants and a signed JWT. The password is stored only"
-              + " as a salted BCrypt hash and is never returned. Every error answers a JSON object"
-              + " with a single \"mensaje\" field.",
+          "Registra un usuario con sus teléfonos y responde con los datos almacenados, un"
+              + " identificador generado, los instantes de creación y un JWT firmado. La"
+              + " contraseña se guarda solo como hash BCrypt con sal y nunca se devuelve. Todo"
+              + " error responde un objeto JSON con un único campo \"mensaje\".",
       requestBody =
           @io.swagger.v3.oas.annotations.parameters.RequestBody(
               required = true,
@@ -39,43 +39,79 @@ interface UserApi {
                       mediaType = MediaType.APPLICATION_JSON_VALUE,
                       schema = @Schema(implementation = RegisterUserRequest.class),
                       examples =
-                          @ExampleObject(name = "Statement example", value = STATEMENT_EXAMPLE))))
+                          @ExampleObject(
+                              name = "Ejemplo del enunciado",
+                              value = STATEMENT_EXAMPLE))))
   @ApiResponses({
     @ApiResponse(
         responseCode = "201",
-        description = "User registered",
+        description = "Usuario registrado",
         content =
             @Content(
                 mediaType = MediaType.APPLICATION_JSON_VALUE,
                 schema = @Schema(implementation = UserResponse.class))),
     @ApiResponse(
         responseCode = "400",
-        description = "The body is not valid or one or more fields break a rule",
+        description = "El cuerpo no es válido o uno o más campos incumplen una regla",
         content =
             @Content(
                 mediaType = MediaType.APPLICATION_JSON_VALUE,
                 schema = @Schema(implementation = ErrorResponse.class))),
     @ApiResponse(
-        responseCode = "409",
-        description = "The email is already registered",
+        responseCode = "404",
+        description = "La ruta no existe, por ejemplo con una barra final: /api/v1/users/",
         content =
             @Content(
                 mediaType = MediaType.APPLICATION_JSON_VALUE,
                 schema = @Schema(implementation = ErrorResponse.class),
                 examples =
                     @ExampleObject(
-                        name = "Duplicate email",
+                        name = "Ruta desconocida",
+                        value = "{\"mensaje\":\"Recurso no encontrado\"}"))),
+    @ApiResponse(
+        responseCode = "405",
+        description =
+            "El método HTTP no está permitido en esta ruta; la respuesta incluye el encabezado Allow",
+        content =
+            @Content(
+                mediaType = MediaType.APPLICATION_JSON_VALUE,
+                schema = @Schema(implementation = ErrorResponse.class),
+                examples =
+                    @ExampleObject(
+                        name = "Método no permitido",
+                        value = "{\"mensaje\":\"Método no permitido\"}"))),
+    @ApiResponse(
+        responseCode = "406",
+        description = "El encabezado Accept no admite application/json",
+        content =
+            @Content(
+                mediaType = MediaType.APPLICATION_JSON_VALUE,
+                schema = @Schema(implementation = ErrorResponse.class),
+                examples =
+                    @ExampleObject(
+                        name = "Formato no aceptable",
+                        value = "{\"mensaje\":\"Formato de respuesta no aceptable\"}"))),
+    @ApiResponse(
+        responseCode = "409",
+        description = "El correo ya está registrado",
+        content =
+            @Content(
+                mediaType = MediaType.APPLICATION_JSON_VALUE,
+                schema = @Schema(implementation = ErrorResponse.class),
+                examples =
+                    @ExampleObject(
+                        name = "Correo duplicado",
                         value = "{\"mensaje\":\"El correo ya registrado\"}"))),
     @ApiResponse(
         responseCode = "415",
-        description = "The request body is not application/json",
+        description = "El cuerpo de la solicitud no es application/json",
         content =
             @Content(
                 mediaType = MediaType.APPLICATION_JSON_VALUE,
                 schema = @Schema(implementation = ErrorResponse.class))),
     @ApiResponse(
         responseCode = "500",
-        description = "Unexpected failure; the body never carries internal details",
+        description = "Falla inesperada; el cuerpo nunca incluye detalles internos",
         content =
             @Content(
                 mediaType = MediaType.APPLICATION_JSON_VALUE,

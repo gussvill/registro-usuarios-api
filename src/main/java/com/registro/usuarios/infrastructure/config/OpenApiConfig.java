@@ -5,7 +5,7 @@ import io.swagger.v3.oas.models.info.Info;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/** Title, description and version of the generated OpenAPI document. */
+/** Title, description and version of the generated OpenAPI document, written in Spanish. */
 @Configuration(proxyBeanMethods = false)
 class OpenApiConfig {
 
@@ -14,10 +14,10 @@ class OpenApiConfig {
     return new OpenAPI()
         .info(
             new Info()
-                .title("User Registration API")
+                .title("API de registro de usuarios")
                 .description(
-                    "Registers a user and answers with the stored data and a signed JWT. Every"
-                        + " error is a JSON object with a single \"mensaje\" field.")
+                    "Registra un usuario y responde con los datos almacenados y un JWT firmado."
+                        + " Todo error es un objeto JSON con un único campo \"mensaje\".")
                 .version("1.0.0"));
   }
 }

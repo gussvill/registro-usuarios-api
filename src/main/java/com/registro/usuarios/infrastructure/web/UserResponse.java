@@ -12,7 +12,7 @@ import java.util.UUID;
  * by mistake. The JSON names of the last login and of the active flag are those of the exercise
  * statement. The phones are always an array.
  */
-@Schema(description = "The registered user and the data generated for it")
+@Schema(description = "El usuario registrado y los datos generados para él")
 @JsonPropertyOrder({
   "id",
   "name",
@@ -25,22 +25,28 @@ import java.util.UUID;
   "isactive"
 })
 record UserResponse(
-    @Schema(description = "Generated identifier", example = "0b9e3b0e-6a4c-4d52-9b8e-1f1f2d6d7a10")
+    @Schema(
+            description = "Identificador generado",
+            example = "0b9e3b0e-6a4c-4d52-9b8e-1f1f2d6d7a10")
         UUID id,
     @Schema(example = "Juan Rodriguez") String name,
-    @Schema(description = "Lower-cased email", example = "juan@rodriguez.org") String email,
+    @Schema(description = "Correo en minúsculas", example = "juan@rodriguez.org") String email,
     List<PhoneResponse> phones,
-    @Schema(description = "Creation instant, UTC", example = "2026-01-15T10:30:00Z")
+    @Schema(description = "Instante de creación, UTC", example = "2026-01-15T10:30:00Z")
         Instant created,
-    @Schema(description = "Last modification instant, UTC", example = "2026-01-15T10:30:00Z")
+    @Schema(
+            description = "Instante de la última modificación, UTC",
+            example = "2026-01-15T10:30:00Z")
         Instant modified,
     @Schema(
-            description = "Last login instant, UTC; equals the creation instant for a new user",
+            description =
+                "Instante del último acceso, UTC; igual al de creación en un usuario nuevo",
             example = "2026-01-15T10:30:00Z")
         @JsonProperty("last_login")
         Instant lastLogin,
-    @Schema(description = "Signed JWT issued for the user") String token,
-    @Schema(description = "Whether the user is active", example = "true") @JsonProperty("isactive")
+    @Schema(description = "JWT firmado emitido para el usuario") String token,
+    @Schema(description = "Indica si el usuario está activo", example = "true")
+        @JsonProperty("isactive")
         boolean active) {
 
   /** The token is a credential: the web framework prints response objects when it traces. */

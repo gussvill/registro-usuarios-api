@@ -345,7 +345,7 @@ class RegistrationConfigurationTest {
         .run(
             context -> {
               OpenAPI openApi = context.getBean(OpenAPI.class);
-              assertThat(openApi.getInfo().getTitle()).isEqualTo("User Registration API");
+              assertThat(openApi.getInfo().getTitle()).isEqualTo("API de registro de usuarios");
               assertThat(openApi.getInfo().getVersion()).isEqualTo("1.0.0");
               assertThat(openApi.getInfo().getDescription()).isNotBlank();
             });

@@ -113,7 +113,7 @@ class RegistrationSmokeTest {
     HttpResponse<String> response = get("/v3/api-docs");
 
     assertThat(response.body())
-        .contains("\"title\":\"User Registration API\"")
+        .contains("\"title\":\"API de registro de usuarios\"")
         .contains("\"version\":\"1.0.0\"");
   }
 
@@ -123,19 +123,50 @@ class RegistrationSmokeTest {
     JsonNode operation = openApi().at("/paths/~1api~1v1~1users/post");
 
     assertThat(operation.isMissingNode()).isFalse();
-    assertThat(operation.get("tags").get(0).asString()).isEqualTo("Users");
-    assertThat(operation.get("summary").asString()).isNotBlank();
+    assertThat(operation.get("tags").get(0).asString()).isEqualTo("Usuarios");
+    assertThat(operation.get("summary").asString()).isEqualTo("Registrar un usuario");
     List<String> statuses = new ArrayList<>(operation.get("responses").propertyNames());
-    assertThat(statuses).containsExactlyInAnyOrder("201", "400", "409", "415", "500");
+    assertThat(statuses)
+        .containsExactlyInAnyOrder("201", "400", "404", "405", "406", "409", "415", "500");
     assertThat(operation.at("/responses/201/content/application~1json/schema/$ref").asString())
         .endsWith("/UserResponse");
-    for (String error : List.of("400", "409", "415", "500")) {
+    for (String error : List.of("400", "404", "405", "406", "409", "415", "500")) {
       assertThat(
               operation
                   .at("/responses/" + error + "/content/application~1json/schema/$ref")
                   .asString())
           .endsWith("/ErrorResponse");
     }
+  }
+
+  @Test
+  void theOpenApiDescribesTheFrameworkErrorsWithTheirCatalogueMessages()
+      throws IOException, InterruptedException {
+    JsonNode responses = openApi().at("/paths/~1api~1v1~1users/post/responses");
+
+    assertThat(responses.at("/404/content/application~1json").toString())
+        .contains("Recurso no encontrado");
+    assertThat(responses.at("/405/content/application~1json").toString())
+        .contains("Método no permitido");
+    assertThat(responses.at("/406/content/application~1json").toString())
+        .contains("Formato de respuesta no aceptable");
+  }
+
+  @Test
+  void theOpenApiTextIsWrittenInSpanish() throws IOException, InterruptedException {
+    JsonNode document = openApi();
+    JsonNode operation = document.at("/paths/~1api~1v1~1users/post");
+
+    assertThat(document.at("/info/description").asString()).startsWith("Registra un usuario");
+    assertThat(operation.get("description").asString()).startsWith("Registra un usuario");
+    assertThat(operation.at("/responses/201/description").asString())
+        .isEqualTo("Usuario registrado");
+    assertThat(operation.at("/responses/415/description").asString())
+        .isEqualTo("El cuerpo de la solicitud no es application/json");
+    assertThat(document.at("/components/schemas/RegisterUserRequest/description").asString())
+        .isEqualTo("Datos del usuario que se registra");
+    assertThat(document.at("/components/schemas/ErrorResponse/description").asString())
+        .isEqualTo("Cuerpo de todo error: un único mensaje");
   }
 
   @Test
